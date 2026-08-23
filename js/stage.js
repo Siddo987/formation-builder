@@ -301,18 +301,24 @@
       e.preventDefault();
       e.stopPropagation();
       try{ dot.setPointerCapture(e.pointerId); }catch(err){}
-      var startX = e.clientX, startY = e.clientY;
       var startOffset = {x: activeLayoutOffset.x, y: activeLayoutOffset.y};
+      // The grabbed dot's own current grid position (read back from its rendered style, so it's
+      // right regardless of the shape's rotation) — snapping should land THIS specific point
+      // exactly on an integer grid coordinate, same as dragging a dancer does. Rounding the
+      // incremental *movement* instead (the previous approach) still left the shape off-grid
+      // whenever it had last been placed with Shift (fractional offset).
+      var grabStart = {
+        x: percentToGrid(parseFloat(dot.style.left)),
+        y: percentToGrid(parseFloat(dot.style.top))
+      };
       function onMove(ev){
         var rect = stageEl.getBoundingClientRect();
-        var dxPct = ((ev.clientX-startX)/rect.width)*100;
-        var dyPct = ((ev.clientY-startY)/rect.height)*100;
-        var scale = 100 - 2*GRID_INSET;
-        var dx = (dxPct/scale)*GRID_SPAN;
-        var dy = (dyPct/scale)*GRID_SPAN;
-        // Same snap-to-grid-unless-Shift behavior as dragging a dancer, applied to the whole
-        // shape's movement rather than to one point.
-        if(!ev.shiftKey){ dx = Math.round(dx); dy = Math.round(dy); }
+        var px = ((ev.clientX-rect.left)/rect.width)*100;
+        var py = ((ev.clientY-rect.top)/rect.height)*100;
+        var gx = percentToGrid(px);
+        var gy = percentToGrid(py);
+        if(!ev.shiftKey){ gx = Math.round(gx); gy = Math.round(gy); }
+        var dx = gx - grabStart.x, dy = gy - grabStart.y;
         activeLayoutOffset = {
           x: clampGrid(startOffset.x + dx),
           y: clampGrid(startOffset.y + dy)
@@ -577,10 +583,32 @@
     state.pairs = state.pairs.filter(function(p){
       return p.memberIds.indexOf(memberIds[0]) === -1 && p.memberIds.indexOf(memberIds[1]) === -1;
     });
-    state.pairs.push({ id: uid('pr'), memberIds: memberIds.slice() });
+    state.pairs.push({ id: uid('pr'), memberIds: memberIds.slice(), name: '', collapsed: false });
     saveState();
     renderRoster();
     updatePairRotateUI();
+  }
+
+  // Live midpoint of a pair's two current positions — "die Koordinate des Mittelpunkts des
+  // Tanzpaars", shown/edited in the roster's collapsed pair view.
+  function pairMidpoint(pair){
+    var pos = currentFormation().pos;
+    var a = pos[pair.memberIds[0]], b = pos[pair.memberIds[1]];
+    if(!a || !b) return {x:0, y:0};
+    return {x: (a.x+b.x)/2, y: (a.y+b.y)/2};
+  }
+
+  // Shifts both partners by the same delta, preserving their relative offset — used when the
+  // roster's collapsed-pair midpoint X/Y is edited directly.
+  function setPairMidpoint(pair, mx, my){
+    var pos = currentFormation().pos;
+    var idA = pair.memberIds[0], idB = pair.memberIds[1];
+    var a = pos[idA], b = pos[idB];
+    if(!a || !b) return;
+    var curMx = (a.x+b.x)/2, curMy = (a.y+b.y)/2;
+    var dx = mx - curMx, dy = my - curMy;
+    setDancerPos(idA, a.x+dx, a.y+dy, true);
+    setDancerPos(idB, b.x+dx, b.y+dy, true);
   }
 
   function dissolvePair(pairId){
@@ -681,10 +709,22 @@
 
   function updateRosterCoords(dancerId, x, y, rot){
     var refs = rosterCoordInputs[dancerId];
-    if(!refs) return;
-    if(document.activeElement !== refs.x) refs.x.value = roundNum(x);
-    if(document.activeElement !== refs.y) refs.y.value = roundNum(y);
-    if(refs.rot && document.activeElement !== refs.rot) refs.rot.value = roundNum(rot||0);
+    if(refs){
+      if(document.activeElement !== refs.x) refs.x.value = roundNum(x);
+      if(document.activeElement !== refs.y) refs.y.value = roundNum(y);
+      if(refs.rot && document.activeElement !== refs.rot) refs.rot.value = roundNum(rot||0);
+    }
+    // A collapsed pair shows its midpoint instead of per-dancer rows — keep that live too (e.g.
+    // while dragging either partner on the stage).
+    var pair = findPairForDancer(dancerId);
+    if(pair && pair.collapsed){
+      var midRefs = rosterPairMidpointInputs[pair.id];
+      if(midRefs){
+        var mid = pairMidpoint(pair);
+        if(document.activeElement !== midRefs.x) midRefs.x.value = roundNum(mid.x);
+        if(document.activeElement !== midRefs.y) midRefs.y.value = roundNum(mid.y);
+      }
+    }
   }
 
   function refreshRosterCoords(){
