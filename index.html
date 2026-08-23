@@ -82,7 +82,8 @@
     <section class="stage-area">
       <div class="stage-caption-row">
         <label class="layout-select-wrap" id="layoutSelectWrap" hidden>Vorlage
-          <select id="layoutSelect"><option value="">— Keine Vorlage —</option></select>
+          <select id="layoutSelect" title="Positionen relativ zueinander — auf der Bühne per Ziehen verschieben, rechts drehen"><option value="">— Keine Vorlage —</option></select>
+          <span class="layout-rotate-field" id="layoutRotateField" hidden><input type="number" id="layoutRotateInput" class="coord-input" value="0" step="5" aria-label="Drehung der Vorlage in Grad">°</span>
         </label>
         <p class="stage-caption">Bühne hinten</p>
         <label class="axes-bild-toggle" id="axesBildToggleWrap" hidden><input type="checkbox" id="axesBildToggle"> Achsen für dieses Bild</label>

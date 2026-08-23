@@ -2,12 +2,13 @@
 /**
  * GET /api/layouts.php — read-only catalog of preset "Vorlagen" (target arrangements).
  *
- * Each row's `positions_json` is an ordered array of {"x":n,"y":n} on the same -7..7 stage grid
- * as dancer positions. Unlike Figuren, these aren't a relative transform and aren't tied to a
- * specific project's dancers — the client (js/stage.js, renderLayoutGhost()) shows them as a
- * transparent ghost overlay and matches slots to the current project's dancers by order, up to
- * however many dancers there actually are. The user then drags dancers onto the ghost by hand;
- * nothing here moves them automatically.
+ * Each row's `positions_json` is an ordered array of {"x":n,"y":n} that matters only relative to
+ * each other (a shape centered around its own origin) — not fixed stage coordinates, and not tied
+ * to a specific project's dancers. The client (js/stage.js) shows them as a transparent ghost
+ * overlay that the user drags into place and rotates (activeLayoutOffset/activeLayoutRotateDeg,
+ * transient, never sent back to the server), matching slots to the current project's dancers by
+ * order, up to however many dancers there actually are. The user then drags dancers onto the
+ * ghost by hand; nothing here moves them automatically.
  */
 
 require_once __DIR__ . '/lib/db.php';

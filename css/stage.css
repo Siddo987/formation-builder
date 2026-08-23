@@ -31,6 +31,9 @@
     border-radius:6px; padding:.15rem .3rem;
   }
   .layout-select-wrap select:focus{outline:2px solid var(--gold);}
+  .layout-rotate-field{display:flex; align-items:center; gap:.15rem;}
+  .layout-rotate-field[hidden]{display:none;}
+  .layout-rotate-field .coord-input{width:44px;}
   /* Non-interactive target-position preview from a chosen Vorlage — dancers get manually dragged
      to match, nothing here reacts to pointer events. Appended in buildStageLayers(), before
      ensureMarkers() adds the real dancer markers, so plain DOM order (this codebase's existing
@@ -41,7 +44,9 @@
     transform:translate(-50%,-50%);
     border-radius:50%; border:2px dashed;
     opacity:.55;
+    pointer-events:auto; cursor:grab; touch-action:none;
   }
+  .layout-ghost-dot:active{cursor:grabbing; opacity:.8;}
   .stage{
     position:relative;
     aspect-ratio:3/2;

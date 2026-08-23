@@ -25,16 +25,30 @@ try {
         } elseif (($_POST['action'] ?? '') === 'add') {
             $name = trim((string)($_POST['name'] ?? ''));
             $description = trim((string)($_POST['description'] ?? ''));
-            $transformRaw = trim((string)($_POST['transform_json'] ?? ''));
             $sortOrder = (int)($_POST['sort_order'] ?? 0);
-            $decoded = json_decode($transformRaw, true);
+            $mode = ($_POST['mode'] ?? 'solo') === 'couples' ? 'couples' : 'solo';
+            $numOrZero = function ($key) { return is_numeric($_POST[$key] ?? null) ? (float)$_POST[$key] : 0.0; };
+            if ($mode === 'couples') {
+                $transform = [
+                    'mode' => 'couples',
+                    'partnerA' => ['rotateDeg' => $numOrZero('aRotateDeg'), 'translateX' => $numOrZero('aTx'), 'translateY' => $numOrZero('aTy')],
+                    'partnerB' => ['rotateDeg' => $numOrZero('bRotateDeg'), 'translateX' => $numOrZero('bTx'), 'translateY' => $numOrZero('bTy')],
+                ];
+            } else {
+                $pivot = ($_POST['pivot'] ?? 'stage-center') === 'selection-centroid' ? 'selection-centroid' : 'stage-center';
+                $transform = [
+                    'mode' => 'solo',
+                    'pivot' => $pivot,
+                    'rotateDeg' => $numOrZero('rotateDeg'),
+                    'translateX' => $numOrZero('translateX'),
+                    'translateY' => $numOrZero('translateY'),
+                ];
+            }
             if ($name === '') {
                 $error = 'Name fehlt.';
-            } elseif (!is_array($decoded) || !isset($decoded['mode'])) {
-                $error = 'Transform-JSON ist ungültig oder hat kein "mode"-Feld (siehe Beispiele unten).';
             } else {
                 $stmt = db()->prepare('INSERT INTO figures (id, name, description, transform_json, sort_order) VALUES (?, ?, ?, ?, ?)');
-                $stmt->execute([random_row_id('fig'), $name, $description, json_encode($decoded, JSON_UNESCAPED_UNICODE), $sortOrder]);
+                $stmt->execute([random_row_id('fig'), $name, $description, json_encode($transform, JSON_UNESCAPED_UNICODE), $sortOrder]);
                 $notice = 'Figur "' . $name . '" angelegt.';
             }
         }
@@ -46,6 +60,20 @@ try {
 }
 $csrf = admin_csrf_token();
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+
+function describe_transform(string $json): string {
+    $t = json_decode($json, true);
+    if (!is_array($t)) return $json;
+    $fmt = function ($n) { return (is_numeric($n) ? rtrim(rtrim(number_format((float)$n, 2), '0'), '.') : '0'); };
+    if (($t['mode'] ?? '') === 'couples') {
+        $a = $t['partnerA'] ?? [];
+        $b = $t['partnerB'] ?? [];
+        return 'Paare · A: ' . $fmt($a['rotateDeg'] ?? 0) . '°, X' . $fmt($a['translateX'] ?? 0) . ', Y' . $fmt($a['translateY'] ?? 0)
+             . ' / B: ' . $fmt($b['rotateDeg'] ?? 0) . '°, X' . $fmt($b['translateX'] ?? 0) . ', Y' . $fmt($b['translateY'] ?? 0);
+    }
+    $pivotLabel = ($t['pivot'] ?? 'stage-center') === 'selection-centroid' ? 'Auswahlmitte' : 'Bühnenmitte';
+    return 'Einzeln · ' . $pivotLabel . ' · ' . $fmt($t['rotateDeg'] ?? 0) . '°, X' . $fmt($t['translateX'] ?? 0) . ', Y' . $fmt($t['translateY'] ?? 0);
+}
 ?>
 <!doctype html>
 <html lang="de">
@@ -68,8 +96,11 @@ function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
   code,pre{font-family:ui-monospace,Consolas,monospace;font-size:.76rem;background:#f4efe6;border-radius:6px;padding:.2rem .4rem;}
   pre{white-space:pre-wrap;word-break:break-word;margin:0;max-width:340px;}
   label{display:block;font-size:.78rem;font-weight:700;margin:.7rem 0 .25rem;color:#5c5268;}
-  input[type="text"],input[type="number"],textarea{width:100%;box-sizing:border-box;padding:.5rem .6rem;border-radius:8px;border:1px solid #ddd3c0;font-size:.85rem;font-family:inherit;}
+  input[type="text"],input[type="number"],select,textarea{width:100%;box-sizing:border-box;padding:.5rem .6rem;border-radius:8px;border:1px solid #ddd3c0;font-size:.85rem;font-family:inherit;}
   textarea{font-family:ui-monospace,Consolas,monospace;font-size:.78rem;min-height:80px;}
+  .triplet{display:flex;gap:.7rem;flex-wrap:wrap;}
+  .triplet > div{flex:1;min-width:100px;}
+  .triplet label{margin:.3rem 0 .2rem;}
   button{margin-top:1rem;padding:.55rem 1.1rem;border-radius:8px;border:none;background:#d99a34;color:#241a30;font-weight:700;cursor:pointer;}
   button:hover{background:#e0a336;}
   .del-btn{margin:0;padding:.3rem .6rem;font-size:.72rem;background:#f6dcd8;color:#a5443a;}
@@ -96,7 +127,7 @@ function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         <tr>
           <td><?= h($row['name']) ?></td>
           <td><?= h($row['description']) ?></td>
-          <td><pre><?= h($row['transform_json']) ?></pre></td>
+          <td><?= h(describe_transform($row['transform_json'])) ?></td>
           <td><?= h($row['sort_order']) ?></td>
           <td>
             <form method="post" onsubmit="return confirm('Figur wirklich löschen?');">
@@ -122,17 +153,57 @@ function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
       <input type="text" id="name" name="name" required maxlength="120">
       <label for="description">Beschreibung (optional)</label>
       <input type="text" id="description" name="description" maxlength="255">
-      <label for="transform_json">Transform-JSON</label>
-      <textarea id="transform_json" name="transform_json" required placeholder='{"mode":"solo","pivot":"stage-center","rotateDeg":90,"translateX":0,"translateY":0}'></textarea>
-      <p class="hint">
-        Einzeln: <code>{"mode":"solo","pivot":"stage-center|selection-centroid","rotateDeg":n,"translateX":n,"translateY":n}</code><br>
-        Paare: <code>{"mode":"couples","partnerA":{"rotateDeg":n,"translateX":n,"translateY":n},"partnerB":{...}}</code>
-      </p>
+
+      <label for="mode">Art</label>
+      <select name="mode" id="mode">
+        <option value="solo">Einzeln — Auswahl (Strg/Cmd-Klick) oder alle Tänzer</option>
+        <option value="couples">Paare — jedes gespeicherte Paar bewegt sich individuell</option>
+      </select>
+
+      <div id="soloFields">
+        <label for="pivot">Drehpunkt</label>
+        <select name="pivot" id="pivot">
+          <option value="stage-center">Bühnenmitte</option>
+          <option value="selection-centroid">Mittelpunkt der Auswahl</option>
+        </select>
+        <div class="triplet">
+          <div><label for="rotateDeg">Drehung °</label><input type="number" id="rotateDeg" name="rotateDeg" value="0" step="1"></div>
+          <div><label for="translateX">Verschiebung X</label><input type="number" id="translateX" name="translateX" value="0" step="0.5"></div>
+          <div><label for="translateY">Verschiebung Y</label><input type="number" id="translateY" name="translateY" value="0" step="0.5"></div>
+        </div>
+      </div>
+
+      <div id="couplesFields" hidden>
+        <p class="hint">Partner A/B richten sich danach, wer beim Speichern eines Paares zuerst (A) bzw. zweitens (B) ausgewählt wurde.</p>
+        <strong style="font-size:.8rem;">Partner A</strong>
+        <div class="triplet">
+          <div><label for="aRotateDeg">Drehung °</label><input type="number" id="aRotateDeg" name="aRotateDeg" value="0" step="1"></div>
+          <div><label for="aTx">X</label><input type="number" id="aTx" name="aTx" value="0" step="0.5"></div>
+          <div><label for="aTy">Y</label><input type="number" id="aTy" name="aTy" value="0" step="0.5"></div>
+        </div>
+        <strong style="font-size:.8rem;">Partner B</strong>
+        <div class="triplet">
+          <div><label for="bRotateDeg">Drehung °</label><input type="number" id="bRotateDeg" name="bRotateDeg" value="0" step="1"></div>
+          <div><label for="bTx">X</label><input type="number" id="bTx" name="bTx" value="0" step="0.5"></div>
+          <div><label for="bTy">Y</label><input type="number" id="bTy" name="bTy" value="0" step="0.5"></div>
+        </div>
+      </div>
+
       <label for="sort_order">Reihenfolge (kleiner = weiter oben)</label>
       <input type="number" id="sort_order" name="sort_order" value="0">
       <button type="submit">Figur anlegen</button>
     </form>
   </div>
 </div>
+<script>
+  var modeSelect = document.getElementById('mode');
+  var soloFields = document.getElementById('soloFields');
+  var couplesFields = document.getElementById('couplesFields');
+  modeSelect.addEventListener('change', function(){
+    var isCouples = modeSelect.value === 'couples';
+    soloFields.hidden = isCouples;
+    couplesFields.hidden = !isCouples;
+  });
+</script>
 </body>
 </html>

@@ -148,14 +148,19 @@
     });
   }
 
-  /* ---------- layout templates ("Vorlagen"): admin-presettable target arrangements shown as a
-     transparent ghost overlay to drag dancers onto — a positioning aid, not an auto-transform like
-     Figuren. Picking one is per-session/transient (not saved in state), and resets whenever the
-     active Bild changes (a fresh reference point for a specific Bild you're now positioning). ---------- */
+  /* ---------- layout templates ("Vorlagen"): admin-presettable target *shapes* — a Vorlage's
+     positions are relative to each other only (no fixed spot on the stage baked in). Shown as a
+     transparent, non-interactive-underneath ghost overlay that the user drags into place and
+     rotates to taste; dancers then get manually dragged onto the ghost by hand — a positioning
+     aid, not an auto-transform like Figuren. Picking one (and any placement/rotation applied to
+     it) is per-session/transient, never saved in state, and resets whenever the active Bild
+     changes (a fresh reference point for whichever Bild you're now positioning). ---------- */
 
   var layoutsCatalog = null; // null until first fetch resolves
   var layoutsFetchPromise = null;
   var activeLayoutId = null;
+  var activeLayoutOffset = {x:0, y:0}; // where the shape's own local origin currently sits on stage
+  var activeLayoutRotateDeg = 0; // rotation around that same local origin, applied before the offset
 
   function ensureLayoutsLoaded(){
     if(!layoutsFetchPromise){
@@ -185,6 +190,12 @@
       select.appendChild(opt);
     });
     select.value = activeLayoutId || '';
+    updateLayoutRotateFieldVisibility();
+  }
+
+  function updateLayoutRotateFieldVisibility(){
+    var field = document.getElementById('layoutRotateField');
+    if(field) field.hidden = !activeLayoutId;
   }
 
   function buildLayoutGhostLayer(){
@@ -192,6 +203,17 @@
     layer.className = 'layout-ghost-layer';
     layer.id = 'layoutGhostLayer';
     stageEl.appendChild(layer);
+  }
+
+  // Rotates a relative point around the shape's own local origin (0,0), then places it at
+  // activeLayoutOffset — i.e. rotation always happens "in place" around wherever the shape has
+  // been dragged to, not around the stage's own center.
+  function layoutPointToStage(p){
+    var rad = activeLayoutRotateDeg * Math.PI / 180;
+    var cos = Math.cos(rad), sin = Math.sin(rad);
+    var x = (p.x||0)*cos - (p.y||0)*sin + activeLayoutOffset.x;
+    var y = (p.x||0)*sin + (p.y||0)*cos + activeLayoutOffset.y;
+    return {x: clampGrid(x), y: clampGrid(y)};
   }
 
   function renderLayoutGhost(){
@@ -203,30 +225,79 @@
     if(!layout || !Array.isArray(layout.positions)) return;
     var n = Math.min(layout.positions.length, state.dancers.length);
     for(var i=0; i<n; i++){
-      var p = layout.positions[i];
+      var stagePos = layoutPointToStage(layout.positions[i]);
       var dot = document.createElement('span');
       dot.className = 'layout-ghost-dot';
-      dot.style.left = gridToPercent(clampGrid(p.x||0)) + '%';
-      dot.style.top = gridToPercent(clampGrid(p.y||0)) + '%';
+      dot.style.left = gridToPercent(stagePos.x) + '%';
+      dot.style.top = gridToPercent(stagePos.y) + '%';
       dot.style.borderColor = state.dancers[i].color;
+      dot.title = 'Ziehen zum Verschieben der ganzen Vorlage';
+      attachLayoutGhostDragEvents(dot);
       layer.appendChild(dot);
     }
   }
 
+  // Dragging any ghost dot moves the whole shape together (updates the shared offset, not just
+  // that one point) — same pointer-capture pattern as attachDancerEvents' drag handling.
+  function attachLayoutGhostDragEvents(dot){
+    dot.addEventListener('pointerdown', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      try{ dot.setPointerCapture(e.pointerId); }catch(err){}
+      var startX = e.clientX, startY = e.clientY;
+      var startOffset = {x: activeLayoutOffset.x, y: activeLayoutOffset.y};
+      function onMove(ev){
+        var rect = stageEl.getBoundingClientRect();
+        var dxPct = ((ev.clientX-startX)/rect.width)*100;
+        var dyPct = ((ev.clientY-startY)/rect.height)*100;
+        var scale = 100 - 2*GRID_INSET;
+        activeLayoutOffset = {
+          x: clampGrid(startOffset.x + (dxPct/scale)*GRID_SPAN),
+          y: clampGrid(startOffset.y + (dyPct/scale)*GRID_SPAN)
+        };
+        renderLayoutGhost();
+      }
+      function onUp(){
+        try{ dot.releasePointerCapture(e.pointerId); }catch(err){}
+        dot.removeEventListener('pointermove', onMove);
+        dot.removeEventListener('pointerup', onUp);
+      }
+      dot.addEventListener('pointermove', onMove);
+      dot.addEventListener('pointerup', onUp);
+    });
+  }
+
   // Called wherever the active Bild actually changes (never from e.g. the axes-visibility toggle,
-  // which also touches the stage but isn't a Bild switch) — a chosen Vorlage is a reference for
-  // the Bild you were just positioning, not something that should silently carry over.
+  // which also touches the stage but isn't a Bild switch) — a chosen Vorlage, and any placement
+  // applied to it, is a reference for the Bild you were just positioning, not something that
+  // should silently carry over.
   function resetLayoutGhost(){
     if(!activeLayoutId) return;
     activeLayoutId = null;
+    activeLayoutOffset = {x:0, y:0};
+    activeLayoutRotateDeg = 0;
+    var rotateInput = document.getElementById('layoutRotateInput');
+    if(rotateInput) rotateInput.value = 0;
     renderLayoutSelectOptions();
     renderLayoutGhost();
   }
 
   var layoutSelectEl = document.getElementById('layoutSelect');
+  var layoutRotateInputEl = document.getElementById('layoutRotateInput');
   if(layoutSelectEl){
     layoutSelectEl.addEventListener('change', function(){
       activeLayoutId = layoutSelectEl.value || null;
+      activeLayoutOffset = {x:0, y:0};
+      activeLayoutRotateDeg = 0;
+      if(layoutRotateInputEl) layoutRotateInputEl.value = 0;
+      updateLayoutRotateFieldVisibility();
+      renderLayoutGhost();
+    });
+  }
+  if(layoutRotateInputEl){
+    layoutRotateInputEl.addEventListener('input', function(){
+      var deg = parseFloat(layoutRotateInputEl.value);
+      activeLayoutRotateDeg = isFinite(deg) ? deg : 0;
       renderLayoutGhost();
     });
   }

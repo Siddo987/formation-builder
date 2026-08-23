@@ -49,6 +49,13 @@ try {
 }
 $csrf = admin_csrf_token();
 function h2($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+
+function describe_positions(string $json): string {
+    $p = json_decode($json, true);
+    if (!is_array($p)) return $json;
+    $n = count($p);
+    return $n . ($n === 1 ? ' Punkt' : ' Punkte');
+}
 ?>
 <!doctype html>
 <html lang="de">
@@ -80,6 +87,33 @@ function h2($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
   .notice{color:#3c7a5a;font-size:.82rem;}
   .error{color:#a5443a;font-size:.82rem;}
   .hint{color:#8a7c9c;font-size:.78rem;}
+  .vorlage-grid{
+    position:relative; width:100%; max-width:360px; aspect-ratio:1;
+    background:
+      linear-gradient(#e8dfcb 1px, transparent 1px),
+      linear-gradient(90deg, #e8dfcb 1px, transparent 1px);
+    background-size:calc(100%/7) calc(100%/7);
+    background-color:#faf6ef;
+    border:1px solid #ddd3c0; border-radius:10px;
+    cursor:crosshair; user-select:none; touch-action:none;
+  }
+  .vorlage-grid-center{
+    position:absolute; left:50%; top:50%; width:10px; height:10px;
+    transform:translate(-50%,-50%); border-radius:50%;
+    background:#cabfdb; pointer-events:none;
+  }
+  .vorlage-point{
+    position:absolute; width:26px; height:26px;
+    transform:translate(-50%,-50%); border-radius:50%;
+    background:#d99a34; color:#241a30; font-weight:700; font-size:.7rem;
+    display:flex; align-items:center; justify-content:center;
+    cursor:grab; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.25);
+  }
+  .vorlage-point:active{cursor:grabbing;}
+  .vorlage-toolbar{display:flex; align-items:center; gap:.6rem; margin-top:.5rem; flex-wrap:wrap;}
+  .vorlage-toolbar button{margin-top:0; padding:.4rem .7rem; font-size:.78rem;}
+  .vorlage-toolbar button.secondary{background:#eee2ce; color:#5c5268;}
+  .vorlage-toolbar button.secondary:hover{background:#e4d5b8;}
 </style>
 </head>
 <body>
@@ -99,7 +133,7 @@ function h2($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         <tr>
           <td><?= h2($row['name']) ?></td>
           <td><?= h2($row['description']) ?></td>
-          <td><pre><?= h2($row['positions_json']) ?></pre></td>
+          <td><?= h2(describe_positions($row['positions_json'])) ?> <details><summary class="hint" style="cursor:pointer;display:inline;">JSON</summary><pre><?= h2($row['positions_json']) ?></pre></details></td>
           <td><?= h2($row['sort_order']) ?></td>
           <td>
             <form method="post" onsubmit="return confirm('Vorlage wirklich löschen?');">
@@ -125,17 +159,101 @@ function h2($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
       <input type="text" id="name" name="name" required maxlength="120">
       <label for="description">Beschreibung (optional)</label>
       <input type="text" id="description" name="description" maxlength="255">
-      <label for="positions_json">Positions-JSON</label>
-      <textarea id="positions_json" name="positions_json" required placeholder='[{"x":-6,"y":5},{"x":0,"y":5},{"x":6,"y":5}]'></textarea>
+      <label>Form (nur Positionen relativ zueinander — der Mittelpunkt hier wird beim Anzeigen frei auf der Bühne platziert und gedreht)</label>
+      <div class="vorlage-grid" id="vorlageGrid"><div class="vorlage-grid-center"></div></div>
+      <div class="vorlage-toolbar">
+        <button type="button" class="secondary" id="vorlageUndoBtn">Letzten Punkt entfernen</button>
+        <button type="button" class="secondary" id="vorlageClearBtn">Alle löschen</button>
+        <span class="hint" id="vorlagePointCount">0 Punkte</span>
+      </div>
       <p class="hint">
-        Liste von Zielpunkten auf dem Bühnenraster (-7 bis 7, wie bei Tänzer-Positionen), in der Reihenfolge, in der sie den Tänzern zugeordnet werden.
-        Mehr Punkte als Tänzer im Projekt sind erlaubt (der Rest wird einfach nicht angezeigt).
+        Auf das Raster klicken = Punkt hinzufügen. Punkt ziehen = verschieben. Doppelklick auf einen Punkt = löschen.
+        Die Reihenfolge (Nummern) bestimmt, welcher Tänzer welchem Punkt zugeordnet wird.
       </p>
+      <input type="hidden" name="positions_json" id="positions_json" value="[]">
       <label for="sort_order">Reihenfolge (kleiner = weiter oben)</label>
       <input type="number" id="sort_order" name="sort_order" value="0">
       <button type="submit">Vorlage anlegen</button>
     </form>
   </div>
 </div>
+<script>
+(function(){
+  var GRID_MIN = -7, GRID_MAX = 7, GRID_SPAN = 14;
+  var grid = document.getElementById('vorlageGrid');
+  var field = document.getElementById('positions_json');
+  var countEl = document.getElementById('vorlagePointCount');
+  var points = [];
+  var suppressNextClick = false;
+
+  function toPercent(v){ return ((v - GRID_MIN) / GRID_SPAN) * 100; }
+  function toGrid(pct){ return (pct / 100) * GRID_SPAN + GRID_MIN; }
+  function snap(v){ return Math.max(GRID_MIN, Math.min(GRID_MAX, Math.round(v * 2) / 2)); }
+
+  function sync(){
+    field.value = JSON.stringify(points);
+    countEl.textContent = points.length + (points.length === 1 ? ' Punkt' : ' Punkte');
+    render();
+  }
+
+  function render(){
+    grid.querySelectorAll('.vorlage-point').forEach(function(el){ el.remove(); });
+    points.forEach(function(p, i){
+      var el = document.createElement('div');
+      el.className = 'vorlage-point';
+      el.style.left = toPercent(p.x) + '%';
+      el.style.top = toPercent(p.y) + '%';
+      el.textContent = String(i + 1);
+      el.title = 'Ziehen zum Verschieben, Doppelklick zum Löschen';
+      el.addEventListener('dblclick', function(e){
+        e.preventDefault(); e.stopPropagation();
+        points.splice(i, 1);
+        sync();
+      });
+      el.addEventListener('pointerdown', function(e){
+        e.preventDefault(); e.stopPropagation();
+        try{ el.setPointerCapture(e.pointerId); }catch(err){}
+        function onMove(ev){
+          var rect = grid.getBoundingClientRect();
+          var px = ((ev.clientX - rect.left) / rect.width) * 100;
+          var py = ((ev.clientY - rect.top) / rect.height) * 100;
+          points[i] = { x: snap(toGrid(px)), y: snap(toGrid(py)) };
+          sync();
+        }
+        function onUp(){
+          suppressNextClick = true;
+          try{ el.releasePointerCapture(e.pointerId); }catch(err){}
+          el.removeEventListener('pointermove', onMove);
+          el.removeEventListener('pointerup', onUp);
+        }
+        el.addEventListener('pointermove', onMove);
+        el.addEventListener('pointerup', onUp);
+      });
+      grid.appendChild(el);
+    });
+  }
+
+  grid.addEventListener('click', function(e){
+    if(suppressNextClick){ suppressNextClick = false; return; }
+    if(e.target !== grid) return;
+    var rect = grid.getBoundingClientRect();
+    var px = ((e.clientX - rect.left) / rect.width) * 100;
+    var py = ((e.clientY - rect.top) / rect.height) * 100;
+    points.push({ x: snap(toGrid(px)), y: snap(toGrid(py)) });
+    sync();
+  });
+
+  document.getElementById('vorlageUndoBtn').addEventListener('click', function(){
+    points.pop();
+    sync();
+  });
+  document.getElementById('vorlageClearBtn').addEventListener('click', function(){
+    points = [];
+    sync();
+  });
+
+  sync();
+})();
+</script>
 </body>
 </html>
