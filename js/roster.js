@@ -77,7 +77,22 @@
       rotInput.value = roundNum(p.rot||0);
       rotInput.setAttribute('aria-label', 'Drehung von ' + d.name + ' in Grad (0° = nach hinten, im Uhrzeigersinn)');
       rotInput.addEventListener('input', function(){
-        setDancerRot(d.id, parseFloat(rotInput.value)||0);
+        var newRot = parseFloat(rotInput.value)||0;
+        var before = currentFormation().pos[d.id];
+        var oldRot = before ? (before.rot||0) : 0;
+        var delta = newRot - oldRot;
+        setDancerRot(d.id, newRot);
+        // Same "moves/selects/rotates together" group as dragging on the stage — a saved partner
+        // (or a broader same-role selection) turns by the same delta, keeping whatever relative
+        // facing they already had rather than snapping to the exact same angle.
+        if(delta){
+          dragGroupFor(d.id).forEach(function(otherId){
+            if(otherId === d.id) return;
+            var op = currentFormation().pos[otherId];
+            if(op) setDancerRot(otherId, (op.rot||0) + delta);
+          });
+          refreshRosterCoords();
+        }
       });
 
       coords.appendChild(xLabel);
@@ -99,7 +114,7 @@
         var badge = document.createElement('div');
         badge.className = 'pair-badge';
         var badgeLabel = document.createElement('span');
-        badgeLabel.textContent = '⚭ Paar mit ' + (partner ? partner.name : '?');
+        badgeLabel.textContent = '⚭ ' + roleLabel(dancerRole(d.id)) + ' · Paar mit ' + (partner ? partner.name : '?');
         var unpairBtn = document.createElement('button');
         unpairBtn.type = 'button';
         unpairBtn.className = 'pair-badge-unpair';

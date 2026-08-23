@@ -90,14 +90,15 @@
       </div>
       <div class="stage" id="stage" aria-label="Bühnenfläche – Tänzer per Ziehen positionieren"></div>
       <p class="stage-audience">Publikum</p>
-      <p class="hint">Ziehe die Punkte im Raster von −7 bis 7. Shift = frei positionieren. Pfeiltasten: 1 Schritt (Shift: 0,5). Strg/Cmd-Klick auf zwei Tänzer wählt sie als Paar.</p>
+      <p class="hint">Ziehe die Punkte im Raster von −7 bis 7. Shift = frei positionieren. Pfeiltasten: 1 Schritt (Shift: 0,5). Ein Tänzer mit gespeichertem Partner wird automatisch mit ausgewählt/verschoben/gedreht — Strg/Cmd-Klick wählt einzelne Tänzer ab oder dazu.</p>
       <div class="pair-rotate" id="pairRotate" hidden>
         <span class="pair-rotate-label" id="pairRotateLabel">Paar: – &amp; –</span>
-        <input type="text" class="pair-rotate-input" id="pairRotateAngle" placeholder="z. B. 1/4 oder 90" aria-label="Drehwinkel für das Paar – Bruch (z. B. 1/4) oder Gradzahl">
-        <button class="btn-ghost" id="pairRotateBtn" type="button" title="Dreht das Paar samt Blickrichtung um den Punkt genau zwischen beiden.">↻ Paar drehen</button>
+        <input type="text" class="pair-rotate-input" id="pairRotateAngle" placeholder="z. B. 1/4 oder 90" aria-label="Drehwinkel für die Auswahl – Bruch (z. B. 1/4) oder Gradzahl">
+        <button class="btn-ghost" id="pairRotateBtn" type="button" title="Dreht die Auswahl samt Blickrichtung um ihren gemeinsamen Mittelpunkt.">↻ Drehen</button>
         <button class="btn-ghost" id="pairSaveBtn" type="button" title="Merkt sich dieses Paar dauerhaft, z. B. für Figuren mit Partner-Bewegungen.">💾 Als Paar speichern</button>
-        <button class="btn-icon" id="pairRotateClearBtn" type="button" aria-label="Paar-Auswahl aufheben" title="Paar-Auswahl aufheben">✕</button>
-        <span class="pair-rotate-hint">Dreht Position &amp; Blickrichtung beider Tänzer um ihren Mittelpunkt.</span>
+        <button class="btn-ghost" id="pairSameRoleBtn" type="button" hidden title="Wählt alle Tänzer mit dieser Rolle aus allen gespeicherten Paaren aus.">Alle auswählen</button>
+        <button class="btn-icon" id="pairRotateClearBtn" type="button" aria-label="Auswahl aufheben" title="Auswahl aufheben">✕</button>
+        <span class="pair-rotate-hint">Grapped/Verschoben/Gedreht wird die ganze Auswahl gemeinsam. Strg/Cmd-Klick wählt einzelne Tänzer ab oder dazu.</span>
       </div>
     </section>
 
@@ -371,9 +372,9 @@
           </div>
 
           <div id="cfCouplesFields" hidden>
-            <p class="settings-hint">Partner A/B richten sich danach, wer beim Speichern eines Paares zuerst (A) bzw. zweitens (B) ausgewählt wurde.</p>
+            <p class="settings-hint">Lead/Follow richten sich danach, wer beim Speichern eines Paares zuerst (Lead) bzw. zweitens (Follow) ausgewählt wurde.</p>
             <div class="figure-form-partner">
-              <strong>Partner A</strong>
+              <strong>Lead</strong>
               <div class="figure-form-triplet">
                 <div><label for="cfARotate">Drehung °</label><input type="number" id="cfARotate" class="coord-input" step="1" value="0"></div>
                 <div><label for="cfATx">X</label><input type="number" id="cfATx" class="coord-input" step="0.5" value="0"></div>
@@ -381,7 +382,7 @@
               </div>
             </div>
             <div class="figure-form-partner">
-              <strong>Partner B</strong>
+              <strong>Follow</strong>
               <div class="figure-form-triplet">
                 <div><label for="cfBRotate">Drehung °</label><input type="number" id="cfBRotate" class="coord-input" step="1" value="0"></div>
                 <div><label for="cfBTx">X</label><input type="number" id="cfBTx" class="coord-input" step="0.5" value="0"></div>

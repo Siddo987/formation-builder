@@ -362,6 +362,13 @@
     stageEl.appendChild(overlay);
   }
 
+  // The group a plain drag/nudge on `dancerId` should move together — the whole current
+  // pairSelection if that dancer is part of one with 2+ members, otherwise just itself. Ctrl/Cmd-
+  // click (see pointerdown below) is how you pare a saved pair's auto-selection down to just one.
+  function dragGroupFor(dancerId){
+    return (pairSelection.length >= 2 && pairSelection.indexOf(dancerId) !== -1) ? pairSelection.slice() : [dancerId];
+  }
+
   function attachDancerEvents(el, dancerId){
     el.tabIndex = 0;
     el.addEventListener('pointerdown', function(e){
@@ -371,10 +378,21 @@
         togglePairSelection(dancerId);
         return;
       }
-      if(pairSelection.length){ pairSelection = []; updatePairRotateUI(); }
+      // Plain click on a dancer with a saved partner selects — and now drags — both together;
+      // an unpaired dancer (or clicking to start a fresh drag elsewhere) behaves as before.
+      var pair = findPairForDancer(dancerId);
+      pairSelection = pair ? pair.memberIds.slice() : [];
+      updatePairRotateUI();
       try{ el.setPointerCapture(e.pointerId); }catch(err){}
       selectedDancerId = dancerId;
       ensureMarkers();
+      var groupIds = dragGroupFor(dancerId);
+      var startPositions = {};
+      groupIds.forEach(function(id){
+        var p = currentFormation().pos[id];
+        startPositions[id] = {x: p ? p.x : 0, y: p ? p.y : 0};
+      });
+      var grabStart = startPositions[dancerId];
       function onMove(ev){
         var rect = stageEl.getBoundingClientRect();
         var px = ((ev.clientX-rect.left)/rect.width)*100;
@@ -382,7 +400,11 @@
         var gx = percentToGrid(px);
         var gy = percentToGrid(py);
         if(!ev.shiftKey){ gx = Math.round(gx); gy = Math.round(gy); }
-        setDancerPos(dancerId, gx, gy);
+        var dx = gx - grabStart.x, dy = gy - grabStart.y;
+        groupIds.forEach(function(id){
+          var sp = startPositions[id];
+          setDancerPos(id, sp.x+dx, sp.y+dy);
+        });
       }
       function onUp(ev){
         try{ el.releasePointerCapture(e.pointerId); }catch(err){}
@@ -397,41 +419,69 @@
       var pos = currentFormation().pos[dancerId];
       if(!pos) return;
       var step = e.shiftKey ? 0.5 : 1;
-      var handled = true;
-      if(e.key === 'ArrowLeft') setDancerPos(dancerId, pos.x-step, pos.y);
-      else if(e.key === 'ArrowRight') setDancerPos(dancerId, pos.x+step, pos.y);
-      else if(e.key === 'ArrowUp') setDancerPos(dancerId, pos.x, pos.y-step);
-      else if(e.key === 'ArrowDown') setDancerPos(dancerId, pos.x, pos.y+step);
+      var dx = 0, dy = 0, handled = true;
+      if(e.key === 'ArrowLeft') dx = -step;
+      else if(e.key === 'ArrowRight') dx = step;
+      else if(e.key === 'ArrowUp') dy = -step;
+      else if(e.key === 'ArrowDown') dy = step;
       else handled = false;
-      if(handled){ e.preventDefault(); selectedDancerId = dancerId; ensureMarkers(); saveState(); }
+      if(!handled) return;
+      e.preventDefault();
+      dragGroupFor(dancerId).forEach(function(id){
+        var p = currentFormation().pos[id];
+        if(p) setDancerPos(id, p.x+dx, p.y+dy);
+      });
+      selectedDancerId = dancerId;
+      ensureMarkers();
+      saveState();
     });
   }
 
   /* ---------- pair rotation ---------- */
 
+  // No length cap any more — Ctrl/Cmd-click is a general toggle-in-selection gesture now, used
+  // both to pare an auto-selected pair down to one dancer and to build up an arbitrary multi-
+  // selection (e.g. several same-role dancers from different pairs, see updatePairRotateUI).
   function togglePairSelection(dancerId){
     var idx = pairSelection.indexOf(dancerId);
-    if(idx !== -1){
-      pairSelection.splice(idx, 1);
-    }else{
-      pairSelection.push(dancerId);
-      if(pairSelection.length > 2) pairSelection.shift();
-    }
+    if(idx !== -1) pairSelection.splice(idx, 1);
+    else pairSelection.push(dancerId);
     ensureMarkers();
     updatePairRotateUI();
   }
 
   function updatePairRotateUI(){
-    if(pairSelection.length === 2){
-      var a = state.dancers.find(function(d){ return d.id === pairSelection[0]; });
-      var b = state.dancers.find(function(d){ return d.id === pairSelection[1]; });
-      if(!a || !b){ pairSelection = []; pairRotateEl.hidden = true; return; }
-      var alreadySaved = !!findPairByMembers(pairSelection);
-      pairRotateLabelEl.textContent = 'Paar: ' + a.name + ' & ' + b.name + (alreadySaved ? ' (gespeichert)' : '');
-      pairRotateEl.hidden = false;
-    }else{
+    if(pairSelection.length < 2){
       pairRotateEl.hidden = true;
+      return;
     }
+    var names = pairSelection.map(function(id){
+      var d = state.dancers.find(function(dd){ return dd.id === id; });
+      return d ? d.name : '?';
+    });
+    if(pairSelection.length === 2){
+      var alreadySaved = !!findPairByMembers(pairSelection);
+      pairRotateLabelEl.textContent = 'Paar: ' + names[0] + ' & ' + names[1] + (alreadySaved ? ' (gespeichert)' : '');
+      pairSaveBtn.hidden = false;
+    }else{
+      pairRotateLabelEl.textContent = 'Auswahl: ' + names.join(', ');
+      pairSaveBtn.hidden = true; // "als Paar speichern" only makes sense for exactly 2
+    }
+    // Offer to expand to every dancer sharing the same role (Lead/Follow), whenever the current
+    // selection is all one role — most useful for 2+ dancers picked from *different* pairs, but
+    // also fires for a single already-selected pair (harmless: "alle Leads" then just includes
+    // this one pair's Lead too if it's the only pair, and grows the selection if there are more).
+    var roles = pairSelection.map(dancerRole);
+    var allSameRole = roles[0] && roles.every(function(r){ return r === roles[0]; });
+    if(allSameRole){
+      var roleCount = allDancersWithRole(roles[0]).length;
+      pairSameRoleBtn.hidden = roleCount <= pairSelection.length;
+      pairSameRoleBtn.textContent = 'Alle ' + roleLabel(roles[0], true) + ' auswählen (' + roleCount + ')';
+      pairSameRoleBtn.dataset.role = roles[0];
+    }else{
+      pairSameRoleBtn.hidden = true;
+    }
+    pairRotateEl.hidden = false;
   }
 
   /* ---------- permanent dancer pairs (Strg/Cmd-Klick-Auswahl dauerhaft merken, u. a. für Figuren) ---------- */
@@ -445,6 +495,25 @@
       return p.memberIds.length === 2 && memberIds.length === 2 &&
         p.memberIds.indexOf(memberIds[0]) !== -1 && p.memberIds.indexOf(memberIds[1]) !== -1;
     }) || null;
+  }
+
+  // Role is derived purely from position within a saved pair's memberIds — no separate field:
+  // memberIds[0] is "Lead" (also Partner A for couples-Figuren), memberIds[1] is "Follow"
+  // (Partner B). Unpaired dancers have no role.
+  function dancerRole(dancerId){
+    var pair = findPairForDancer(dancerId);
+    if(!pair) return null;
+    return pair.memberIds[0] === dancerId ? 'lead' : 'follow';
+  }
+
+  function roleLabel(role, plural){
+    if(role === 'lead') return plural ? 'Leads' : 'Lead';
+    if(role === 'follow') return plural ? 'Follows' : 'Follow';
+    return '';
+  }
+
+  function allDancersWithRole(role){
+    return state.pairs.map(function(p){ return role === 'lead' ? p.memberIds[0] : p.memberIds[1]; }).filter(Boolean);
   }
 
   // A dancer belongs to at most one saved pair — saving a new pair silently dissolves any
@@ -481,17 +550,20 @@
     return isFinite(n) ? n : null;
   }
 
+  // Generalized from the original exactly-2 (midpoint) version to N selected dancers, rotated
+  // together around their shared centroid — a strict generalization, since the centroid of 2
+  // points is their midpoint, so the original 2-person behavior is unchanged.
   function rotatePairSelection(deg){
-    if(pairSelection.length !== 2 || !deg) return;
+    if(pairSelection.length < 2 || !deg) return;
     var pos = currentFormation().pos;
-    var idA = pairSelection[0], idB = pairSelection[1];
-    var posA = pos[idA], posB = pos[idB];
-    if(!posA || !posB) return;
-    var mx = (posA.x + posB.x) / 2;
-    var my = (posA.y + posB.y) / 2;
+    var ids = pairSelection.filter(function(id){ return pos[id]; });
+    if(ids.length < 2) return;
+    var mx = 0, my = 0;
+    ids.forEach(function(id){ mx += pos[id].x; my += pos[id].y; });
+    mx /= ids.length; my /= ids.length;
     var rad = deg * Math.PI / 180;
     var cos = Math.cos(rad), sin = Math.sin(rad);
-    [idA, idB].forEach(function(id){
+    ids.forEach(function(id){
       var p = pos[id];
       var dx = p.x - mx, dy = p.y - my;
       p.x = clampGrid(mx + dx*cos - dy*sin);
@@ -515,6 +587,13 @@
   pairSaveBtn.addEventListener('click', function(){
     if(pairSelection.length !== 2) return;
     upsertPair(pairSelection);
+  });
+  pairSameRoleBtn.addEventListener('click', function(){
+    var role = pairSameRoleBtn.dataset.role;
+    if(!role) return;
+    pairSelection = allDancersWithRole(role);
+    ensureMarkers();
+    updatePairRotateUI();
   });
   pairRotateClearBtn.addEventListener('click', function(){
     pairSelection = [];

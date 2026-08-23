@@ -68,8 +68,8 @@ function describe_transform(string $json): string {
     if (($t['mode'] ?? '') === 'couples') {
         $a = $t['partnerA'] ?? [];
         $b = $t['partnerB'] ?? [];
-        return 'Paare · A: ' . $fmt($a['rotateDeg'] ?? 0) . '°, X' . $fmt($a['translateX'] ?? 0) . ', Y' . $fmt($a['translateY'] ?? 0)
-             . ' / B: ' . $fmt($b['rotateDeg'] ?? 0) . '°, X' . $fmt($b['translateX'] ?? 0) . ', Y' . $fmt($b['translateY'] ?? 0);
+        return 'Paare · Lead: ' . $fmt($a['rotateDeg'] ?? 0) . '°, X' . $fmt($a['translateX'] ?? 0) . ', Y' . $fmt($a['translateY'] ?? 0)
+             . ' / Follow: ' . $fmt($b['rotateDeg'] ?? 0) . '°, X' . $fmt($b['translateX'] ?? 0) . ', Y' . $fmt($b['translateY'] ?? 0);
     }
     $pivotLabel = ($t['pivot'] ?? 'stage-center') === 'selection-centroid' ? 'Auswahlmitte' : 'Bühnenmitte';
     return 'Einzeln · ' . $pivotLabel . ' · ' . $fmt($t['rotateDeg'] ?? 0) . '°, X' . $fmt($t['translateX'] ?? 0) . ', Y' . $fmt($t['translateY'] ?? 0);
@@ -174,14 +174,14 @@ function describe_transform(string $json): string {
       </div>
 
       <div id="couplesFields" hidden>
-        <p class="hint">Partner A/B richten sich danach, wer beim Speichern eines Paares zuerst (A) bzw. zweitens (B) ausgewählt wurde.</p>
-        <strong style="font-size:.8rem;">Partner A</strong>
+        <p class="hint">Lead/Follow richten sich danach, wer beim Speichern eines Paares zuerst (Lead) bzw. zweitens (Follow) ausgewählt wurde.</p>
+        <strong style="font-size:.8rem;">Lead</strong>
         <div class="triplet">
           <div><label for="aRotateDeg">Drehung °</label><input type="number" id="aRotateDeg" name="aRotateDeg" value="0" step="1"></div>
           <div><label for="aTx">X</label><input type="number" id="aTx" name="aTx" value="0" step="0.5"></div>
           <div><label for="aTy">Y</label><input type="number" id="aTy" name="aTy" value="0" step="0.5"></div>
         </div>
-        <strong style="font-size:.8rem;">Partner B</strong>
+        <strong style="font-size:.8rem;">Follow</strong>
         <div class="triplet">
           <div><label for="bRotateDeg">Drehung °</label><input type="number" id="bRotateDeg" name="bRotateDeg" value="0" step="1"></div>
           <div><label for="bTx">X</label><input type="number" id="bTx" name="bTx" value="0" step="0.5"></div>
