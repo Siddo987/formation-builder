@@ -377,10 +377,11 @@
 
           <div id="cfCouplesFields" hidden>
             <p class="settings-hint">Lead/Follow richten sich danach, wer beim Speichern eines Paares zuerst (Lead) bzw. zweitens (Follow) ausgewählt wurde.</p>
+            <label class="toggle-label"><input type="checkbox" id="cfCoupleTogether"> Paar dreht sich als Ganzes um seinen Mittelpunkt</label>
             <div class="figure-form-partner">
               <strong>Lead</strong>
               <div class="figure-form-triplet">
-                <div><label for="cfARotate">Drehung °</label><input type="number" id="cfARotate" class="coord-input" step="1" value="0"></div>
+                <div><label for="cfARotate" id="cfARotateLabel">Drehung °</label><input type="number" id="cfARotate" class="coord-input" step="1" value="0"></div>
                 <div><label for="cfATx">X</label><input type="number" id="cfATx" class="coord-input" step="0.5" value="0"></div>
                 <div><label for="cfATy">Y</label><input type="number" id="cfATy" class="coord-input" step="0.5" value="0"></div>
               </div>
@@ -388,7 +389,7 @@
             <div class="figure-form-partner">
               <strong>Follow</strong>
               <div class="figure-form-triplet">
-                <div><label for="cfBRotate">Drehung °</label><input type="number" id="cfBRotate" class="coord-input" step="1" value="0"></div>
+                <div id="cfBRotateField"><label for="cfBRotate">Drehung °</label><input type="number" id="cfBRotate" class="coord-input" step="1" value="0"></div>
                 <div><label for="cfBTx">X</label><input type="number" id="cfBTx" class="coord-input" step="0.5" value="0"></div>
                 <div><label for="cfBTy">Y</label><input type="number" id="cfBTy" class="coord-input" step="0.5" value="0"></div>
               </div>

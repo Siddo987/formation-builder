@@ -117,9 +117,12 @@
   var cfRotateInput = document.getElementById('cfRotate');
   var cfTxInput = document.getElementById('cfTx');
   var cfTyInput = document.getElementById('cfTy');
+  var cfCoupleTogetherCheckbox = document.getElementById('cfCoupleTogether');
   var cfARotateInput = document.getElementById('cfARotate');
+  var cfARotateLabel = document.getElementById('cfARotateLabel');
   var cfATxInput = document.getElementById('cfATx');
   var cfATyInput = document.getElementById('cfATy');
+  var cfBRotateField = document.getElementById('cfBRotateField');
   var cfBRotateInput = document.getElementById('cfBRotate');
   var cfBTxInput = document.getElementById('cfBTx');
   var cfBTyInput = document.getElementById('cfBTy');
@@ -196,12 +199,30 @@
   }
   cfModeSelect.addEventListener('change', updateCfModeFields);
 
+  // "Paar dreht sich als Ganzes um seinen Mittelpunkt" is just the couples transform's existing
+  // per-partner rotateDeg with the same value on both sides (applyRigidTransform already rotates
+  // each partner around their pair's shared midpoint) — this checkbox is only a convenience so you
+  // don't have to type the same angle into both Lead and Follow by hand and keep them in sync.
+  // Follow's own rotate field is hidden and mirrors Lead's while it's checked.
+  function updateCfCoupleTogetherUI(){
+    var together = cfCoupleTogetherCheckbox.checked;
+    cfBRotateField.hidden = together;
+    cfARotateLabel.textContent = together ? 'Drehung ° (für beide)' : 'Drehung °';
+    if(together) cfBRotateInput.value = cfARotateInput.value;
+  }
+  cfCoupleTogetherCheckbox.addEventListener('change', updateCfCoupleTogetherUI);
+  cfARotateInput.addEventListener('input', function(){
+    if(cfCoupleTogetherCheckbox.checked) cfBRotateInput.value = cfARotateInput.value;
+  });
+
   function showCustomFigureForm(){
     cfNameInput.value = '';
     cfModeSelect.value = 'solo';
     cfPivotSelect.value = 'stage-center';
+    cfCoupleTogetherCheckbox.checked = false;
     [cfRotateInput,cfTxInput,cfTyInput,cfARotateInput,cfATxInput,cfATyInput,cfBRotateInput,cfBTxInput,cfBTyInput].forEach(function(el){ el.value = 0; });
     updateCfModeFields();
+    updateCfCoupleTogetherUI();
     customFigureForm.hidden = false;
     cfNameInput.focus();
   }
@@ -217,10 +238,13 @@
     if(!name){ cfNameInput.focus(); return; }
     var transform;
     if(cfModeSelect.value === 'couples'){
+      // "Together" always writes the same rotateDeg into both partners regardless of whatever's
+      // sitting in the (hidden) Follow rotate field, so it can't drift out of sync with Lead's.
+      var bRotate = cfCoupleTogetherCheckbox.checked ? num(cfARotateInput) : num(cfBRotateInput);
       transform = {
         mode: 'couples',
         partnerA: { rotateDeg: num(cfARotateInput), translateX: num(cfATxInput), translateY: num(cfATyInput) },
-        partnerB: { rotateDeg: num(cfBRotateInput), translateX: num(cfBTxInput), translateY: num(cfBTyInput) }
+        partnerB: { rotateDeg: bRotate, translateX: num(cfBTxInput), translateY: num(cfBTyInput) }
       };
     }else{
       transform = {

@@ -175,15 +175,16 @@ function describe_transform(string $json): string {
 
       <div id="couplesFields" hidden>
         <p class="hint">Lead/Follow richten sich danach, wer beim Speichern eines Paares zuerst (Lead) bzw. zweitens (Follow) ausgewählt wurde.</p>
+        <label><input type="checkbox" id="coupleTogether"> Paar dreht sich als Ganzes um seinen Mittelpunkt</label>
         <strong style="font-size:.8rem;">Lead</strong>
         <div class="triplet">
-          <div><label for="aRotateDeg">Drehung °</label><input type="number" id="aRotateDeg" name="aRotateDeg" value="0" step="1"></div>
+          <div><label for="aRotateDeg" id="aRotateDegLabel">Drehung °</label><input type="number" id="aRotateDeg" name="aRotateDeg" value="0" step="1"></div>
           <div><label for="aTx">X</label><input type="number" id="aTx" name="aTx" value="0" step="0.5"></div>
           <div><label for="aTy">Y</label><input type="number" id="aTy" name="aTy" value="0" step="0.5"></div>
         </div>
         <strong style="font-size:.8rem;">Follow</strong>
         <div class="triplet">
-          <div><label for="bRotateDeg">Drehung °</label><input type="number" id="bRotateDeg" name="bRotateDeg" value="0" step="1"></div>
+          <div id="bRotateDegField"><label for="bRotateDeg">Drehung °</label><input type="number" id="bRotateDeg" name="bRotateDeg" value="0" step="1"></div>
           <div><label for="bTx">X</label><input type="number" id="bTx" name="bTx" value="0" step="0.5"></div>
           <div><label for="bTy">Y</label><input type="number" id="bTy" name="bTy" value="0" step="0.5"></div>
         </div>
@@ -203,6 +204,25 @@ function describe_transform(string $json): string {
     var isCouples = modeSelect.value === 'couples';
     soloFields.hidden = isCouples;
     couplesFields.hidden = !isCouples;
+  });
+
+  // "Together" is a pure convenience: it just mirrors Lead's rotation into the (hidden) Follow
+  // field before submit, so the same angle applied around the pair's shared midpoint doesn't have
+  // to be typed twice — no server-side change needed, aRotateDeg/bRotateDeg post as usual.
+  var coupleTogether = document.getElementById('coupleTogether');
+  var aRotateDeg = document.getElementById('aRotateDeg');
+  var aRotateDegLabel = document.getElementById('aRotateDegLabel');
+  var bRotateDegField = document.getElementById('bRotateDegField');
+  var bRotateDeg = document.getElementById('bRotateDeg');
+  function updateCoupleTogetherUI(){
+    var together = coupleTogether.checked;
+    bRotateDegField.hidden = together;
+    aRotateDegLabel.textContent = together ? 'Drehung ° (für beide)' : 'Drehung °';
+    if(together) bRotateDeg.value = aRotateDeg.value;
+  }
+  coupleTogether.addEventListener('change', updateCoupleTogetherUI);
+  aRotateDeg.addEventListener('input', function(){
+    if(coupleTogether.checked) bRotateDeg.value = aRotateDeg.value;
   });
 </script>
 </body>

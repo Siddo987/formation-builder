@@ -156,6 +156,7 @@
   .figure-form-row input[type="text"]:focus,.figure-form-row select:focus{outline:2px solid var(--gold); border-color:transparent;}
   .figure-form-triplet{display:flex; gap:.6rem; flex-wrap:wrap;}
   .figure-form-triplet > div{display:flex; flex-direction:column; gap:.2rem;}
+  .figure-form-triplet > div[hidden]{display:none;}
   .figure-form-triplet label{font-size:.62rem; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.03em;}
   .figure-form-triplet .coord-input{width:64px;}
   .figure-form-partner{display:flex; flex-direction:column; gap:.35rem; padding:.4rem 0;}
