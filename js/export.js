@@ -28,7 +28,7 @@
       }
       else if(kw === 'FORMATION'){
         var fid = parts[1], fname = parts.slice(2).join(' ') || 'Bild';
-        current = {id: fid, name: fname, pos: {}, showAxes: true, localAxes: []};
+        current = {id: fid, name: fname, pos: {}, showAxes: true, localAxes: [], category: ''};
         formations.push(current);
       }
       else if(kw === 'POS' && current){
@@ -102,7 +102,7 @@
         });
         var time = formationTime(f);
         var localAxes = (f.localAxes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; });
-        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, time: time === null ? null : Math.round(time*100)/100};
+        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100};
       }),
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
@@ -169,7 +169,7 @@
       var localAxes = (Array.isArray(f.localAxes) ? f.localAxes : []).filter(function(ax){
         return ax && typeof ax.x1 === 'number' && typeof ax.y1 === 'number' && typeof ax.x2 === 'number' && typeof ax.y2 === 'number';
       }).map(function(ax){ return {id: ax.id || uid('ax'), x1:clampGrid(ax.x1), y1:clampGrid(ax.y1), x2:clampGrid(ax.x2), y2:clampGrid(ax.y2), label:ax.label||''}; });
-      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes};
+      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : ''};
       if(typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) out.time = f.time;
       return out;
     });

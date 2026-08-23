@@ -80,7 +80,7 @@
       });
     }
 
-    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: newPos, showAxes: currentFormation().showAxes !== false, localAxes: copyLocalAxes(currentFormation()) };
+    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: newPos, showAxes: currentFormation().showAxes !== false, localAxes: copyLocalAxes(currentFormation()), category: '' };
     state.formations.push(f);
     state.activeIndex = state.formations.length - 1;
     saveState();
@@ -278,6 +278,33 @@
       card.draggable = true;
       card.dataset.id = f.id;
 
+      // Setting a Bild's own category text marks it as the START of a new named section (e.g.
+      // "1. Langsamer Walzer") that visually continues through however many following Bilder are
+      // left blank — not a per-card tag every Bild needs, just where each section begins. The
+      // running number is recomputed by renumberFilmCategories() (a lightweight pass over just
+      // the number badges, never rebuilding the inputs) so typing isn't interrupted by losing
+      // focus mid-edit.
+      var categoryWrap = document.createElement('div');
+      categoryWrap.className = 'film-category';
+      var categoryNumEl = document.createElement('span');
+      categoryNumEl.className = 'film-category-num';
+      var categoryInput = document.createElement('input');
+      categoryInput.type = 'text';
+      categoryInput.className = 'film-category-input';
+      categoryInput.placeholder = '+ Abschnitt';
+      categoryInput.maxLength = 40;
+      categoryInput.value = f.category || '';
+      categoryInput.setAttribute('aria-label', 'Abschnitt ab Bild "' + f.name + '" (leer = gehört noch zum vorherigen Abschnitt)');
+      categoryInput.addEventListener('input', function(){
+        f.category = categoryInput.value;
+        categoryWrap.classList.toggle('has-category', !!f.category);
+        saveState();
+        renumberFilmCategories();
+      });
+      categoryWrap.classList.toggle('has-category', !!f.category);
+      categoryWrap.appendChild(categoryNumEl);
+      categoryWrap.appendChild(categoryInput);
+
       var indexEl = document.createElement('span');
       indexEl.className = 'film-index';
       indexEl.textContent = String(idx+1).padStart(2,'0');
@@ -291,6 +318,8 @@
 
       var preview = document.createElement('div');
       preview.className = 'film-preview';
+      preview.appendChild(indexEl);
+      preview.appendChild(removeEl);
       state.dancers.forEach(function(d){
         var pos = f.pos[d.id];
         if(!pos) return;
@@ -312,8 +341,7 @@
       nameInput.addEventListener('input', function(){ f.name = nameInput.value; autosizeFnameInput(nameInput); saveState(); if(idx===state.activeIndex) activeNameEl.textContent = f.name; });
       nameInput.addEventListener('blur', function(){ if(!nameInput.value.trim()){ nameInput.value = f.name = 'Bild ' + (idx+1); autosizeFnameInput(nameInput); saveState(); } });
 
-      card.appendChild(indexEl);
-      card.appendChild(removeEl);
+      card.appendChild(categoryWrap);
       card.appendChild(preview);
       card.appendChild(nameInput);
 
@@ -363,6 +391,27 @@
 
     addWrap.appendChild(addCard);
     filmTrackEl.appendChild(addWrap);
+    renumberFilmCategories();
+  }
+
+  // Recomputes each section-start badge's running number ("1.", "2.", …) without touching the
+  // .film-category-input elements themselves — called after a full renderFilmstrip() and also
+  // directly from a category input's own 'input' handler, so retyping a section name never loses
+  // focus/cursor position the way a full re-render would.
+  function renumberFilmCategories(){
+    var wraps = filmTrackEl.querySelectorAll('.film-category');
+    var n = 0;
+    wraps.forEach(function(wrap, i){
+      var f = state.formations[i];
+      var numEl = wrap.querySelector('.film-category-num');
+      if(f && f.category){
+        n++;
+        numEl.textContent = n + '.';
+        numEl.hidden = false;
+      }else{
+        numEl.hidden = true;
+      }
+    });
   }
 
   function updateMiniDots(formationIndex){
@@ -381,7 +430,7 @@
     var src = currentFormation();
     var copy = {};
     Object.keys(src.pos).forEach(function(k){ copy[k] = {x:src.pos[k].x, y:src.pos[k].y, rot:src.pos[k].rot||0}; });
-    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: copy, showAxes: src.showAxes !== false, localAxes: copyLocalAxes(src) };
+    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: copy, showAxes: src.showAxes !== false, localAxes: copyLocalAxes(src), category: '' };
     state.formations.push(f);
     state.activeIndex = state.formations.length - 1;
     saveState();
