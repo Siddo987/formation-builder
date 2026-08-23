@@ -107,15 +107,15 @@
 
   .dancer{
     position:absolute;
-    width:clamp(12px,1.65vw,18px);
-    height:clamp(12px,1.65vw,18px);
+    width:clamp(16px,2.2vw,24px);
+    height:clamp(16px,2.2vw,24px);
     border-radius:50%;
     transform:translate(-50%,-50%);
     display:flex;
     align-items:center;
     justify-content:center;
     font-weight:700;
-    font-size:.3rem;
+    font-size:.4rem;
     color:#fff;
     text-shadow:0 1px 2px rgba(0,0,0,.55);
     border:1px solid rgba(255,255,255,.85);
@@ -145,6 +145,25 @@
     transition:opacity .12s ease;
   }
   .dancer:hover .label,.dancer:focus-visible .label{opacity:1;}
+
+  /* Crosshair marking the centroid a 2+ selection rotates around (see updatePairMidpointMarker) —
+     only shown while such a selection is active. */
+  .pair-midpoint-marker{
+    position:absolute;
+    width:14px;height:14px;
+    transform:translate(-50%,-50%);
+    pointer-events:none;
+    z-index:6;
+  }
+  .pair-midpoint-marker::before,.pair-midpoint-marker::after{
+    content:"";
+    position:absolute;
+    background:var(--pair);
+    border-radius:1px;
+    box-shadow:0 0 0 1px rgba(0,0,0,.35);
+  }
+  .pair-midpoint-marker::before{left:0;right:0;top:50%;height:2px;transform:translateY(-50%);}
+  .pair-midpoint-marker::after{top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);}
 
   /* ---- themed scrollbars (roster list + filmstrip track) ---- */
   .roster-list,.film-track{
@@ -275,9 +294,9 @@
     top:-2px;left:50%;
     width:0;height:0;
     transform:translateX(-50%);
-    border-left:2px solid transparent;
-    border-right:2px solid transparent;
-    border-bottom:4px solid rgba(255,255,255,.92);
+    border-left:2.5px solid transparent;
+    border-right:2.5px solid transparent;
+    border-bottom:5px solid rgba(255,255,255,.92);
     filter:drop-shadow(0 1px 1px rgba(0,0,0,.45));
   }
 
