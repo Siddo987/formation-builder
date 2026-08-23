@@ -509,7 +509,7 @@
 
     var localListEl = document.getElementById('localAxesList');
     var localTitleEl = document.getElementById('localAxesTitle');
-    if(localTitleEl) localTitleEl.textContent = 'Achsen — nur für „' + currentFormation().name + '“';
+    if(localTitleEl) localTitleEl.textContent = 'Achsen — nur für dieses Bild';
     localListEl.innerHTML = '';
     (currentFormation().localAxes || []).forEach(function(ax){
       localListEl.appendChild(buildAxisRow(ax, function(){
