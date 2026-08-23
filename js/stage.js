@@ -57,6 +57,23 @@
     Object.keys(stageMarkers).forEach(function(id){
       if(!seen[id]){ stageMarkers[id].remove(); delete stageMarkers[id]; }
     });
+    updateRosterSelectionHighlight();
+  }
+
+  // Mirrors the stage's current single selection (selectedDancerId) into the roster: an edge
+  // highlight on that dancer's own row, and — separately — on their saved pair's whole group
+  // container too, so "wenn ich einen Tänzer auswähle, wird sowohl sein Paar als auch er selber
+  // am Rand in der Leiste gehighlighted" holds even while the pair is collapsed (no per-dancer
+  // row to highlight in that case — the group container carries it instead).
+  function updateRosterSelectionHighlight(){
+    Object.keys(rosterRowEls).forEach(function(id){
+      rosterRowEls[id].classList.toggle('roster-row-selected', selectedDancerId === id);
+    });
+    Object.keys(rosterPairGroupEls).forEach(function(pairId){
+      var pair = state.pairs.find(function(p){ return p.id === pairId; });
+      var hi = !!pair && pair.memberIds.indexOf(selectedDancerId) !== -1;
+      rosterPairGroupEls[pairId].classList.toggle('roster-pairgroup-selected', hi);
+    });
   }
 
   function positionMarkers(posMap){
@@ -95,8 +112,59 @@
     var marker = document.createElement('div');
     marker.className = 'pair-midpoint-marker';
     marker.id = 'pairMidpointMarker';
+    marker.title = 'Ziehen zum Verschieben der ganzen Auswahl';
     marker.hidden = true;
+    attachPairMidpointMarkerDragEvents(marker);
     stageEl.appendChild(marker);
+  }
+
+  // Grabbing the crosshair moves the whole selected group together — same delta-from-grabbed-
+  // point pattern as dragging a dancer or a Vorlage ghost dot (grid-snap unless Shift, and snaps
+  // onto an active Vorlage point too when close enough).
+  function attachPairMidpointMarkerDragEvents(marker){
+    marker.addEventListener('pointerdown', function(e){
+      if(pairSelection.length < 2) return;
+      if(playing) pausePlayback();
+      e.preventDefault();
+      e.stopPropagation();
+      try{ marker.setPointerCapture(e.pointerId); }catch(err){}
+      var groupIds = pairSelection.slice();
+      var startPositions = {};
+      groupIds.forEach(function(id){
+        var p = currentFormation().pos[id];
+        startPositions[id] = {x: p ? p.x : 0, y: p ? p.y : 0};
+      });
+      var grabStart = {
+        x: percentToGrid(parseFloat(marker.style.left)),
+        y: percentToGrid(parseFloat(marker.style.top))
+      };
+      function onMove(ev){
+        var rect = stageEl.getBoundingClientRect();
+        var px = ((ev.clientX-rect.left)/rect.width)*100;
+        var py = ((ev.clientY-rect.top)/rect.height)*100;
+        var gx = percentToGrid(px);
+        var gy = percentToGrid(py);
+        if(!ev.shiftKey){ gx = Math.round(gx); gy = Math.round(gy); }
+        var dx = gx - grabStart.x, dy = gy - grabStart.y;
+        if(activeLayoutId && !ev.shiftKey){
+          var candX = grabStart.x+dx, candY = grabStart.y+dy;
+          var snap = nearestLayoutPoint(candX, candY);
+          if(snap){ dx += snap.x-candX; dy += snap.y-candY; }
+        }
+        groupIds.forEach(function(id){
+          var sp = startPositions[id];
+          setDancerPos(id, sp.x+dx, sp.y+dy);
+        });
+      }
+      function onUp(){
+        try{ marker.releasePointerCapture(e.pointerId); }catch(err){}
+        marker.removeEventListener('pointermove', onMove);
+        marker.removeEventListener('pointerup', onUp);
+        saveState();
+      }
+      marker.addEventListener('pointermove', onMove);
+      marker.addEventListener('pointerup', onUp);
+    });
   }
 
   function buildStageLayers(){
@@ -194,13 +262,15 @@
      rotates to taste; dancers then get manually dragged onto the ghost by hand — a positioning
      aid, not an auto-transform like Figuren. Picking one (and any placement/rotation applied to
      it) is per-session/transient, never saved in state, and resets whenever the active Bild
-     changes (a fresh reference point for whichever Bild you're now positioning). ---------- */
+     changes (a fresh reference point for whichever Bild you're now positioning). Each layout also
+     carries an admin-settable "Orientierungspunkt" (origin) — the rotation pivot, rendered as its
+     own distinct, grabbable ghost point (see activeLayoutOrigin/layoutPointToStage). ---------- */
 
   var layoutsCatalog = null; // null until first fetch resolves
   var layoutsFetchPromise = null;
   var activeLayoutId = null;
-  var activeLayoutOffset = {x:0, y:0}; // where the shape's own local origin currently sits on stage
-  var activeLayoutRotateDeg = 0; // rotation around that same local origin, applied before the offset
+  var activeLayoutOffset = {x:0, y:0}; // where the shape's own Orientierungspunkt currently sits on stage
+  var activeLayoutRotateDeg = 0; // rotation around that same Orientierungspunkt, applied before the offset
 
   function ensureLayoutsLoaded(){
     if(!layoutsFetchPromise){
@@ -245,14 +315,26 @@
     stageEl.appendChild(layer);
   }
 
-  // Rotates a relative point around the shape's own local origin (0,0), then places it at
+  // The admin-settable "Orientierungspunkt" — the rotation pivot for the active layout, defaults
+  // to (0,0) for layouts saved before this field existed (see api/layouts.php).
+  function activeLayoutOrigin(){
+    if(!activeLayoutId || !layoutsCatalog) return {x:0, y:0};
+    var layout = layoutsCatalog.find(function(l){ return l.id === activeLayoutId; });
+    if(!layout || !layout.origin) return {x:0, y:0};
+    return {x: layout.origin.x||0, y: layout.origin.y||0};
+  }
+
+  // Rotates a relative point around the shape's own Orientierungspunkt, then places it at
   // activeLayoutOffset — i.e. rotation always happens "in place" around wherever the shape has
-  // been dragged to, not around the stage's own center.
+  // been dragged to, not around the stage's own center. Passing the origin itself in as `p`
+  // returns its own screen position (dx/dy both zero) — that's what renders/drags its ghost dot.
   function layoutPointToStage(p){
     var rad = activeLayoutRotateDeg * Math.PI / 180;
     var cos = Math.cos(rad), sin = Math.sin(rad);
-    var x = (p.x||0)*cos - (p.y||0)*sin + activeLayoutOffset.x;
-    var y = (p.x||0)*sin + (p.y||0)*cos + activeLayoutOffset.y;
+    var origin = activeLayoutOrigin();
+    var dx = (p.x||0) - origin.x, dy = (p.y||0) - origin.y;
+    var x = origin.x + dx*cos - dy*sin + activeLayoutOffset.x;
+    var y = origin.y + dx*sin + dy*cos + activeLayoutOffset.y;
     return {x: clampGrid(x), y: clampGrid(y)};
   }
 
@@ -303,6 +385,17 @@
       attachLayoutGhostDragEvents(dot);
       layer.appendChild(dot);
     }
+    // Orientierungspunkt — the admin-set rotation pivot, its own distinct grabbable marker
+    // alongside the per-dancer dots (dragging it moves the whole shape too, same as any other dot
+    // — they all just update the shared activeLayoutOffset).
+    var originPos = layoutPointToStage(activeLayoutOrigin());
+    var originDot = document.createElement('span');
+    originDot.className = 'layout-ghost-origin';
+    originDot.style.left = gridToPercent(originPos.x) + '%';
+    originDot.style.top = gridToPercent(originPos.y) + '%';
+    originDot.title = 'Orientierungspunkt — auch greifbar, verschiebt die ganze Vorlage';
+    attachLayoutGhostDragEvents(originDot);
+    layer.appendChild(originDot);
   }
 
   // Cheap in-place reposition (no DOM node recreation) for use *during* a drag — this is what
@@ -320,6 +413,12 @@
       var stagePos = layoutPointToStage(layout.positions[i]);
       dots[i].style.left = gridToPercent(stagePos.x) + '%';
       dots[i].style.top = gridToPercent(stagePos.y) + '%';
+    }
+    var originDot = layer.querySelector('.layout-ghost-origin');
+    if(originDot){
+      var originPos = layoutPointToStage(activeLayoutOrigin());
+      originDot.style.left = gridToPercent(originPos.x) + '%';
+      originDot.style.top = gridToPercent(originPos.y) + '%';
     }
   }
 
@@ -442,24 +541,30 @@
     el.tabIndex = 0;
     el.addEventListener('pointerdown', function(e){
       if(playing) pausePlayback();
-      if(e.ctrlKey || e.metaKey){
+      // Ctrl/Cmd-held is "isolate": toggles this one dancer in/out of the ad hoc selection like
+      // before, but — unlike before — the drag that follows still moves just this one dancer,
+      // even if they're part of a pair or a larger selection. That's the way to pull one dancer
+      // out of formation for a moment without disturbing the group's auto-follow.
+      var isolate = e.ctrlKey || e.metaKey;
+      if(isolate){
         e.preventDefault();
-        togglePairSelection(dancerId);
-        return;
+        var idx = pairSelection.indexOf(dancerId);
+        if(idx !== -1) pairSelection.splice(idx, 1); else pairSelection.push(dancerId);
+      }else{
+        // Plain click on a dancer with a saved partner selects — and now drags — both together.
+        // An unpaired dancer starts a fresh single-dancer selection (not an empty one — a plain
+        // click used to clear pairSelection to [] entirely here, so it never actually registered
+        // the clicked dancer; pairing two unpaired dancers then took an extra, confusing Ctrl-click
+        // to even reach length 2, and could end up pairing the wrong two if a stray plain click
+        // landed in between).
+        var pair = findPairForDancer(dancerId);
+        pairSelection = pair ? pair.memberIds.slice() : [dancerId];
       }
-      // Plain click on a dancer with a saved partner selects — and now drags — both together.
-      // An unpaired dancer starts a fresh single-dancer selection (not an empty one — a plain
-      // click used to clear pairSelection to [] entirely here, so it never actually registered
-      // the clicked dancer; pairing two unpaired dancers then took an extra, confusing Ctrl-click
-      // to even reach length 2, and could end up pairing the wrong two if a stray plain click
-      // landed in between). Ctrl/Cmd-click still adds/removes individual dancers from there.
-      var pair = findPairForDancer(dancerId);
-      pairSelection = pair ? pair.memberIds.slice() : [dancerId];
-      updatePairRotateUI();
       try{ el.setPointerCapture(e.pointerId); }catch(err){}
       selectedDancerId = dancerId;
       ensureMarkers();
-      var groupIds = dragGroupFor(dancerId);
+      updatePairRotateUI();
+      var groupIds = isolate ? [dancerId] : dragGroupFor(dancerId);
       var startPositions = {};
       groupIds.forEach(function(id){
         var p = currentFormation().pos[id];
