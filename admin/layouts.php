@@ -7,40 +7,46 @@ db_ensure_schema();
 
 $error = '';
 $notice = '';
+$dbError = '';
+$rows = [];
 
 function random_row_id2(string $prefix): string {
     return $prefix . '-' . bin2hex(random_bytes(6));
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!admin_csrf_check()) {
-        $error = 'Sitzung abgelaufen — bitte erneut versuchen.';
-    } elseif (($_POST['action'] ?? '') === 'delete') {
-        $stmt = db()->prepare('DELETE FROM layouts WHERE id = ?');
-        $stmt->execute([(string)($_POST['id'] ?? '')]);
-        $notice = 'Vorlage gelöscht.';
-    } elseif (($_POST['action'] ?? '') === 'add') {
-        $name = trim((string)($_POST['name'] ?? ''));
-        $description = trim((string)($_POST['description'] ?? ''));
-        $positionsRaw = trim((string)($_POST['positions_json'] ?? ''));
-        $sortOrder = (int)($_POST['sort_order'] ?? 0);
-        $decoded = json_decode($positionsRaw, true);
-        $validPositions = is_array($decoded) && count($decoded) > 0 && array_reduce($decoded, function ($ok, $p) {
-            return $ok && is_array($p) && isset($p['x']) && isset($p['y']) && is_numeric($p['x']) && is_numeric($p['y']);
-        }, true);
-        if ($name === '') {
-            $error = 'Name fehlt.';
-        } elseif (!$validPositions) {
-            $error = 'Positions-JSON ist ungültig — erwartet wird eine Liste wie [{"x":0,"y":5},{"x":2,"y":3}].';
-        } else {
-            $stmt = db()->prepare('INSERT INTO layouts (id, name, description, positions_json, sort_order) VALUES (?, ?, ?, ?, ?)');
-            $stmt->execute([random_row_id2('lay'), $name, $description, json_encode($decoded, JSON_UNESCAPED_UNICODE), $sortOrder]);
-            $notice = 'Vorlage "' . $name . '" angelegt.';
+try {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!admin_csrf_check()) {
+            $error = 'Sitzung abgelaufen — bitte erneut versuchen.';
+        } elseif (($_POST['action'] ?? '') === 'delete') {
+            $stmt = db()->prepare('DELETE FROM layouts WHERE id = ?');
+            $stmt->execute([(string)($_POST['id'] ?? '')]);
+            $notice = 'Vorlage gelöscht.';
+        } elseif (($_POST['action'] ?? '') === 'add') {
+            $name = trim((string)($_POST['name'] ?? ''));
+            $description = trim((string)($_POST['description'] ?? ''));
+            $positionsRaw = trim((string)($_POST['positions_json'] ?? ''));
+            $sortOrder = (int)($_POST['sort_order'] ?? 0);
+            $decoded = json_decode($positionsRaw, true);
+            $validPositions = is_array($decoded) && count($decoded) > 0 && array_reduce($decoded, function ($ok, $p) {
+                return $ok && is_array($p) && isset($p['x']) && isset($p['y']) && is_numeric($p['x']) && is_numeric($p['y']);
+            }, true);
+            if ($name === '') {
+                $error = 'Name fehlt.';
+            } elseif (!$validPositions) {
+                $error = 'Positions-JSON ist ungültig — erwartet wird eine Liste wie [{"x":0,"y":5},{"x":2,"y":3}].';
+            } else {
+                $stmt = db()->prepare('INSERT INTO layouts (id, name, description, positions_json, sort_order) VALUES (?, ?, ?, ?, ?)');
+                $stmt->execute([random_row_id2('lay'), $name, $description, json_encode($decoded, JSON_UNESCAPED_UNICODE), $sortOrder]);
+                $notice = 'Vorlage "' . $name . '" angelegt.';
+            }
         }
     }
+    $rows = db()->query('SELECT id, name, description, positions_json, sort_order FROM layouts ORDER BY sort_order ASC, name ASC')->fetchAll();
+} catch (Throwable $e) {
+    error_log($e->getMessage());
+    $dbError = 'Datenbank nicht erreichbar oder Tabelle "layouts" fehlt — wurde schema.sql schon gegen die echte Datenbank ausgeführt?';
 }
-
-$rows = db()->query('SELECT id, name, description, positions_json, sort_order FROM layouts ORDER BY sort_order ASC, name ASC')->fetchAll();
 $csrf = admin_csrf_token();
 function h2($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 ?>
@@ -83,6 +89,7 @@ function h2($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
   <?php if ($notice): ?><p class="notice"><?= h2($notice) ?></p><?php endif; ?>
   <?php if ($error): ?><p class="error"><?= h2($error) ?></p><?php endif; ?>
+  <?php if ($dbError): ?><p class="error"><?= h2($dbError) ?></p><?php endif; ?>
 
   <div class="card">
     <table>

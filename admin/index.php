@@ -7,37 +7,43 @@ db_ensure_schema();
 
 $error = '';
 $notice = '';
+$dbError = '';
+$rows = [];
 
 function random_row_id(string $prefix): string {
     return $prefix . '-' . bin2hex(random_bytes(6));
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!admin_csrf_check()) {
-        $error = 'Sitzung abgelaufen — bitte erneut versuchen.';
-    } elseif (($_POST['action'] ?? '') === 'delete') {
-        $stmt = db()->prepare('DELETE FROM figures WHERE id = ?');
-        $stmt->execute([(string)($_POST['id'] ?? '')]);
-        $notice = 'Figur gelöscht.';
-    } elseif (($_POST['action'] ?? '') === 'add') {
-        $name = trim((string)($_POST['name'] ?? ''));
-        $description = trim((string)($_POST['description'] ?? ''));
-        $transformRaw = trim((string)($_POST['transform_json'] ?? ''));
-        $sortOrder = (int)($_POST['sort_order'] ?? 0);
-        $decoded = json_decode($transformRaw, true);
-        if ($name === '') {
-            $error = 'Name fehlt.';
-        } elseif (!is_array($decoded) || !isset($decoded['mode'])) {
-            $error = 'Transform-JSON ist ungültig oder hat kein "mode"-Feld (siehe Beispiele unten).';
-        } else {
-            $stmt = db()->prepare('INSERT INTO figures (id, name, description, transform_json, sort_order) VALUES (?, ?, ?, ?, ?)');
-            $stmt->execute([random_row_id('fig'), $name, $description, json_encode($decoded, JSON_UNESCAPED_UNICODE), $sortOrder]);
-            $notice = 'Figur "' . $name . '" angelegt.';
+try {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!admin_csrf_check()) {
+            $error = 'Sitzung abgelaufen — bitte erneut versuchen.';
+        } elseif (($_POST['action'] ?? '') === 'delete') {
+            $stmt = db()->prepare('DELETE FROM figures WHERE id = ?');
+            $stmt->execute([(string)($_POST['id'] ?? '')]);
+            $notice = 'Figur gelöscht.';
+        } elseif (($_POST['action'] ?? '') === 'add') {
+            $name = trim((string)($_POST['name'] ?? ''));
+            $description = trim((string)($_POST['description'] ?? ''));
+            $transformRaw = trim((string)($_POST['transform_json'] ?? ''));
+            $sortOrder = (int)($_POST['sort_order'] ?? 0);
+            $decoded = json_decode($transformRaw, true);
+            if ($name === '') {
+                $error = 'Name fehlt.';
+            } elseif (!is_array($decoded) || !isset($decoded['mode'])) {
+                $error = 'Transform-JSON ist ungültig oder hat kein "mode"-Feld (siehe Beispiele unten).';
+            } else {
+                $stmt = db()->prepare('INSERT INTO figures (id, name, description, transform_json, sort_order) VALUES (?, ?, ?, ?, ?)');
+                $stmt->execute([random_row_id('fig'), $name, $description, json_encode($decoded, JSON_UNESCAPED_UNICODE), $sortOrder]);
+                $notice = 'Figur "' . $name . '" angelegt.';
+            }
         }
     }
+    $rows = db()->query('SELECT id, name, description, transform_json, sort_order FROM figures ORDER BY sort_order ASC, name ASC')->fetchAll();
+} catch (Throwable $e) {
+    error_log($e->getMessage());
+    $dbError = 'Datenbank nicht erreichbar oder Tabelle "figures" fehlt — wurde schema.sql schon gegen die echte Datenbank ausgeführt?';
 }
-
-$rows = db()->query('SELECT id, name, description, transform_json, sort_order FROM figures ORDER BY sort_order ASC, name ASC')->fetchAll();
 $csrf = admin_csrf_token();
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 ?>
@@ -80,6 +86,7 @@ function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
   <?php if ($notice): ?><p class="notice"><?= h($notice) ?></p><?php endif; ?>
   <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
+  <?php if ($dbError): ?><p class="error"><?= h($dbError) ?></p><?php endif; ?>
 
   <div class="card">
     <table>
