@@ -1,0 +1,12 @@
+# Real secrets — never commit. Copy .env.example to .env and fill in locally/on the server.
+.env
+
+# Local SQLite dev DB + share-link uploads (logo/song files written at runtime)
+/data/
+/api/uploads/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.claude/
+node_modules/

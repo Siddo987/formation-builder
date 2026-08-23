@@ -1,0 +1,26 @@
+# Deny direct access to files that must never be served to a client, regardless of exactly where
+# the webroot boundary sits on this hosting account. Apache 2.4 syntax with an older-Apache
+# fallback in comments.
+
+<FilesMatch "^(\.env(\.example)?|schema\.sql)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# api/lib/*.php are included by the endpoint scripts, never requested directly — deny them too as
+# defense in depth (e.g. in case PHP handling is ever misconfigured for that path).
+<IfModule mod_alias.c>
+    RedirectMatch 404 ^/api/lib/.*\.php$
+</IfModule>
+
+# The local-dev sqlite fallback database (see api/lib/db.php) must never be web-accessible.
+<IfModule mod_authz_core.c>
+    <IfModule mod_alias.c>
+        RedirectMatch 404 ^/data/.*$
+    </IfModule>
+</IfModule>

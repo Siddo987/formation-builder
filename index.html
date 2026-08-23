@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aufstellung — Tanzformationen planen</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iNjQiIHkyPSI2NCI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMmIyMDM4Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMWMxNjI2Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+CjxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjE2IiBmaWxsPSJ1cmwoI2cpIi8+CjxjaXJjbGUgY3g9IjIwIiBjeT0iNDEiIHI9IjkiIGZpbGw9IiM4ZDc5ZDEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyMyIgcj0iOSIgZmlsbD0iI2UwYTMzNiIvPgo8Y2lyY2xlIGN4PSI0NCIgY3k9IjQxIiByPSI5IiBmaWxsPSIjNGZhM2EwIi8+Cjwvc3ZnPgo=">
+<meta name="theme-color" content="#241a30">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/stage.css">
+<link rel="stylesheet" href="css/roster.css">
+<link rel="stylesheet" href="css/modals.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-head">
+        <svg class="brand-mark" width="34" height="34" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <rect width="64" height="64" rx="16" fill="#241a30"/>
+          <circle cx="20" cy="41" r="9" fill="#8d79d1"/>
+          <circle cx="32" cy="23" r="9" fill="#e0a336"/>
+          <circle cx="44" cy="41" r="9" fill="#4fa3a0"/>
+        </svg>
+        <h1>Aufstellung</h1>
+      </div>
+      <p class="tagline">Tanzformationen stellen &amp; animieren</p>
+      <div class="project-name-field">
+        <svg class="pencil-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        <input type="text" class="project-name" id="projectNameInput" placeholder="Projektname" maxlength="60" aria-label="Projektname (wird als Dateiname verwendet)">
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-ghost" id="importBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>
+        Öffnen
+      </button>
+      <input type="file" id="importInput" accept=".stg,.auf" hidden>
+      <div class="export-menu-wrap">
+        <button class="btn-ghost" id="exportBtn" type="button" aria-haspopup="true" aria-expanded="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+          Speichern
+        </button>
+        <div class="export-menu" id="exportMenu" hidden>
+          <button type="button" class="export-menu-item" id="exportStgBtn">
+            <strong>.stg</strong>
+            <span>Alles – Lied, Logo, Bilder, Achsen, Paare</span>
+          </button>
+          <button type="button" class="export-menu-item" id="exportAufBtn">
+            <strong>.auf</strong>
+            <span>Nur Positionen, Namen, Zeiten, Drehungen</span>
+          </button>
+        </div>
+      </div>
+      <button class="btn-ghost" id="videoExportBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Video
+      </button>
+      <button class="btn-ghost" id="shareBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5"/><path d="M8.6 13.5 15.4 17.5"/></svg>
+        Teilen
+      </button>
+      <button class="btn-ghost" id="markerBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
+        Marker
+      </button>
+      <button class="btn-ghost" id="settingsBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Einstellungen
+      </button>
+      <span class="import-error" id="importError" hidden>Datei konnte nicht gelesen werden (ungültiges .stg/.auf-Format)</span>
+      <button class="btn-ghost danger" id="resetBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+        Neu
+      </button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="stage-area">
+      <div class="stage-caption-row">
+        <p class="stage-caption">Bühne hinten</p>
+        <label class="axes-bild-toggle" id="axesBildToggleWrap" hidden><input type="checkbox" id="axesBildToggle"> Achsen für dieses Bild</label>
+      </div>
+      <div class="stage" id="stage" aria-label="Bühnenfläche – Tänzer per Ziehen positionieren"></div>
+      <p class="stage-audience">Publikum</p>
+      <p class="hint">Ziehe die Punkte im Raster von −7 bis 7. Shift = frei positionieren. Pfeiltasten: 1 Schritt (Shift: 0,5). Strg/Cmd-Klick auf zwei Tänzer wählt sie als Paar.</p>
+      <div class="pair-rotate" id="pairRotate" hidden>
+        <span class="pair-rotate-label" id="pairRotateLabel">Paar: – &amp; –</span>
+        <input type="text" class="pair-rotate-input" id="pairRotateAngle" placeholder="z. B. 1/4 oder 90" aria-label="Drehwinkel für das Paar – Bruch (z. B. 1/4) oder Gradzahl">
+        <button class="btn-ghost" id="pairRotateBtn" type="button" title="Dreht das Paar samt Blickrichtung um den Punkt genau zwischen beiden.">↻ Paar drehen</button>
+        <button class="btn-ghost" id="pairSaveBtn" type="button" title="Merkt sich dieses Paar dauerhaft, z. B. für Figuren mit Partner-Bewegungen.">💾 Als Paar speichern</button>
+        <button class="btn-icon" id="pairRotateClearBtn" type="button" aria-label="Paar-Auswahl aufheben" title="Paar-Auswahl aufheben">✕</button>
+        <span class="pair-rotate-hint">Dreht Position &amp; Blickrichtung beider Tänzer um ihren Mittelpunkt.</span>
+      </div>
+    </section>
+
+    <aside class="roster">
+      <div class="roster-header">
+        <span class="eyebrow">Tänzer</span>
+        <span class="count" id="dancerCount">0</span>
+      </div>
+      <div class="roster-list" id="rosterList"></div>
+      <button class="btn-add" id="addDancerBtn" type="button">+ Tänzer hinzufügen</button>
+    </aside>
+
+    <div class="playbar">
+      <div class="transport">
+        <button class="btn-icon" id="prevBtn" aria-label="Vorheriges Bild" type="button">‹</button>
+        <button class="btn-play" id="playBtn" aria-label="Abspielen" type="button">
+          <span class="icon-play" id="iconPlay"></span>
+          <span class="icon-pause" id="iconPause" hidden><i></i><i></i></span>
+        </button>
+        <button class="btn-icon" id="nextBtn" aria-label="Nächstes Bild" type="button">›</button>
+      </div>
+      <div class="playinfo">
+        <span class="formation-name-live" id="activeName">–</span>
+        <span class="readout" id="activeReadout">01 / 01</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="tempo-control">
+        <span class="caption">Tempo <span id="tempoReadout">1.4s</span></span>
+        <input type="range" id="tempoSlider" min="0" max="100" value="50">
+      </div>
+    </div>
+
+    <section class="filmstrip-area">
+      <span class="eyebrow">Bilder</span>
+      <div class="film-track" id="filmTrack"></div>
+    </section>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="settingsBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-header">
+      <h2 id="settingsTitle">Einstellungen</h2>
+      <button class="modal-close" id="settingsCloseBtn" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <div class="modal-body">
+      <section class="settings-section">
+        <h3>Hintergrund-Logo</h3>
+        <div class="settings-row">
+          <button class="btn-ghost" id="logoUploadBtn" type="button">Logo wählen</button>
+          <input type="file" id="logoInput" accept="image/*" hidden>
+          <button class="btn-ghost danger" id="logoRemoveBtn" type="button" hidden>Entfernen</button>
+        </div>
+        <div class="logo-preview-wrap" id="logoPreviewWrap" hidden>
+          <img id="logoPreview" alt="Logo-Vorschau">
+        </div>
+        <div class="settings-row" id="logoOpacityRow" hidden>
+          <span class="caption">Deckkraft <span id="logoOpacityReadout">18%</span></span>
+          <input type="range" id="logoOpacitySlider" min="2" max="60" value="18">
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h3>Musik</h3>
+        <div class="settings-row">
+          <button class="btn-ghost" id="songUploadBtn" type="button">Lied wählen</button>
+          <input type="file" id="songInput" accept="audio/*" hidden>
+          <button class="btn-ghost danger" id="songRemoveBtn" type="button" hidden>Entfernen</button>
+        </div>
+        <p class="settings-hint" id="songName" hidden></p>
+      </section>
+
+      <section class="settings-section">
+        <h3>Achsen</h3>
+        <p class="settings-hint">Permanente Hilfslinien auf der Bühne, z. B. Mittellinie oder Diagonale. Ob sie zu sehen sind, wird pro Bild oberhalb der Bühne festgelegt.</p>
+        <div class="axes-list" id="axesList"></div>
+        <button class="btn-add" id="addAxisBtn" type="button">+ Achse hinzufügen</button>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="markerBackdrop" hidden>
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="markerTitle">
+    <div class="modal-header">
+      <h2 id="markerTitle">Marker &amp; Takt</h2>
+      <button class="modal-close" id="markerCloseBtn" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="settings-hint" id="markerNoSongHint">Lade zuerst ein Lied (Einstellungen → Musik), um Bilder mit Zeitpunkten im Song zu verknüpfen.</p>
+
+      <div id="markerSongArea" hidden>
+        <section class="settings-section">
+          <div class="settings-row" style="justify-content:space-between;">
+            <h3 style="margin:0;">Vorhören</h3>
+            <span class="sync-badge" id="syncBadge" hidden>Synchronisation aktiv</span>
+          </div>
+          <div class="settings-row">
+            <button class="btn-icon" id="markerPlayBtn" type="button" aria-label="Abspielen">
+              <span class="icon-play" id="markerIconPlay"></span>
+              <span class="icon-pause" id="markerIconPause" hidden><i></i><i></i></span>
+            </button>
+            <span class="marker-time" id="markerTimeReadout">0:00 / 0:00</span>
+          </div>
+          <div class="marker-timeline" id="markerTimeline">
+            <div class="marker-timeline-bar">
+              <div class="marker-timeline-played" id="markerTimelinePlayed"></div>
+              <div class="marker-timeline-ticks" id="markerTimelineTicks"></div>
+              <div class="marker-timeline-head" id="markerTimelineHead"></div>
+            </div>
+            <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
+          </div>
+          <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken, feine Striche erkannte Taktschläge.</p>
+        </section>
+
+        <section class="settings-section">
+          <h3>Automatische Takterkennung</h3>
+          <p class="settings-hint">Analysiert die Bass-Impulse der Musik und folgt dabei dem Tempo im Verlauf des Lieds (schneller/langsamer werdende Stellen eingeschlossen) — funktioniert am besten bei Musik mit klarem, durchgehendem Beat.</p>
+          <div class="settings-row">
+            <button class="btn-ghost" id="detectBeatsBtn" type="button">Takt erkennen</button>
+            <span class="settings-hint" id="detectStatus"></span>
+          </div>
+          <div class="settings-row" id="beatsPerBarRow" hidden>
+            <span class="caption">Schläge/Takt</span>
+            <select id="beatsPerBarSelect" class="filename-ext" style="padding:.3rem .4rem;border-radius:6px;background:var(--panel);border:1px solid var(--panel-border);">
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+              <option value="6">6</option>
+            </select>
+            <button class="btn-ghost" id="distributeBtn" type="button">Bilder gleichmäßig auf Takte verteilen</button>
+          </div>
+          <div class="settings-row" id="snapRow" hidden>
+            <label class="toggle-label"><input type="checkbox" id="snapToggle"> Beim Setzen an nächsten Schlag einrasten</label>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Bilder</h3>
+          <div class="marker-list" id="markerList"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="filenameBackdrop" hidden>
+  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="filenameTitle">
+    <div class="modal-header">
+      <h2 id="filenameTitle">Datei speichern</h2>
+      <button class="modal-close" id="filenameCloseBtn" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-section">
+        <h3>Dateiname</h3>
+        <div class="filename-field">
+          <input type="text" id="filenameInput" class="filename-input" maxlength="120" autocomplete="off" spellcheck="false" aria-label="Dateiname">
+          <span class="filename-ext" id="filenameExt">.stg</span>
+        </div>
+      </div>
+      <div class="filename-actions">
+        <button class="btn-ghost" id="filenameCancelBtn" type="button">Abbrechen</button>
+        <button class="btn-ghost" id="filenameConfirmBtn" type="button">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="videoBackdrop" hidden>
+  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="videoTitle">
+    <div class="modal-header">
+      <h2 id="videoTitle">Video wird gerendert…</h2>
+    </div>
+    <div class="modal-body">
+      <div class="progress-track"><div class="progress-fill" id="videoProgressFill"></div></div>
+      <p class="settings-hint" id="videoStatusText">Wird vorbereitet…</p>
+      <button class="btn-ghost danger" id="videoCancelBtn" type="button">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="shareBackdrop" hidden>
+  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+    <div class="modal-header">
+      <h2 id="shareTitle">Per Link teilen</h2>
+      <button class="modal-close" id="shareCloseBtn" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-section" id="shareIntro">
+        <p class="settings-hint">Erstellt einen Link, über den diese Aufstellung (samt Lied und Logo) geöffnet werden kann — wie eine .stg-Datei, nur als Link. Der Link ist dauerhaft und für jeden mit dem Link abrufbar.</p>
+        <button class="btn-ghost" id="shareCreateBtn" type="button">Link erstellen</button>
+      </div>
+      <div class="settings-section" id="shareProgress" hidden>
+        <div class="progress-track"><div class="progress-fill" id="shareProgressFill"></div></div>
+        <p class="settings-hint" id="shareProgressText">Wird hochgeladen…</p>
+      </div>
+      <div class="settings-section" id="shareResult" hidden>
+        <h3>Link</h3>
+        <div class="filename-field">
+          <input type="text" id="shareLinkInput" class="filename-input" readonly aria-label="Link zum Teilen">
+          <button class="btn-ghost" id="shareCopyBtn" type="button">Kopieren</button>
+        </div>
+        <p class="settings-hint" id="shareCopiedHint" hidden>In die Zwischenablage kopiert.</p>
+      </div>
+      <p class="settings-hint import-error-inline" id="shareErrorText" hidden></p>
+    </div>
+  </div>
+</div>
+
+<script src="js/state.js"></script>
+<script src="js/stage.js"></script>
+<script src="js/roster.js"></script>
+<script src="js/formations.js"></script>
+<script src="js/playback.js"></script>
+<script src="js/marker.js"></script>
+<script src="js/export.js"></script>
+<script src="js/share.js"></script>
+<script src="js/main.js"></script>
+
+</body>
+</html>
