@@ -48,7 +48,10 @@
         songAudioEl.play().catch(function(){});
         rafId = requestAnimationFrame(syncTick);
       }else{
-        phase = 'hold';
+        // No hold/pause at a Bild any more — playback is one continuous chain of moves straight
+        // through to the last Bild (see tick() below), starting immediately.
+        fromIdx = state.activeIndex;
+        toIdx = state.activeIndex + 1;
         phaseStart = performance.now();
         rafId = requestAnimationFrame(tick);
         if(state.song && state.song.url){
@@ -119,48 +122,41 @@
     if(playing && syncActive) rafId = requestAnimationFrame(syncTick);
   }
 
+  // One continuous chain of moves, Bild to Bild, with no hold/pause in between — as soon as one
+  // move finishes it immediately sets up and starts the next, until there's nothing left to move
+  // to (playback then stops, per playPause()'s "stop after the last Bild" behavior).
   function tick(now){
     var d = durations();
     var moveMs = prefersReducedMotion ? Math.min(180, d.move) : d.move;
     var elapsed = now - phaseStart;
-
-    if(phase === 'hold'){
-      updateProgress(0);
-      if(elapsed >= d.hold){
-        var next = state.activeIndex + 1;
-        if(next >= state.formations.length){
-          playing = false; updatePlayButton(); return;
-        }
-        fromIdx = state.activeIndex;
-        toIdx = next;
-        phase = 'move';
-        phaseStart = now;
+    var t = Math.min(1, elapsed / moveMs);
+    var e = easeInOutCubic(t);
+    var fromPos = state.formations[fromIdx].pos;
+    var toPos = state.formations[toIdx].pos;
+    var interp = {};
+    state.dancers.forEach(function(dd){
+      var a = fromPos[dd.id] || {x:0,y:0,rot:0};
+      var b = toPos[dd.id] || {x:0,y:0,rot:0};
+      interp[dd.id] = { x: a.x + (b.x-a.x)*e, y: a.y + (b.y-a.y)*e, rot: lerpAngle(a.rot||0, b.rot||0, e) };
+    });
+    positionMarkers(interp);
+    updateProgress(t*100);
+    if(t >= 1){
+      state.activeIndex = toIdx;
+      positionMarkers(state.formations[toIdx].pos);
+      renderFilmstripActiveOnly();
+      refreshRosterCoords();
+      updatePlaybarInfo();
+      renderAxes();
+      resetLayoutGhost();
+      if(!settingsBackdrop.hidden) renderAxesList();
+      var next = toIdx + 1;
+      if(next >= state.formations.length){
+        playing = false; updatePlayButton(); return;
       }
-    }else{
-      var t = Math.min(1, elapsed / moveMs);
-      var e = easeInOutCubic(t);
-      var fromPos = state.formations[fromIdx].pos;
-      var toPos = state.formations[toIdx].pos;
-      var interp = {};
-      state.dancers.forEach(function(dd){
-        var a = fromPos[dd.id] || {x:0,y:0,rot:0};
-        var b = toPos[dd.id] || {x:0,y:0,rot:0};
-        interp[dd.id] = { x: a.x + (b.x-a.x)*e, y: a.y + (b.y-a.y)*e, rot: lerpAngle(a.rot||0, b.rot||0, e) };
-      });
-      positionMarkers(interp);
-      updateProgress(t*100);
-      if(t >= 1){
-        state.activeIndex = toIdx;
-        phase = 'hold';
-        phaseStart = now;
-        positionMarkers(state.formations[toIdx].pos);
-        renderFilmstripActiveOnly();
-        refreshRosterCoords();
-        updatePlaybarInfo();
-        renderAxes();
-        resetLayoutGhost();
-        if(!settingsBackdrop.hidden) renderAxesList();
-      }
+      fromIdx = toIdx;
+      toIdx = next;
+      phaseStart = now;
     }
     if(playing) rafId = requestAnimationFrame(tick);
   }

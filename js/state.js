@@ -233,7 +233,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var stageMarkers = {}; // dancerId -> element
   var rosterCoordInputs = {}; // dancerId -> {x, y} input elements
 
-  var playing = false, phase = 'hold', phaseStart = 0, fromIdx = 0, toIdx = 0, rafId = null, syncActive = false;
+  var playing = false, phaseStart = 0, fromIdx = 0, toIdx = 0, rafId = null, syncActive = false;
 
   var stageEl = document.getElementById('stage');
   var stageAreaEl = document.querySelector('.stage-area');
