@@ -42,7 +42,9 @@
     return {
       projectName: 'Meine Formation',
       dancers: dancers, formations: formations,
-      axes: [], showAxes: true, pairs: [], customFigures: [], logo: null, song: null,
+      axes: [], showAxes: true,
+      roomLabels: {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'},
+      pairs: [], customFigures: [], logo: null, song: null,
       activeIndex: 0, tempo: tempo
     };
   }
@@ -106,6 +108,12 @@
       }),
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
+      roomLabels: {
+        top: (s.roomLabels && s.roomLabels.top) || '',
+        right: (s.roomLabels && s.roomLabels.right) || '',
+        bottom: (s.roomLabels && s.roomLabels.bottom) || '',
+        left: (s.roomLabels && s.roomLabels.left) || ''
+      },
       pairs: (s.pairs||[]).map(function(p){ return {id:p.id, memberIds:p.memberIds.slice(), name:p.name||'', collapsed:!!p.collapsed}; }),
       customFigures: (s.customFigures||[]).map(function(fig){ return {id:fig.id, name:fig.name, transform:fig.transform}; }),
       activeIndex: s.activeIndex,
@@ -200,6 +208,12 @@
       formations: formations,
       axes: Array.isArray(header.axes) ? header.axes : [],
       showAxes: header.showAxes !== false,
+      roomLabels: {
+        top: (header.roomLabels && typeof header.roomLabels.top === 'string') ? header.roomLabels.top : 'WAND',
+        right: (header.roomLabels && typeof header.roomLabels.right === 'string') ? header.roomLabels.right : 'SPIEGEL',
+        bottom: (header.roomLabels && typeof header.roomLabels.bottom === 'string') ? header.roomLabels.bottom : 'EINGANG',
+        left: (header.roomLabels && typeof header.roomLabels.left === 'string') ? header.roomLabels.left : 'FENSTER'
+      },
       pairs: pairs,
       customFigures: customFigures,
       activeIndex: typeof header.activeIndex === 'number' ? header.activeIndex : 0,
@@ -729,6 +743,7 @@
     renderLayoutSelectOptions();
     ensureMarkers();
     positionMarkers(currentFormation().pos);
+    updateRoomLabelInputs();
     renderRoster();
     renderFilmstrip();
     updatePlaybarInfo();

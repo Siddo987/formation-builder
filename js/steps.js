@@ -99,7 +99,13 @@
   function buildStepDiagram(primaryPos, secondaryPos){
     var diagram = document.createElement('div');
     diagram.className = 'step-diagram';
-    var walls = [['WAND','top'],['FENSTER','left'],['SPIEGEL','right'],['EINGANG','bottom']];
+    var labels = state.roomLabels || {};
+    var walls = [
+      [labels.top || 'WAND', 'top'],
+      [labels.left || 'FENSTER', 'left'],
+      [labels.right || 'SPIEGEL', 'right'],
+      [labels.bottom || 'EINGANG', 'bottom']
+    ];
     walls.forEach(function(w){
       var el = document.createElement('span');
       el.className = 'step-wall step-wall-' + w[1];

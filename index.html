@@ -10,11 +10,11 @@
      purely on the URL) — bump this on every deploy that touches css/ or js/ so browsers/CDN
      fetch the new bytes immediately instead of serving stale ones for up to 4h. index.html
      itself is never edge-cached (cf-cache-status: DYNAMIC), so this always reaches clients. -->
-<link rel="stylesheet" href="css/theme.css?v=9">
-<link rel="stylesheet" href="css/base.css?v=9">
-<link rel="stylesheet" href="css/stage.css?v=9">
-<link rel="stylesheet" href="css/roster.css?v=9">
-<link rel="stylesheet" href="css/modals.css?v=9">
+<link rel="stylesheet" href="css/theme.css?v=10">
+<link rel="stylesheet" href="css/base.css?v=10">
+<link rel="stylesheet" href="css/stage.css?v=10">
+<link rel="stylesheet" href="css/roster.css?v=10">
+<link rel="stylesheet" href="css/modals.css?v=10">
 </head>
 <body>
 
@@ -93,11 +93,17 @@
           <select id="layoutSelect" title="Positionen relativ zueinander — auf der Bühne per Ziehen verschieben, rechts drehen"><option value="">— Keine Vorlage —</option></select>
           <span class="layout-rotate-field" id="layoutRotateField" hidden><input type="number" id="layoutRotateInput" class="coord-input" value="0" step="5" aria-label="Drehung der Vorlage in Grad">°</span>
         </label>
-        <p class="stage-caption">Bühne hinten</p>
+        <input type="text" class="stage-caption" id="roomLabelTop" maxlength="24" aria-label="Beschriftung oberer Bühnenrand, z. B. Wand" title="Beschriftung des oberen Bühnenrands – wird auch in der Schritte-PDF verwendet">
         <label class="axes-bild-toggle" id="axesBildToggleWrap" hidden><input type="checkbox" id="axesBildToggle"> Achsen für dieses Bild</label>
       </div>
-      <div class="stage" id="stage" aria-label="Bühnenfläche – Tänzer per Ziehen positionieren"></div>
-      <p class="stage-audience">Publikum</p>
+      <div class="stage-frame">
+        <input type="text" class="room-label-left" id="roomLabelLeft" maxlength="20" aria-label="Beschriftung linker Bühnenrand, z. B. Fenster" title="Beschriftung des linken Bühnenrands – wird auch in der Schritte-PDF verwendet">
+        <div class="stage" id="stage" aria-label="Bühnenfläche – Tänzer per Ziehen positionieren"></div>
+        <input type="text" class="room-label-right" id="roomLabelRight" maxlength="20" aria-label="Beschriftung rechter Bühnenrand, z. B. Spiegel" title="Beschriftung des rechten Bühnenrands – wird auch in der Schritte-PDF verwendet">
+      </div>
+      <div class="stage-audience">
+        <input type="text" class="room-label-bottom" id="roomLabelBottom" maxlength="24" aria-label="Beschriftung unterer Bühnenrand, z. B. Eingang" title="Beschriftung des unteren Bühnenrands – wird auch in der Schritte-PDF verwendet">
+      </div>
       <p class="hint">Ziehe die Punkte im Raster von −7 bis 7. Shift = frei positionieren. Pfeiltasten: 1 Schritt (Shift: 0,5). Ein Tänzer mit gespeichertem Partner wird automatisch mit ausgewählt/verschoben/gedreht — Strg/Cmd-Klick wählt einzelne Tänzer ab oder dazu.</p>
       <div class="pair-rotate" id="pairRotate" hidden>
         <span class="pair-rotate-label" id="pairRotateLabel">Paar: – &amp; –</span>
@@ -438,16 +444,16 @@
 
 <div id="stepsPrintArea" aria-hidden="true"></div>
 
-<script src="js/state.js?v=9"></script>
-<script src="js/stage.js?v=9"></script>
-<script src="js/roster.js?v=9"></script>
-<script src="js/formations.js?v=9"></script>
-<script src="js/playback.js?v=9"></script>
-<script src="js/marker.js?v=9"></script>
-<script src="js/export.js?v=9"></script>
-<script src="js/share.js?v=9"></script>
-<script src="js/steps.js?v=9"></script>
-<script src="js/main.js?v=9"></script>
+<script src="js/state.js?v=10"></script>
+<script src="js/stage.js?v=10"></script>
+<script src="js/roster.js?v=10"></script>
+<script src="js/formations.js?v=10"></script>
+<script src="js/playback.js?v=10"></script>
+<script src="js/marker.js?v=10"></script>
+<script src="js/export.js?v=10"></script>
+<script src="js/share.js?v=10"></script>
+<script src="js/steps.js?v=10"></script>
+<script src="js/main.js?v=10"></script>
 
 </body>
 </html>

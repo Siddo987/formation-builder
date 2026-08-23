@@ -150,6 +150,7 @@
   buildStageLayers();
   ensureMarkers();
   positionMarkers(currentFormation().pos);
+  updateRoomLabelInputs();
   renderRoster();
   renderFilmstrip();
   updatePlaybarInfo();

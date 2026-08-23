@@ -394,19 +394,26 @@
     renumberFilmCategories();
   }
 
-  // Recomputes each section-start badge's running number ("1.", "2.", …) without touching the
+  // Recomputes each section-start badge's running number without touching the
   // .film-category-input elements themselves — called after a full renderFilmstrip() and also
   // directly from a category input's own 'input' handler, so retyping a section name never loses
   // focus/cursor position the way a full re-render would.
+  //
+  // The number is per distinct section name, not a flat running count: typing "Langsamer Walzer"
+  // gets "1." the first time it starts a section; a "Tango" section elsewhere in the sequence gets
+  // its own "1."; a later section again named "Langsamer Walzer" automatically becomes "2." — so
+  // the user only ever types the dance name itself ("Langsamer Walzer"), never a number.
   function renumberFilmCategories(){
     var wraps = filmTrackEl.querySelectorAll('.film-category');
-    var n = 0;
+    var counts = {}; // normalized section name -> how many section-starts with that name seen so far
     wraps.forEach(function(wrap, i){
       var f = state.formations[i];
       var numEl = wrap.querySelector('.film-category-num');
-      if(f && f.category){
-        n++;
-        numEl.textContent = n + '.';
+      var text = f && f.category ? f.category.trim() : '';
+      if(text){
+        var key = text.toLowerCase();
+        counts[key] = (counts[key] || 0) + 1;
+        numEl.textContent = counts[key] + '.';
         numEl.hidden = false;
       }else{
         numEl.hidden = true;

@@ -136,6 +136,12 @@ function reconstructSharedState(payload){
     formations: formations,
     axes: Array.isArray(payload.axes) ? payload.axes : [],
     showAxes: payload.showAxes !== false,
+    roomLabels: {
+      top: (payload.roomLabels && typeof payload.roomLabels.top === 'string') ? payload.roomLabels.top : 'WAND',
+      right: (payload.roomLabels && typeof payload.roomLabels.right === 'string') ? payload.roomLabels.right : 'SPIEGEL',
+      bottom: (payload.roomLabels && typeof payload.roomLabels.bottom === 'string') ? payload.roomLabels.bottom : 'EINGANG',
+      left: (payload.roomLabels && typeof payload.roomLabels.left === 'string') ? payload.roomLabels.left : 'FENSTER'
+    },
     pairs: (Array.isArray(payload.pairs) ? payload.pairs : []).map(function(p){
       return {id:p.id, memberIds:p.memberIds, name:p.name||'', collapsed:!!p.collapsed};
     }),

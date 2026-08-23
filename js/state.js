@@ -85,6 +85,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       ],
       axes: [],
       showAxes: true,
+      roomLabels: {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'},
       pairs: [],
       customFigures: [],
       logo: null,
@@ -105,6 +106,12 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(typeof parsed.projectName !== 'string' || !parsed.projectName.trim()) parsed.projectName = 'Meine Formation';
       if(!Array.isArray(parsed.axes)) parsed.axes = [];
       if(typeof parsed.showAxes !== 'boolean') parsed.showAxes = true;
+      // migration: older saves predate editable room-orientation labels entirely
+      var defaultRoomLabels = {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'};
+      if(!parsed.roomLabels || typeof parsed.roomLabels !== 'object') parsed.roomLabels = {};
+      ['top','right','bottom','left'].forEach(function(side){
+        if(typeof parsed.roomLabels[side] !== 'string') parsed.roomLabels[side] = defaultRoomLabels[side];
+      });
       if(!Array.isArray(parsed.pairs)) parsed.pairs = [];
       var knownDancerIds = parsed.dancers.map(function(d){ return d.id; });
       parsed.pairs = parsed.pairs.filter(function(p){
@@ -145,6 +152,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         formations: state.formations,
         axes: state.axes,
         showAxes: state.showAxes,
+        roomLabels: state.roomLabels,
         pairs: state.pairs,
         customFigures: state.customFigures,
         activeIndex: state.activeIndex,
@@ -246,6 +254,12 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
 
   var stageEl = document.getElementById('stage');
   var stageAreaEl = document.querySelector('.stage-area');
+  var roomLabelInputs = {
+    top: document.getElementById('roomLabelTop'),
+    right: document.getElementById('roomLabelRight'),
+    bottom: document.getElementById('roomLabelBottom'),
+    left: document.getElementById('roomLabelLeft')
+  };
   var rosterEl = document.querySelector('.roster');
   var pairRotateEl = document.getElementById('pairRotate');
   var pairRotateLabelEl = document.getElementById('pairRotateLabel');

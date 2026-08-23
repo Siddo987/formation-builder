@@ -2,6 +2,8 @@
   .stage-area{grid-area:stage;}
   .stage-caption-row{position:relative;margin:0 0 .55rem;}
   .stage-caption{
+    display:block;
+    width:100%;
     text-align:center;
     font-family:var(--font-mono);
     font-size:.64rem;
@@ -9,7 +11,44 @@
     text-transform:uppercase;
     color:var(--ink-faint);
     margin:0;
+    border:none; background:transparent; outline:none; padding:0;
   }
+  /* ---- editable room-orientation labels (Wand/Fenster/Spiegel/Eingang…) — shown around the
+     stage and also read by js/steps.js to label the Schritte-PDF's little room diagram, so
+     renaming them here (e.g. for a different Saal) updates both places at once. ---- */
+  .stage-caption:hover,.stage-caption:focus,
+  .room-label-bottom:hover,.room-label-bottom:focus{
+    color:var(--ink-soft);
+  }
+  .stage-caption:focus,.room-label-bottom:focus,.room-label-left:focus,.room-label-right:focus{
+    outline:1px dashed var(--gold); outline-offset:2px; border-radius:3px;
+  }
+  .room-label-bottom{
+    flex:0 0 auto; width:9ch;
+    font-family:var(--font-mono); font-size:.66rem; letter-spacing:.16em;
+    text-transform:uppercase; color:inherit;
+    border:none; background:transparent; outline:none; padding:0; text-align:center;
+  }
+  .stage-frame{position:relative;}
+  /* Sits directly on the stage floor, which is always dark regardless of the app's light/dark
+     theme (see .stage's own background) — so, like .grid-label, this uses a fixed light tint
+     instead of the theme-dependent --ink-faint (which would go near-invisible here in light mode). */
+  .room-label-left,.room-label-right{
+    position:absolute; top:50%; z-index:2;
+    writing-mode:vertical-rl; width:1.2rem; max-height:60%;
+    font-family:var(--font-mono); font-size:.62rem; letter-spacing:.16em;
+    text-transform:uppercase; color:rgba(255,255,255,.42);
+    border:none; background:transparent; outline:none; padding:0; text-align:center;
+  }
+  .room-label-left:hover,.room-label-left:focus,
+  .room-label-right:hover,.room-label-right:focus{
+    color:rgba(255,255,255,.75);
+  }
+  /* Inset past the grid's own row-number column (.grid-label.y-label, left:4px) so the two don't
+     visually collide — still well clear of the leftmost/rightmost possible dancer position (grid
+     x=±7 lands at GRID_INSET=6% from the edge, comfortably further in than this). */
+  .room-label-left{left:24px; transform:translateY(-50%);}
+  .room-label-right{right:24px; transform:translateY(-50%) rotate(180deg);}
   .axes-bild-toggle{
     position:absolute; right:0; top:50%; transform:translateY(-50%);
     display:flex; align-items:center; gap:.3rem;

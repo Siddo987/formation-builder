@@ -209,6 +209,27 @@
     addDots(state.formations[state.activeIndex+1], 'onion-dot-next', true);
   }
 
+  // Editable labels around the stage edges (default "WAND"/"SPIEGEL"/"EINGANG"/"FENSTER", matching
+  // a typical Saal) — state.roomLabels. Lives outside #stage itself (a sibling in .stage-frame, or
+  // in .stage-caption-row/.stage-audience) so fullRerender()'s stageEl.innerHTML='' never touches
+  // it. Also read by js/steps.js to label the Schritte-PDF's little room diagram, so renaming a
+  // side here (e.g. for a different rehearsal room) updates both places at once.
+  function updateRoomLabelInputs(){
+    var labels = state.roomLabels || {};
+    ['top','right','bottom','left'].forEach(function(side){
+      var el = roomLabelInputs[side];
+      if(el && document.activeElement !== el) el.value = labels[side] || '';
+    });
+  }
+  ['top','right','bottom','left'].forEach(function(side){
+    var el = roomLabelInputs[side];
+    if(!el) return;
+    el.addEventListener('input', function(){
+      state.roomLabels[side] = el.value;
+      saveState();
+    });
+  });
+
   function buildStageLogo(){
     var img = document.createElement('img');
     img.className = 'stage-logo';
