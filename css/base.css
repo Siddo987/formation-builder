@@ -108,7 +108,7 @@
   }
   .btn-ghost:hover{border-color:var(--gold);background:var(--panel-2);}
   .btn-ghost.danger:hover{border-color:var(--curtain);color:var(--curtain);background:var(--curtain-wash);}
-  .btn-ghost svg{flex:none;width:7px;height:7px;}
+  .btn-ghost svg{flex:none;}
   .import-error{
     font-size:.72rem;
     color:var(--curtain);
@@ -147,7 +147,6 @@
     transform:translateY(-50%);
     color:var(--ink-faint);
     pointer-events:none;
-    width:7px;height:7px;
   }
   .project-name{
     border:1px solid transparent;
