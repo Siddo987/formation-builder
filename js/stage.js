@@ -48,7 +48,11 @@
       el.querySelector('.label').textContent = d.name;
       el.style.background = d.color;
       el.classList.toggle('selected', selectedDancerId === d.id);
-      el.classList.toggle('pair-selected', pairSelection.indexOf(d.id) !== -1);
+      // The teal "grouped" ring only kicks in once there are 2+ (matching dragGroupFor's own
+      // threshold) — a lone dancer sitting in pairSelection (e.g. right after a plain click, which
+      // now seeds it with just that dancer so a follow-up Ctrl-click has something to add to)
+      // still shows as a normal single selection instead of looking like an already-formed pair.
+      el.classList.toggle('pair-selected', pairSelection.length >= 2 && pairSelection.indexOf(d.id) !== -1);
     });
     Object.keys(stageMarkers).forEach(function(id){
       if(!seen[id]){ stageMarkers[id].remove(); delete stageMarkers[id]; }
@@ -408,10 +412,14 @@
         togglePairSelection(dancerId);
         return;
       }
-      // Plain click on a dancer with a saved partner selects — and now drags — both together;
-      // an unpaired dancer (or clicking to start a fresh drag elsewhere) behaves as before.
+      // Plain click on a dancer with a saved partner selects — and now drags — both together.
+      // An unpaired dancer starts a fresh single-dancer selection (not an empty one — a plain
+      // click used to clear pairSelection to [] entirely here, so it never actually registered
+      // the clicked dancer; pairing two unpaired dancers then took an extra, confusing Ctrl-click
+      // to even reach length 2, and could end up pairing the wrong two if a stray plain click
+      // landed in between). Ctrl/Cmd-click still adds/removes individual dancers from there.
       var pair = findPairForDancer(dancerId);
-      pairSelection = pair ? pair.memberIds.slice() : [];
+      pairSelection = pair ? pair.memberIds.slice() : [dancerId];
       updatePairRotateUI();
       try{ el.setPointerCapture(e.pointerId); }catch(err){}
       selectedDancerId = dancerId;
