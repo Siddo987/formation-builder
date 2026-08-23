@@ -57,6 +57,17 @@
     pointer-events:auto; cursor:grab; touch-action:none;
   }
   .layout-ghost-dot:active{cursor:grabbing; opacity:.8;}
+  /* Orientierungspunkt — the layout's rotation pivot (admin-settable, see admin/layouts.php's
+     violet diamond). Distinct shape/color from the numbered per-dancer dots so it doesn't read as
+     "one more dancer slot" — dragging it works exactly the same as any other ghost dot though. */
+  .layout-ghost-origin{
+    position:absolute; width:22px; height:22px;
+    transform:translate(-50%,-50%) rotate(45deg);
+    background:#8d79d1; opacity:.55;
+    border:2px solid #fff;
+    pointer-events:auto; cursor:grab; touch-action:none;
+  }
+  .layout-ghost-origin:active{cursor:grabbing; opacity:.85;}
   .stage{
     position:relative;
     aspect-ratio:3/2;
@@ -150,11 +161,14 @@
      only shown while such a selection is active. */
   .pair-midpoint-marker{
     position:absolute;
-    width:14px;height:14px;
+    width:18px;height:18px;
     transform:translate(-50%,-50%);
-    pointer-events:none;
+    pointer-events:auto;
+    cursor:grab;
+    touch-action:none;
     z-index:6;
   }
+  .pair-midpoint-marker:active{cursor:grabbing;}
   .pair-midpoint-marker::before,.pair-midpoint-marker::after{
     content:"";
     position:absolute;
@@ -184,6 +198,11 @@
     transition:background .12s ease;
   }
   .dancer-row:hover,.dancer-row:focus-within{background:var(--panel-2);}
+  /* Mirrors the stage's current selection (selectedDancerId) — "am Rand in der Leiste
+     gehighlighted" — a gold edge on the dancer's own row, and separately on their pair's whole
+     group container (updateRosterSelectionHighlight keeps both in sync). */
+  .dancer-row.roster-row-selected{box-shadow:inset 3px 0 0 var(--gold);}
+  .pair-group.roster-pairgroup-selected{border-color:var(--gold); box-shadow:inset 3px 0 0 var(--gold);}
   .dancer-row-main{display:flex;align-items:center;gap:.55rem;}
   .swatch{
     width:13px;height:13px;

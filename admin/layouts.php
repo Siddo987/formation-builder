@@ -26,23 +26,27 @@ try {
             $name = trim((string)($_POST['name'] ?? ''));
             $description = trim((string)($_POST['description'] ?? ''));
             $positionsRaw = trim((string)($_POST['positions_json'] ?? ''));
+            $originRaw = trim((string)($_POST['origin_json'] ?? ''));
             $sortOrder = (int)($_POST['sort_order'] ?? 0);
             $decoded = json_decode($positionsRaw, true);
             $validPositions = is_array($decoded) && count($decoded) > 0 && array_reduce($decoded, function ($ok, $p) {
                 return $ok && is_array($p) && isset($p['x']) && isset($p['y']) && is_numeric($p['x']) && is_numeric($p['y']);
             }, true);
+            $originDecoded = json_decode($originRaw, true);
+            $originX = (is_array($originDecoded) && isset($originDecoded['x']) && is_numeric($originDecoded['x'])) ? (float)$originDecoded['x'] : 0.0;
+            $originY = (is_array($originDecoded) && isset($originDecoded['y']) && is_numeric($originDecoded['y'])) ? (float)$originDecoded['y'] : 0.0;
             if ($name === '') {
                 $error = 'Name fehlt.';
             } elseif (!$validPositions) {
                 $error = 'Positions-JSON ist ungültig — erwartet wird eine Liste wie [{"x":0,"y":5},{"x":2,"y":3}].';
             } else {
-                $stmt = db()->prepare('INSERT INTO layouts (id, name, description, positions_json, sort_order) VALUES (?, ?, ?, ?, ?)');
-                $stmt->execute([random_row_id2('lay'), $name, $description, json_encode($decoded, JSON_UNESCAPED_UNICODE), $sortOrder]);
+                $stmt = db()->prepare('INSERT INTO layouts (id, name, description, positions_json, origin_x, origin_y, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
+                $stmt->execute([random_row_id2('lay'), $name, $description, json_encode($decoded, JSON_UNESCAPED_UNICODE), $originX, $originY, $sortOrder]);
                 $notice = 'Vorlage "' . $name . '" angelegt.';
             }
         }
     }
-    $rows = db()->query('SELECT id, name, description, positions_json, sort_order FROM layouts ORDER BY sort_order ASC, name ASC')->fetchAll();
+    $rows = db()->query('SELECT id, name, description, positions_json, origin_x, origin_y, sort_order FROM layouts ORDER BY sort_order ASC, name ASC')->fetchAll();
 } catch (Throwable $e) {
     error_log($e->getMessage());
     $dbError = 'Datenbank nicht erreichbar oder Tabelle "layouts" fehlt — wurde schema.sql schon gegen die echte Datenbank ausgeführt?';
@@ -55,6 +59,10 @@ function describe_positions(string $json): string {
     if (!is_array($p)) return $json;
     $n = count($p);
     return $n . ($n === 1 ? ' Punkt' : ' Punkte');
+}
+function describe_origin($x, $y): string {
+    $fmt = function ($v) { return rtrim(rtrim(sprintf('%.2f', round((float)$v, 2)), '0'), '.'); };
+    return '(' . $fmt($x) . ' / ' . $fmt($y) . ')';
 }
 ?>
 <!doctype html>
@@ -97,11 +105,13 @@ function describe_positions(string $json): string {
     border:1px solid #ddd3c0; border-radius:10px;
     cursor:crosshair; user-select:none; touch-action:none;
   }
-  .vorlage-grid-center{
-    position:absolute; left:50%; top:50%; width:10px; height:10px;
-    transform:translate(-50%,-50%); border-radius:50%;
-    background:#cabfdb; pointer-events:none;
+  .vorlage-origin{
+    position:absolute; width:20px; height:20px;
+    transform:translate(-50%,-50%) rotate(45deg);
+    background:#8d79d1; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.25);
+    cursor:grab;
   }
+  .vorlage-origin:active{cursor:grabbing;}
   .vorlage-point{
     position:absolute; width:26px; height:26px;
     transform:translate(-50%,-50%); border-radius:50%;
@@ -127,13 +137,14 @@ function describe_positions(string $json): string {
 
   <div class="card">
     <table>
-      <thead><tr><th>Name</th><th>Beschreibung</th><th>Positionen</th><th>Reihenfolge</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Beschreibung</th><th>Positionen</th><th>Orientierungspunkt</th><th>Reihenfolge</th><th></th></tr></thead>
       <tbody>
       <?php foreach ($rows as $row): ?>
         <tr>
           <td><?= h2($row['name']) ?></td>
           <td><?= h2($row['description']) ?></td>
           <td><?= h2(describe_positions($row['positions_json'])) ?> <details><summary class="hint" style="cursor:pointer;display:inline;">JSON</summary><pre><?= h2($row['positions_json']) ?></pre></details></td>
+          <td><?= h2(describe_origin($row['origin_x'] ?? 0, $row['origin_y'] ?? 0)) ?></td>
           <td><?= h2($row['sort_order']) ?></td>
           <td>
             <form method="post" onsubmit="return confirm('Vorlage wirklich löschen?');">
@@ -145,7 +156,7 @@ function describe_positions(string $json): string {
           </td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$rows): ?><tr><td colspan="5" class="hint">Noch keine Vorlagen.</td></tr><?php endif; ?>
+      <?php if (!$rows): ?><tr><td colspan="6" class="hint">Noch keine Vorlagen.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>
@@ -159,18 +170,23 @@ function describe_positions(string $json): string {
       <input type="text" id="name" name="name" required maxlength="120">
       <label for="description">Beschreibung (optional)</label>
       <input type="text" id="description" name="description" maxlength="255">
-      <label>Form (nur Positionen relativ zueinander — der Mittelpunkt hier wird beim Anzeigen frei auf der Bühne platziert und gedreht)</label>
-      <div class="vorlage-grid" id="vorlageGrid"><div class="vorlage-grid-center"></div></div>
+      <label>Form (nur Positionen relativ zueinander — die ganze Form wird beim Anzeigen frei auf der Bühne platziert und gedreht)</label>
+      <div class="vorlage-grid" id="vorlageGrid"></div>
       <div class="vorlage-toolbar">
         <button type="button" class="secondary" id="vorlageUndoBtn">Letzten Punkt entfernen</button>
         <button type="button" class="secondary" id="vorlageClearBtn">Alle löschen</button>
+        <button type="button" class="secondary" id="vorlageOriginResetBtn">Orientierungspunkt zurücksetzen</button>
         <span class="hint" id="vorlagePointCount">0 Punkte</span>
       </div>
       <p class="hint">
         Auf das Raster klicken = Punkt hinzufügen. Punkt ziehen = verschieben. Doppelklick auf einen Punkt = löschen.
         Die Reihenfolge (Nummern) bestimmt, welcher Tänzer welchem Punkt zugeordnet wird.
+        Der violette Diamant ist der <strong>Orientierungspunkt</strong> — der Punkt, um den sich die Vorlage
+        dreht (Drehfeld auf der Bühne) und den man dort auch selbst greifen und verschieben kann; frei ziehbar,
+        muss kein Tänzer-Punkt sein.
       </p>
       <input type="hidden" name="positions_json" id="positions_json" value="[]">
+      <input type="hidden" name="origin_json" id="origin_json" value='{"x":0,"y":0}'>
       <label for="sort_order">Reihenfolge (kleiner = weiter oben)</label>
       <input type="number" id="sort_order" name="sort_order" value="0">
       <button type="submit">Vorlage anlegen</button>
@@ -182,8 +198,10 @@ function describe_positions(string $json): string {
   var GRID_MIN = -7, GRID_MAX = 7, GRID_SPAN = 14;
   var grid = document.getElementById('vorlageGrid');
   var field = document.getElementById('positions_json');
+  var originField = document.getElementById('origin_json');
   var countEl = document.getElementById('vorlagePointCount');
   var points = [];
+  var origin = {x: 0, y: 0};
   var suppressNextClick = false;
 
   function toPercent(v){ return ((v - GRID_MIN) / GRID_SPAN) * 100; }
@@ -192,12 +210,49 @@ function describe_positions(string $json): string {
 
   function sync(){
     field.value = JSON.stringify(points);
+    originField.value = JSON.stringify(origin);
     countEl.textContent = points.length + (points.length === 1 ? ' Punkt' : ' Punkte');
     render();
   }
 
+  // The orientation point ("Orientierungspunkt") is its own always-present, non-deletable marker
+  // — a diamond distinct from the numbered dancer-slot dots — draggable the same way, but not
+  // tied to any dancer. It's the rotation pivot on the stage side (see js/stage.js's
+  // layoutPointToStage), so unlike the numbered points, dragging it never adds/removes anything.
+  function renderOrigin(){
+    var el = grid.querySelector('.vorlage-origin');
+    if(!el){
+      el = document.createElement('div');
+      el.className = 'vorlage-origin';
+      el.title = 'Orientierungspunkt — Drehpunkt der Vorlage; ziehen zum Verschieben';
+      el.addEventListener('pointerdown', function(e){
+        e.preventDefault(); e.stopPropagation();
+        try{ el.setPointerCapture(e.pointerId); }catch(err){}
+        function onMove(ev){
+          var rect = grid.getBoundingClientRect();
+          var px = ((ev.clientX - rect.left) / rect.width) * 100;
+          var py = ((ev.clientY - rect.top) / rect.height) * 100;
+          origin = { x: snap(toGrid(px)), y: snap(toGrid(py)) };
+          sync();
+        }
+        function onUp(){
+          suppressNextClick = true;
+          try{ el.releasePointerCapture(e.pointerId); }catch(err){}
+          el.removeEventListener('pointermove', onMove);
+          el.removeEventListener('pointerup', onUp);
+        }
+        el.addEventListener('pointermove', onMove);
+        el.addEventListener('pointerup', onUp);
+      });
+      grid.appendChild(el);
+    }
+    el.style.left = toPercent(origin.x) + '%';
+    el.style.top = toPercent(origin.y) + '%';
+  }
+
   function render(){
     grid.querySelectorAll('.vorlage-point').forEach(function(el){ el.remove(); });
+    renderOrigin();
     points.forEach(function(p, i){
       var el = document.createElement('div');
       el.className = 'vorlage-point';
@@ -249,6 +304,10 @@ function describe_positions(string $json): string {
   });
   document.getElementById('vorlageClearBtn').addEventListener('click', function(){
     points = [];
+    sync();
+  });
+  document.getElementById('vorlageOriginResetBtn').addEventListener('click', function(){
+    origin = {x: 0, y: 0};
     sync();
   });
 

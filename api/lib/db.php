@@ -68,6 +68,13 @@ function db_ensure_schema(): void {
         name TEXT NOT NULL,
         description TEXT,
         positions_json TEXT NOT NULL,
+        origin_x REAL NOT NULL DEFAULT 0,
+        origin_y REAL NOT NULL DEFAULT 0,
         sort_order INTEGER NOT NULL DEFAULT 0
     )");
+    // Migration for a dev sqlite file created before origin_x/origin_y existed — CREATE TABLE IF
+    // NOT EXISTS above is a no-op against an already-existing table, so add the columns directly;
+    // ignore the error if they're already there (older sqlite has no ADD COLUMN IF NOT EXISTS).
+    try { $pdo->exec("ALTER TABLE layouts ADD COLUMN origin_x REAL NOT NULL DEFAULT 0"); } catch (Throwable $e) {}
+    try { $pdo->exec("ALTER TABLE layouts ADD COLUMN origin_y REAL NOT NULL DEFAULT 0"); } catch (Throwable $e) {}
 }

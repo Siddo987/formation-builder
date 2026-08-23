@@ -51,16 +51,29 @@ CREATE TABLE IF NOT EXISTS layouts (
   name            VARCHAR(120)  NOT NULL,
   description     VARCHAR(255)  NULL,
   positions_json  JSON          NOT NULL,
+  origin_x        FLOAT         NOT NULL DEFAULT 0,
+  origin_y        FLOAT         NOT NULL DEFAULT 0,
   sort_order      INT           NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO layouts (id, name, description, positions_json, sort_order) VALUES
+-- Re-running this file against a database that already has an older `layouts` table (created
+-- before origin_x/origin_y existed) — CREATE TABLE IF NOT EXISTS above is a no-op there, so add
+-- the columns explicitly. Needs MySQL 8.0.29+ for ADD COLUMN IF NOT EXISTS; on an older MySQL,
+-- drop the "IF NOT EXISTS" and ignore the resulting "duplicate column" error if it's already there.
+ALTER TABLE layouts ADD COLUMN IF NOT EXISTS origin_x FLOAT NOT NULL DEFAULT 0;
+ALTER TABLE layouts ADD COLUMN IF NOT EXISTS origin_y FLOAT NOT NULL DEFAULT 0;
+
+-- The rotation pivot ("Orientierungspunkt") — where the layout-select rotation input in the app
+-- turns the shape around, and rendered client-side as its own distinct, grabbable ghost point
+-- alongside the per-dancer ones. Defaults to (0,0), matching the previous fixed pivot exactly, so
+-- existing rows/behavior are unaffected until an admin deliberately repositions it.
+INSERT INTO layouts (id, name, description, positions_json, origin_x, origin_y, sort_order) VALUES
   ('lay-reihe', 'Reihe', 'Eine gerade Linie.',
-   '[{"x":-7,"y":0},{"x":-5,"y":0},{"x":-3,"y":0},{"x":-1,"y":0},{"x":1,"y":0},{"x":3,"y":0},{"x":5,"y":0},{"x":7,"y":0}]', 1),
+   '[{"x":-7,"y":0},{"x":-5,"y":0},{"x":-3,"y":0},{"x":-1,"y":0},{"x":1,"y":0},{"x":3,"y":0},{"x":5,"y":0},{"x":7,"y":0}]', 0, 0, 1),
   ('lay-kreis', 'Kreis', 'Gleichmäßig auf einem Kreis verteilt.',
-   '[{"x":0,"y":-4.5},{"x":3.2,"y":-3.2},{"x":4.5,"y":0},{"x":3.2,"y":3.2},{"x":0,"y":4.5},{"x":-3.2,"y":3.2},{"x":-4.5,"y":0},{"x":-3.2,"y":-3.2}]', 2),
+   '[{"x":0,"y":-4.5},{"x":3.2,"y":-3.2},{"x":4.5,"y":0},{"x":3.2,"y":3.2},{"x":0,"y":4.5},{"x":-3.2,"y":3.2},{"x":-4.5,"y":0},{"x":-3.2,"y":-3.2}]', 0, 0, 2),
   ('lay-v-form', 'V-Form', 'Spitze nach vorn, nach hinten geöffnet.',
-   '[{"x":0,"y":4},{"x":-2,"y":2},{"x":2,"y":2},{"x":-4,"y":0},{"x":4,"y":0},{"x":-6,"y":-2},{"x":6,"y":-2},{"x":0,"y":-4}]', 3),
+   '[{"x":0,"y":4},{"x":-2,"y":2},{"x":2,"y":2},{"x":-4,"y":0},{"x":4,"y":0},{"x":-6,"y":-2},{"x":6,"y":-2},{"x":0,"y":-4}]', 0, 0, 3),
   ('lay-doppelreihe', 'Doppelreihe', 'Zwei versetzte Reihen hintereinander.',
-   '[{"x":-6,"y":1.5},{"x":-3,"y":1.5},{"x":0,"y":1.5},{"x":3,"y":1.5},{"x":6,"y":1.5},{"x":-4.5,"y":-1.5},{"x":-1.5,"y":-1.5},{"x":1.5,"y":-1.5},{"x":4.5,"y":-1.5}]', 4)
+   '[{"x":-6,"y":1.5},{"x":-3,"y":1.5},{"x":0,"y":1.5},{"x":3,"y":1.5},{"x":6,"y":1.5},{"x":-4.5,"y":-1.5},{"x":-1.5,"y":-1.5},{"x":1.5,"y":-1.5},{"x":4.5,"y":-1.5}]', 0, 0, 4)
 ON DUPLICATE KEY UPDATE name = VALUES(name);
