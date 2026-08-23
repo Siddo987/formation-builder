@@ -223,6 +223,31 @@
     return {x: clampGrid(x), y: clampGrid(y)};
   }
 
+  // How close (in grid units) a dancer/pair reference point must get to a Vorlage ghost point
+  // before it snaps onto it. Used by attachDancerEvents' drag handler below.
+  var LAYOUT_SNAP_RADIUS = 0.75;
+
+  function activeLayoutGhostPoints(){
+    if(!activeLayoutId || !layoutsCatalog) return [];
+    var layout = layoutsCatalog.find(function(l){ return l.id === activeLayoutId; });
+    if(!layout || !Array.isArray(layout.positions)) return [];
+    var n = Math.min(layout.positions.length, state.dancers.length);
+    var pts = [];
+    for(var i=0; i<n; i++) pts.push(layoutPointToStage(layout.positions[i]));
+    return pts;
+  }
+
+  // Nearest active ghost point to (gx,gy), only if within LAYOUT_SNAP_RADIUS — else null.
+  function nearestLayoutPoint(gx, gy){
+    var pts = activeLayoutGhostPoints();
+    var best = null, bestDist = Infinity;
+    pts.forEach(function(p){
+      var d = Math.hypot(p.x - gx, p.y - gy);
+      if(d < bestDist){ bestDist = d; best = p; }
+    });
+    return (best && bestDist <= LAYOUT_SNAP_RADIUS) ? best : null;
+  }
+
   // Full rebuild — safe to call any time EXCEPT during an active ghost-dot drag (see
   // repositionLayoutGhostDots below for why: recreating the dragged node mid-drag breaks its
   // pointer capture after the very first move).
@@ -279,9 +304,14 @@
         var dxPct = ((ev.clientX-startX)/rect.width)*100;
         var dyPct = ((ev.clientY-startY)/rect.height)*100;
         var scale = 100 - 2*GRID_INSET;
+        var dx = (dxPct/scale)*GRID_SPAN;
+        var dy = (dyPct/scale)*GRID_SPAN;
+        // Same snap-to-grid-unless-Shift behavior as dragging a dancer, applied to the whole
+        // shape's movement rather than to one point.
+        if(!ev.shiftKey){ dx = Math.round(dx); dy = Math.round(dy); }
         activeLayoutOffset = {
-          x: clampGrid(startOffset.x + (dxPct/scale)*GRID_SPAN),
-          y: clampGrid(startOffset.y + (dyPct/scale)*GRID_SPAN)
+          x: clampGrid(startOffset.x + dx),
+          y: clampGrid(startOffset.y + dy)
         };
         repositionLayoutGhostDots();
       }
@@ -401,6 +431,23 @@
         var gy = percentToGrid(py);
         if(!ev.shiftKey){ gx = Math.round(gx); gy = Math.round(gy); }
         var dx = gx - grabStart.x, dy = gy - grabStart.y;
+        // Snap onto an active Vorlage's nearest point: for a solo drag the reference is the
+        // dragged dancer's own tentative position; for a pair/group drag it's the group's
+        // centroid (for exactly 2 that's the midpoint between the partners) — matching "der
+        // Mittelpunkt des Paars soll auf den Punkt der Vorlage einrasten". Shift disables it,
+        // same as it disables plain grid snapping.
+        if(activeLayoutId && !ev.shiftKey){
+          var refX, refY;
+          if(groupIds.length >= 2){
+            var sumX = 0, sumY = 0;
+            groupIds.forEach(function(id){ var sp = startPositions[id]; sumX += sp.x+dx; sumY += sp.y+dy; });
+            refX = sumX/groupIds.length; refY = sumY/groupIds.length;
+          }else{
+            refX = grabStart.x+dx; refY = grabStart.y+dy;
+          }
+          var snap = nearestLayoutPoint(refX, refY);
+          if(snap){ dx += snap.x-refX; dy += snap.y-refY; }
+        }
         groupIds.forEach(function(id){
           var sp = startPositions[id];
           setDancerPos(id, sp.x+dx, sp.y+dy);
