@@ -5,6 +5,7 @@
   function renderRoster(){
     rosterListEl.innerHTML = '';
     rosterCoordInputs = {};
+    rosterPairMidpointInputs = {};
     var pos = currentFormation().pos;
     var rendered = {};
     state.dancers.forEach(function(d){
@@ -26,30 +27,101 @@
   }
 
   // Partners always render together, wherever the first-encountered member sits in
-  // state.dancers — a single shared header ("⚭ Paar … trennen") replaces the old per-row
-  // badge that used to repeat the same "trennen" action once on each partner's own row.
+  // state.dancers — a single shared header ("Paar … trennen") replaces the old per-row badge
+  // that used to repeat the same "trennen" action once on each partner's own row. The pair can be
+  // given a name/number and collapsed down to just its midpoint coordinate (the point exactly
+  // between the two partners) instead of showing both full dancer rows.
   function buildPairGroup(pair, a, b, pos){
     var group = document.createElement('div');
     group.className = 'pair-group';
 
     var header = document.createElement('div');
     header.className = 'pair-group-header';
-    var label = document.createElement('span');
-    label.className = 'pair-group-label';
-    label.textContent = '⚭ Paar';
+
+    var collapseBtn = document.createElement('button');
+    collapseBtn.type = 'button';
+    collapseBtn.className = 'pair-group-collapse';
+    collapseBtn.textContent = pair.collapsed ? '▸' : '▾';
+    collapseBtn.title = pair.collapsed ? 'Paar ausklappen' : 'Paar einklappen';
+    collapseBtn.setAttribute('aria-label', (pair.collapsed ? 'Paar ausklappen: ' : 'Paar einklappen: ') + a.name + ' & ' + b.name);
+    collapseBtn.addEventListener('click', function(){
+      pair.collapsed = !pair.collapsed;
+      saveState();
+      renderRoster();
+    });
+
+    var nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'pair-group-name';
+    nameInput.value = pair.name || '';
+    nameInput.placeholder = '⚭ Paar';
+    nameInput.maxLength = 40;
+    nameInput.setAttribute('aria-label', 'Name/Nummer des Paares ' + a.name + ' & ' + b.name);
+    nameInput.addEventListener('input', function(){ pair.name = nameInput.value; saveState(); });
+
     var unpairBtn = document.createElement('button');
     unpairBtn.type = 'button';
     unpairBtn.className = 'pair-group-unpair';
     unpairBtn.textContent = 'trennen';
     unpairBtn.setAttribute('aria-label', 'Paarung von ' + a.name + ' und ' + b.name + ' aufheben');
     unpairBtn.addEventListener('click', function(){ dissolvePair(pair.id); });
-    header.appendChild(label);
+
+    header.appendChild(collapseBtn);
+    header.appendChild(nameInput);
     header.appendChild(unpairBtn);
     group.appendChild(header);
 
-    group.appendChild(buildDancerRow(a, pos, 'lead'));
-    group.appendChild(buildDancerRow(b, pos, 'follow'));
+    if(pair.collapsed){
+      group.appendChild(buildPairMidpointRow(pair, a, b));
+    }else{
+      group.appendChild(buildDancerRow(a, pos, 'lead'));
+      group.appendChild(buildDancerRow(b, pos, 'follow'));
+    }
     return group;
+  }
+
+  // Collapsed view: one row showing just the pair's midpoint (the point exactly between the two
+  // partners), editable — dragging it moves both partners together by the same delta, preserving
+  // whatever offset they already had from each other.
+  function buildPairMidpointRow(pair, a, b){
+    var row = document.createElement('div');
+    row.className = 'pair-group-midpoint';
+    var mid = pairMidpoint(pair);
+
+    var xLabel = document.createElement('span');
+    xLabel.className = 'coord-label';
+    xLabel.textContent = 'X';
+    var xInput = document.createElement('input');
+    xInput.type = 'number';
+    xInput.className = 'coord-input';
+    xInput.min = GRID_MIN; xInput.max = GRID_MAX; xInput.step = '0.5';
+    xInput.value = roundNum(mid.x);
+    xInput.setAttribute('aria-label', 'X-Position des Mittelpunkts von ' + a.name + ' & ' + b.name);
+    xInput.addEventListener('input', function(){
+      var cur = pairMidpoint(pair);
+      setPairMidpoint(pair, parseFloat(xInput.value)||0, cur.y);
+    });
+
+    var yLabel = document.createElement('span');
+    yLabel.className = 'coord-label';
+    yLabel.textContent = 'Y';
+    var yInput = document.createElement('input');
+    yInput.type = 'number';
+    yInput.className = 'coord-input';
+    yInput.min = GRID_MIN; yInput.max = GRID_MAX; yInput.step = '0.5';
+    yInput.value = roundNum(mid.y);
+    yInput.setAttribute('aria-label', 'Y-Position des Mittelpunkts von ' + a.name + ' & ' + b.name);
+    yInput.addEventListener('input', function(){
+      var cur = pairMidpoint(pair);
+      setPairMidpoint(pair, cur.x, parseFloat(yInput.value)||0);
+    });
+
+    row.appendChild(xLabel);
+    row.appendChild(yLabel);
+    row.appendChild(xInput);
+    row.appendChild(yInput);
+    rosterPairMidpointInputs[pair.id] = {x:xInput, y:yInput};
+    return row;
   }
 
   function buildDancerRow(d, pos, role){

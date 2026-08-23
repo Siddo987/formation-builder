@@ -106,7 +106,7 @@
       }),
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
-      pairs: (s.pairs||[]).map(function(p){ return {id:p.id, memberIds:p.memberIds.slice()}; }),
+      pairs: (s.pairs||[]).map(function(p){ return {id:p.id, memberIds:p.memberIds.slice(), name:p.name||'', collapsed:!!p.collapsed}; }),
       customFigures: (s.customFigures||[]).map(function(fig){ return {id:fig.id, name:fig.name, transform:fig.transform}; }),
       activeIndex: s.activeIndex,
       tempo: s.tempo,
@@ -189,7 +189,7 @@
     var pairs = (Array.isArray(header.pairs) ? header.pairs : []).filter(function(p){
       return p && Array.isArray(p.memberIds) && p.memberIds.length === 2 &&
         validDancerIds.indexOf(p.memberIds[0]) !== -1 && validDancerIds.indexOf(p.memberIds[1]) !== -1;
-    });
+    }).map(function(p){ return {id:p.id, memberIds:p.memberIds, name:p.name||'', collapsed:!!p.collapsed}; });
     var customFigures = (Array.isArray(header.customFigures) ? header.customFigures : []).filter(function(fig){
       return fig && typeof fig.name === 'string' && fig.transform && typeof fig.transform === 'object';
     }).map(function(fig){ return {id: fig.id || uid('cf'), name: fig.name, transform: fig.transform}; });

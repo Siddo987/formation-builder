@@ -111,6 +111,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         return p && Array.isArray(p.memberIds) && p.memberIds.length === 2 &&
           knownDancerIds.indexOf(p.memberIds[0]) !== -1 && knownDancerIds.indexOf(p.memberIds[1]) !== -1;
       });
+      parsed.pairs.forEach(function(p){
+        if(typeof p.name !== 'string') p.name = '';
+        if(typeof p.collapsed !== 'boolean') p.collapsed = false;
+      });
       if(!Array.isArray(parsed.customFigures)) parsed.customFigures = [];
       parsed.customFigures = parsed.customFigures.filter(function(fig){
         return fig && typeof fig.name === 'string' && fig.transform && typeof fig.transform === 'object';
@@ -232,6 +236,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var pairSelection = [];
   var stageMarkers = {}; // dancerId -> element
   var rosterCoordInputs = {}; // dancerId -> {x, y} input elements
+  var rosterPairMidpointInputs = {}; // pairId -> {x, y} input elements (only present while collapsed)
 
   var playing = false, phaseStart = 0, fromIdx = 0, toIdx = 0, rafId = null, syncActive = false;
 
