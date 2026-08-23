@@ -6,7 +6,53 @@
     rosterListEl.innerHTML = '';
     rosterCoordInputs = {};
     var pos = currentFormation().pos;
+    var rendered = {};
     state.dancers.forEach(function(d){
+      if(rendered[d.id]) return;
+      rendered[d.id] = true;
+      var pair = findPairForDancer(d.id);
+      if(pair){
+        var partnerId = pair.memberIds[0] === d.id ? pair.memberIds[1] : pair.memberIds[0];
+        var partner = state.dancers.find(function(pd){ return pd.id === partnerId; });
+        if(partner){
+          rendered[partnerId] = true;
+          rosterListEl.appendChild(buildPairGroup(pair, d, partner, pos));
+          return;
+        }
+      }
+      rosterListEl.appendChild(buildDancerRow(d, pos, null));
+    });
+    dancerCountEl.textContent = state.dancers.length;
+  }
+
+  // Partners always render together, wherever the first-encountered member sits in
+  // state.dancers — a single shared header ("⚭ Paar … trennen") replaces the old per-row
+  // badge that used to repeat the same "trennen" action once on each partner's own row.
+  function buildPairGroup(pair, a, b, pos){
+    var group = document.createElement('div');
+    group.className = 'pair-group';
+
+    var header = document.createElement('div');
+    header.className = 'pair-group-header';
+    var label = document.createElement('span');
+    label.className = 'pair-group-label';
+    label.textContent = '⚭ Paar';
+    var unpairBtn = document.createElement('button');
+    unpairBtn.type = 'button';
+    unpairBtn.className = 'pair-group-unpair';
+    unpairBtn.textContent = 'trennen';
+    unpairBtn.setAttribute('aria-label', 'Paarung von ' + a.name + ' und ' + b.name + ' aufheben');
+    unpairBtn.addEventListener('click', function(){ dissolvePair(pair.id); });
+    header.appendChild(label);
+    header.appendChild(unpairBtn);
+    group.appendChild(header);
+
+    group.appendChild(buildDancerRow(a, pos, 'lead'));
+    group.appendChild(buildDancerRow(b, pos, 'follow'));
+    return group;
+  }
+
+  function buildDancerRow(d, pos, role){
       var row = document.createElement('div');
       row.className = 'dancer-row';
 
@@ -33,6 +79,12 @@
 
       main.appendChild(swatch);
       main.appendChild(input);
+      if(role){
+        var roleTag = document.createElement('span');
+        roleTag.className = 'role-tag';
+        roleTag.textContent = roleLabel(role);
+        main.appendChild(roleTag);
+      }
       main.appendChild(remove);
 
       var coords = document.createElement('div');
@@ -95,40 +147,21 @@
         }
       });
 
+      // Labels first, then inputs — with .dancer-row-coords as a 3-column grid (see stage.css)
+      // this lines up X/Y/° labels in row 1 directly above their inputs in row 2, instead of the
+      // old single-row flex layout that could split a label from its input onto separate lines.
       coords.appendChild(xLabel);
-      coords.appendChild(xInput);
       coords.appendChild(yLabel);
-      coords.appendChild(yInput);
       coords.appendChild(rotLabel);
+      coords.appendChild(xInput);
+      coords.appendChild(yInput);
       coords.appendChild(rotInput);
 
       rosterCoordInputs[d.id] = {x:xInput, y:yInput, rot:rotInput};
 
       row.appendChild(main);
       row.appendChild(coords);
-
-      var pair = findPairForDancer(d.id);
-      if(pair){
-        var partnerId = pair.memberIds[0] === d.id ? pair.memberIds[1] : pair.memberIds[0];
-        var partner = state.dancers.find(function(pd){ return pd.id === partnerId; });
-        var badge = document.createElement('div');
-        badge.className = 'pair-badge';
-        var badgeLabel = document.createElement('span');
-        badgeLabel.textContent = '⚭ ' + roleLabel(dancerRole(d.id)) + ' · Paar mit ' + (partner ? partner.name : '?');
-        var unpairBtn = document.createElement('button');
-        unpairBtn.type = 'button';
-        unpairBtn.className = 'pair-badge-unpair';
-        unpairBtn.textContent = 'trennen';
-        unpairBtn.setAttribute('aria-label', 'Paarung von ' + d.name + ' und ' + (partner ? partner.name : '') + ' aufheben');
-        unpairBtn.addEventListener('click', function(){ dissolvePair(pair.id); });
-        badge.appendChild(badgeLabel);
-        badge.appendChild(unpairBtn);
-        row.appendChild(badge);
-      }
-
-      rosterListEl.appendChild(row);
-    });
-    dancerCountEl.textContent = state.dancers.length;
+      return row;
   }
 
   function addDancer(){

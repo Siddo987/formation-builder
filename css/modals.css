@@ -28,7 +28,7 @@
   .modal-header h2{font-family:var(--font-display);font-weight:400;font-size:1.5rem;letter-spacing:.02em;margin:0;}
   .modal-close{
     width:28px;height:28px;border-radius:8px;border:none;background:transparent;
-    color:var(--ink-faint);font-size:.9rem;display:flex;align-items:center;justify-content:center;
+    color:var(--ink-faint);font-size:.45rem;display:flex;align-items:center;justify-content:center;
   }
   .modal-close:hover{background:var(--panel-2);color:var(--ink);}
   .modal-body{padding:1.1rem 1.3rem 1.3rem;overflow-y:auto;display:flex;flex-direction:column;gap:1.3rem;}
@@ -135,7 +135,7 @@
   .figure-delete{
     flex:none; width:32px; border-radius:8px; border:none;
     background:var(--panel-2); color:var(--ink-faint);
-    font-size:.8rem; display:flex; align-items:center; justify-content:center;
+    font-size:.4rem; display:flex; align-items:center; justify-content:center;
     transition:background .12s ease,color .12s ease;
   }
   .figure-delete:hover{background:var(--curtain-wash);color:var(--curtain);}

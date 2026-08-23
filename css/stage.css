@@ -183,21 +183,16 @@
     border-radius:6px;
   }
   .dancer-row input.name:focus{background:var(--panel);outline:2px solid var(--gold);}
-  .dancer-row-coords{display:flex;align-items:center;gap:.3rem;padding-left:1.35rem;}
-  .pair-badge{
-    display:flex; align-items:center; justify-content:space-between; gap:.4rem;
-    margin:.15rem 0 0 1.35rem;
-    padding:.2rem .5rem;
-    border-radius:8px;
-    background:var(--pair-wash);
-    color:var(--ink-soft);
-    font-size:.68rem;
-    font-weight:600;
-  }
-  .pair-badge-unpair{
-    border:none; background:transparent; color:var(--pair);
-    font-size:.66rem; font-weight:700; text-decoration:underline;
-    padding:0;
+  /* Grid instead of a wrapping flex row: label above input, 3 fixed columns (X/Y/°) — always
+     stays aligned regardless of roster width, fixing the old layout where the ° label and its
+     input could get split apart onto their own orphaned line once things got tight. Children are
+     appended labels-first-then-inputs (see roster.js) so row 1 of the grid is the three labels
+     and row 2 is the three inputs, lined up column-for-column. */
+  .dancer-row-coords{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0,1fr));
+    gap:.15rem .3rem;
+    padding-left:1.35rem;
   }
   .coord-label{
     font-family:var(--font-mono);
@@ -205,9 +200,11 @@
     color:var(--ink-faint);
     text-transform:uppercase;
     letter-spacing:.04em;
+    text-align:center;
   }
   .coord-input{
-    width:50px;
+    width:100%;
+    min-width:0;
     border:1px solid var(--panel-border);
     background:var(--panel-2);
     border-radius:6px;
@@ -226,7 +223,7 @@
     background:transparent;
     color:var(--ink-faint);
     display:flex;align-items:center;justify-content:center;
-    font-size:.85rem;
+    font-size:.43rem;
     line-height:1;
     transition:opacity .1s ease,background .12s ease,color .12s ease;
   }
@@ -309,6 +306,43 @@
   }
   .pair-rotate-input:focus{outline:2px solid var(--gold);border-color:var(--gold);background:var(--panel);}
   .pair-rotate-hint{font-size:.7rem;color:var(--ink-faint);flex-basis:100%;}
-  .dancer-row-coords{flex-wrap:wrap;row-gap:.3rem;}
+
+  /* Partners in a saved pair are rendered as one connected block (see roster.js's buildPairGroup)
+     instead of two independent-looking rows that just happened to sit next to each other — a
+     shared teal-tinted border + single header ("⚭ Paar … trennen") ties them together visually,
+     replacing the old per-row duplicated badge. */
+  .pair-group{
+    border:1px solid var(--pair);
+    background:var(--pair-wash);
+    border-radius:12px;
+    padding:.3rem;
+    margin:.2rem 0;
+    display:flex;
+    flex-direction:column;
+    gap:.15rem;
+  }
+  .pair-group .dancer-row{background:var(--panel);}
+  .pair-group .dancer-row:hover,.pair-group .dancer-row:focus-within{background:var(--panel-2);}
+  .pair-group-header{
+    display:flex; align-items:center; justify-content:space-between; gap:.4rem;
+    padding:.1rem .3rem;
+  }
+  .pair-group-label{font-size:.68rem;font-weight:700;color:var(--pair);}
+  .pair-group-unpair{
+    border:none; background:transparent; color:var(--pair);
+    font-size:.66rem; font-weight:700; text-decoration:underline;
+    padding:0;
+  }
+  .role-tag{
+    flex:none;
+    font-size:.6rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:var(--pair);
+    background:var(--panel-2);
+    border-radius:5px;
+    padding:.15rem .35rem;
+  }
 
   
