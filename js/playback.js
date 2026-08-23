@@ -113,6 +113,7 @@
       updatePlaybarInfo();
       renderAxes();
       resetLayoutGhost();
+      if(!settingsBackdrop.hidden) renderAxesList(); // Settings can stay open mid-playback; keep its per-Bild axes list in sync
     }
     if(isFinite(totalDur) && totalDur > 0) updateProgress(Math.min(100, (ct/totalDur)*100));
     if(playing && syncActive) rafId = requestAnimationFrame(syncTick);
@@ -158,6 +159,7 @@
         updatePlaybarInfo();
         renderAxes();
         resetLayoutGhost();
+        if(!settingsBackdrop.hidden) renderAxesList();
       }
     }
     if(playing) rafId = requestAnimationFrame(tick);

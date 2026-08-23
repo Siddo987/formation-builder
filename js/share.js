@@ -122,7 +122,10 @@ function reconstructSharedState(payload){
       var p = f.pos[id];
       pos[id] = {x: clampGrid(p.x||0), y: clampGrid(p.y||0), rot: normAngle(p.rot||0)};
     });
-    var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: f.showAxes !== false};
+    var localAxes = (Array.isArray(f.localAxes) ? f.localAxes : []).map(function(ax){
+      return {id: ax.id || uid('ax'), x1:clampGrid(ax.x1||0), y1:clampGrid(ax.y1||0), x2:clampGrid(ax.x2||0), y2:clampGrid(ax.y2||0), label:ax.label||''};
+    });
+    var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes};
     if(typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) out.time = f.time;
     return out;
   });

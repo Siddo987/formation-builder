@@ -4,6 +4,15 @@
 
   var dragSourceId = null;
 
+  // A new Bild created from an existing one (addFormation, applyFigure) inherits its per-Bild-only
+  // axes as a starting point, same as it inherits positions/showAxes — copied per-object so editing
+  // one Bild's local axes afterward never mutates the source Bild's.
+  function copyLocalAxes(src){
+    return (src.localAxes || []).map(function(ax){
+      return {id: uid('ax'), x1:ax.x1, y1:ax.y1, x2:ax.x2, y2:ax.y2, label:ax.label||''};
+    });
+  }
+
   /* ---------- Figuren (preset movement templates, fetched from api/figures.php) ---------- */
 
   var figuresCatalog = null; // null until first fetch resolves
@@ -71,7 +80,7 @@
       });
     }
 
-    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: newPos, showAxes: currentFormation().showAxes !== false };
+    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: newPos, showAxes: currentFormation().showAxes !== false, localAxes: copyLocalAxes(currentFormation()) };
     state.formations.push(f);
     state.activeIndex = state.formations.length - 1;
     saveState();
@@ -348,7 +357,7 @@
     var src = currentFormation();
     var copy = {};
     Object.keys(src.pos).forEach(function(k){ copy[k] = {x:src.pos[k].x, y:src.pos[k].y, rot:src.pos[k].rot||0}; });
-    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: copy, showAxes: src.showAxes !== false };
+    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: copy, showAxes: src.showAxes !== false, localAxes: copyLocalAxes(src) };
     state.formations.push(f);
     state.activeIndex = state.formations.length - 1;
     saveState();

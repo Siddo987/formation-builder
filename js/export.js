@@ -28,7 +28,7 @@
       }
       else if(kw === 'FORMATION'){
         var fid = parts[1], fname = parts.slice(2).join(' ') || 'Bild';
-        current = {id: fid, name: fname, pos: {}, showAxes: true};
+        current = {id: fid, name: fname, pos: {}, showAxes: true, localAxes: []};
         formations.push(current);
       }
       else if(kw === 'POS' && current){
@@ -101,7 +101,8 @@
           pos[id] = {x: roundNum(p.x), y: roundNum(p.y), rot: roundNum(normAngle(p.rot||0))};
         });
         var time = formationTime(f);
-        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, time: time === null ? null : Math.round(time*100)/100};
+        var localAxes = (f.localAxes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; });
+        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, time: time === null ? null : Math.round(time*100)/100};
       }),
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
@@ -165,7 +166,10 @@
         pos[id] = {x: clampGrid(p.x||0), y: clampGrid(p.y||0), rot: normAngle(p.rot||0)};
       });
       // migration: files saved before per-Bild axes existed only had the global header.showAxes
-      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false)};
+      var localAxes = (Array.isArray(f.localAxes) ? f.localAxes : []).filter(function(ax){
+        return ax && typeof ax.x1 === 'number' && typeof ax.y1 === 'number' && typeof ax.x2 === 'number' && typeof ax.y2 === 'number';
+      }).map(function(ax){ return {id: ax.id || uid('ax'), x1:clampGrid(ax.x1), y1:clampGrid(ax.y1), x2:clampGrid(ax.x2), y2:clampGrid(ax.y2), label:ax.label||''}; });
+      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes};
       if(typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) out.time = f.time;
       return out;
     });
@@ -403,7 +407,7 @@
     });
   }
 
-  function renderCanvasFrame(ctx, W, H, posMap, logoImg, showAxes){
+  function renderCanvasFrame(ctx, W, H, posMap, logoImg, showAxes, localAxes){
     ctx.clearRect(0, 0, W, H);
     var grad = ctx.createLinearGradient(0, 0, W, H);
     grad.addColorStop(0, '#241a30');
@@ -432,12 +436,13 @@
       ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
     }
 
-    if(showAxes && state.axes.length){
+    function drawAxisSet(list, color, dash){
+      if(!list || !list.length) return;
       ctx.save();
-      ctx.strokeStyle = 'rgba(217,154,52,.6)';
+      ctx.strokeStyle = color;
       ctx.lineWidth = 2;
-      ctx.setLineDash([8,6]);
-      state.axes.forEach(function(ax){
+      ctx.setLineDash(dash);
+      list.forEach(function(ax){
         var x1 = gridToPercent(clampGrid(ax.x1))/100*W, y1 = gridToPercent(clampGrid(ax.y1))/100*H;
         var x2 = gridToPercent(clampGrid(ax.x2))/100*W, y2 = gridToPercent(clampGrid(ax.y2))/100*H;
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
@@ -452,6 +457,10 @@
         }
       });
       ctx.restore();
+    }
+    if(showAxes){
+      drawAxisSet(state.axes, 'rgba(217,154,52,.6)', [8,6]);
+      drawAxisSet(localAxes, '#4fa3a0', [3,7]); // matches --pair / .axis-line-local on the live stage
     }
 
     var radius = Math.max(14, Math.min(W,H)*0.024);
@@ -650,10 +659,11 @@
       if(segStart === null) segStart = now;
       var seg = segments[segIdx];
       var elapsedInSeg = now - segStart;
-      var posMap, segShowAxes;
+      var posMap, segShowAxes, segLocalAxes;
       if(seg.type === 'hold'){
         posMap = state.formations[seg.idx].pos;
         segShowAxes = state.formations[seg.idx].showAxes !== false;
+        segLocalAxes = state.formations[seg.idx].localAxes;
       }else{
         var t = Math.min(1, elapsedInSeg/seg.dur);
         var e = easeInOutCubic(t);
@@ -664,10 +674,11 @@
           var b = toPos[dd.id] || {x:0,y:0,rot:0};
           posMap[dd.id] = {x:a.x+(b.x-a.x)*e, y:a.y+(b.y-a.y)*e, rot: lerpAngle(a.rot||0, b.rot||0, e)};
         });
-        // reveal the destination Bild's axes setting as it's approached during the transition
+        // reveal the destination Bild's axes setting (global and local) as it's approached during the transition
         segShowAxes = state.formations[seg.to].showAxes !== false;
+        segLocalAxes = state.formations[seg.to].localAxes;
       }
-      renderCanvasFrame(ctx, W, H, posMap, logoImg, segShowAxes);
+      renderCanvasFrame(ctx, W, H, posMap, logoImg, segShowAxes, segLocalAxes);
 
       var elapsedBefore = 0;
       for(var s=0; s<segIdx; s++) elapsedBefore += segments[s].dur;
@@ -681,7 +692,7 @@
         segStart = now;
         if(segIdx >= segments.length){
           var lastSeg = segments[segments.length-1];
-          renderCanvasFrame(ctx, W, H, state.formations[lastSeg.idx].pos, logoImg, state.formations[lastSeg.idx].showAxes !== false);
+          renderCanvasFrame(ctx, W, H, state.formations[lastSeg.idx].pos, logoImg, state.formations[lastSeg.idx].showAxes !== false, state.formations[lastSeg.idx].localAxes);
           videoProgressFill.style.width = '100%';
           videoProgressFill.classList.add('indeterminate');
           videoStatusText.textContent = 'Wird finalisiert…';

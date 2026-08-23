@@ -112,30 +112,35 @@
     renderAxes();
   }
 
+  // Draws the global axes (state.axes — available on every Bild) plus this Bild's own local-only
+  // axes (currentFormation().localAxes), sharing one visibility toggle: "Achsen für dieses Bild"
+  // hides/shows both kinds together. Local axes get a distinct dash pattern (see .axis-line-local)
+  // so the two are visually distinguishable on the stage.
   function renderAxes(){
     var svg = document.getElementById('axesOverlay');
     var labelLayer = document.getElementById('axesLabelLayer');
     var toggleWrap = document.getElementById('axesBildToggleWrap');
     var toggle = document.getElementById('axesBildToggle');
+    var localAxes = currentFormation().localAxes || [];
     var formationShowsAxes = currentFormation().showAxes !== false;
     if(toggleWrap && toggle){
-      toggleWrap.hidden = state.axes.length === 0;
+      toggleWrap.hidden = state.axes.length === 0 && localAxes.length === 0;
       toggle.checked = formationShowsAxes;
     }
     if(!svg || !labelLayer) return;
     svg.innerHTML = '';
     labelLayer.innerHTML = '';
-    var show = formationShowsAxes && state.axes.length;
+    var show = formationShowsAxes && (state.axes.length || localAxes.length);
     svg.style.display = show ? '' : 'none';
     labelLayer.style.display = show ? '' : 'none';
     if(!show) return;
-    state.axes.forEach(function(ax){
+    function drawAxis(ax, extraClass){
       var x1 = gridToPercent(clampGrid(ax.x1)), y1 = gridToPercent(clampGrid(ax.y1));
       var x2 = gridToPercent(clampGrid(ax.x2)), y2 = gridToPercent(clampGrid(ax.y2));
       var line = document.createElementNS(SVG_NS, 'line');
       line.setAttribute('x1', x1); line.setAttribute('y1', y1);
       line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-      line.setAttribute('class', 'axis-line');
+      line.setAttribute('class', 'axis-line' + (extraClass ? ' ' + extraClass : ''));
       svg.appendChild(line);
       if(ax.label){
         var lbl = document.createElement('span');
@@ -145,7 +150,9 @@
         lbl.textContent = ax.label;
         labelLayer.appendChild(lbl);
       }
-    });
+    }
+    state.axes.forEach(function(ax){ drawAxis(ax); });
+    localAxes.forEach(function(ax){ drawAxis(ax, 'axis-line-local'); });
   }
 
   /* ---------- layout templates ("Vorlagen"): admin-presettable target *shapes* — a Vorlage's
@@ -216,6 +223,9 @@
     return {x: clampGrid(x), y: clampGrid(y)};
   }
 
+  // Full rebuild — safe to call any time EXCEPT during an active ghost-dot drag (see
+  // repositionLayoutGhostDots below for why: recreating the dragged node mid-drag breaks its
+  // pointer capture after the very first move).
   function renderLayoutGhost(){
     var layer = document.getElementById('layoutGhostLayer');
     if(!layer) return;
@@ -237,6 +247,24 @@
     }
   }
 
+  // Cheap in-place reposition (no DOM node recreation) for use *during* a drag — this is what
+  // fixes "can only ever move a minimal distance": the previous code called the full
+  // renderLayoutGhost() on every pointermove, which wipes and recreates every dot, including the
+  // one that currently holds pointer capture. The instant that node is detached, the browser
+  // drops its capture, so only the very first tiny move before the first re-render ever registered.
+  function repositionLayoutGhostDots(){
+    var layer = document.getElementById('layoutGhostLayer');
+    if(!layer || !activeLayoutId || !layoutsCatalog) return;
+    var layout = layoutsCatalog.find(function(l){ return l.id === activeLayoutId; });
+    if(!layout || !Array.isArray(layout.positions)) return;
+    var dots = layer.querySelectorAll('.layout-ghost-dot');
+    for(var i=0; i<dots.length; i++){
+      var stagePos = layoutPointToStage(layout.positions[i]);
+      dots[i].style.left = gridToPercent(stagePos.x) + '%';
+      dots[i].style.top = gridToPercent(stagePos.y) + '%';
+    }
+  }
+
   // Dragging any ghost dot moves the whole shape together (updates the shared offset, not just
   // that one point) — same pointer-capture pattern as attachDancerEvents' drag handling.
   function attachLayoutGhostDragEvents(dot){
@@ -255,7 +283,7 @@
           x: clampGrid(startOffset.x + (dxPct/scale)*GRID_SPAN),
           y: clampGrid(startOffset.y + (dyPct/scale)*GRID_SPAN)
         };
-        renderLayoutGhost();
+        repositionLayoutGhostDots();
       }
       function onUp(){
         try{ dot.releasePointerCapture(e.pointerId); }catch(err){}

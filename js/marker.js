@@ -437,56 +437,87 @@
     saveState();
   });
 
+  document.getElementById('addLocalAxisBtn').addEventListener('click', function(){
+    var f = currentFormation();
+    if(!Array.isArray(f.localAxes)) f.localAxes = [];
+    var local = f.localAxes;
+    local.push({id: uid('ax'), x1:0, y1:-7, x2:0, y2:7, label:'Achse ' + (local.length+1)});
+    renderAxesList();
+    renderAxes();
+    saveState();
+  });
+
+  // Shared row UI for both the global (state.axes) and per-Bild-only (currentFormation().localAxes)
+  // lists below — same label/coordinate/delete controls either way, just backed by a different
+  // array via the onDelete callback.
+  function buildAxisRow(ax, onDelete){
+    var row = document.createElement('div');
+    row.className = 'axis-row';
+
+    var labelInput = document.createElement('input');
+    labelInput.className = 'axis-label-input';
+    labelInput.value = ax.label || '';
+    labelInput.placeholder = 'Bezeichnung';
+    labelInput.setAttribute('aria-label', 'Bezeichnung der Achse');
+    labelInput.addEventListener('input', function(){ ax.label = labelInput.value; renderAxes(); saveStateDebounced(); });
+
+    var coordWrap = document.createElement('div');
+    coordWrap.className = 'axis-coords';
+    ['x1','y1','x2','y2'].forEach(function(key){
+      var lab = document.createElement('span');
+      lab.className = 'coord-label';
+      lab.textContent = key.toUpperCase();
+      var inp = document.createElement('input');
+      inp.type = 'number';
+      inp.className = 'coord-input';
+      inp.step = '0.5'; inp.min = GRID_MIN; inp.max = GRID_MAX;
+      inp.value = roundNum(ax[key]);
+      inp.setAttribute('aria-label', key + ' der Achse ' + (ax.label||''));
+      inp.addEventListener('input', function(){
+        ax[key] = clampGrid(parseFloat(inp.value)||0);
+        renderAxes();
+        saveStateDebounced();
+      });
+      coordWrap.appendChild(lab);
+      coordWrap.appendChild(inp);
+    });
+
+    var del = document.createElement('button');
+    del.className = 'remove-btn';
+    del.type = 'button';
+    del.textContent = '✕';
+    del.setAttribute('aria-label', 'Achse entfernen');
+    del.addEventListener('click', onDelete);
+
+    row.appendChild(labelInput);
+    row.appendChild(coordWrap);
+    row.appendChild(del);
+    return row;
+  }
+
   function renderAxesList(){
     var listEl = document.getElementById('axesList');
     listEl.innerHTML = '';
     state.axes.forEach(function(ax){
-      var row = document.createElement('div');
-      row.className = 'axis-row';
-
-      var labelInput = document.createElement('input');
-      labelInput.className = 'axis-label-input';
-      labelInput.value = ax.label || '';
-      labelInput.placeholder = 'Bezeichnung';
-      labelInput.setAttribute('aria-label', 'Bezeichnung der Achse');
-      labelInput.addEventListener('input', function(){ ax.label = labelInput.value; renderAxes(); saveStateDebounced(); });
-
-      var coordWrap = document.createElement('div');
-      coordWrap.className = 'axis-coords';
-      ['x1','y1','x2','y2'].forEach(function(key){
-        var lab = document.createElement('span');
-        lab.className = 'coord-label';
-        lab.textContent = key.toUpperCase();
-        var inp = document.createElement('input');
-        inp.type = 'number';
-        inp.className = 'coord-input';
-        inp.step = '0.5'; inp.min = GRID_MIN; inp.max = GRID_MAX;
-        inp.value = roundNum(ax[key]);
-        inp.setAttribute('aria-label', key + ' der Achse ' + (ax.label||''));
-        inp.addEventListener('input', function(){
-          ax[key] = clampGrid(parseFloat(inp.value)||0);
-          renderAxes();
-          saveStateDebounced();
-        });
-        coordWrap.appendChild(lab);
-        coordWrap.appendChild(inp);
-      });
-
-      var del = document.createElement('button');
-      del.className = 'remove-btn';
-      del.type = 'button';
-      del.textContent = '✕';
-      del.setAttribute('aria-label', 'Achse entfernen');
-      del.addEventListener('click', function(){
+      listEl.appendChild(buildAxisRow(ax, function(){
         state.axes = state.axes.filter(function(a){ return a.id !== ax.id; });
         renderAxesList();
         renderAxes();
         saveState();
-      });
+      }));
+    });
 
-      row.appendChild(labelInput);
-      row.appendChild(coordWrap);
-      row.appendChild(del);
-      listEl.appendChild(row);
+    var localListEl = document.getElementById('localAxesList');
+    var localTitleEl = document.getElementById('localAxesTitle');
+    if(localTitleEl) localTitleEl.textContent = 'Achsen — nur für „' + currentFormation().name + '“';
+    localListEl.innerHTML = '';
+    (currentFormation().localAxes || []).forEach(function(ax){
+      localListEl.appendChild(buildAxisRow(ax, function(){
+        var f = currentFormation();
+        f.localAxes = f.localAxes.filter(function(a){ return a.id !== ax.id; });
+        renderAxesList();
+        renderAxes();
+        saveState();
+      }));
     });
   }

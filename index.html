@@ -171,10 +171,17 @@
       </section>
 
       <section class="settings-section">
-        <h3>Achsen</h3>
-        <p class="settings-hint">Permanente Hilfslinien auf der Bühne, z. B. Mittellinie oder Diagonale. Ob sie zu sehen sind, wird pro Bild oberhalb der Bühne festgelegt.</p>
+        <h3>Achsen — für alle Bilder</h3>
+        <p class="settings-hint">Hilfslinien auf der Bühne, z. B. Mittellinie oder Diagonale — in jedem Bild verfügbar. Ob Achsen (diese wie auch die Bild-eigenen unten) überhaupt zu sehen sind, wird pro Bild oberhalb der Bühne festgelegt.</p>
         <div class="axes-list" id="axesList"></div>
         <button class="btn-add" id="addAxisBtn" type="button">+ Achse hinzufügen</button>
+      </section>
+
+      <section class="settings-section">
+        <h3 id="localAxesTitle">Achsen — nur für dieses Bild</h3>
+        <p class="settings-hint">Zusätzliche Hilfslinien, die es nur bei diesem einen Bild gibt.</p>
+        <div class="axes-list" id="localAxesList"></div>
+        <button class="btn-add" id="addLocalAxisBtn" type="button">+ Achse (nur dieses Bild)</button>
       </section>
     </div>
   </div>

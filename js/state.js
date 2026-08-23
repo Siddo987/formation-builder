@@ -79,9 +79,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       projectName: 'Meine Formation',
       dancers: dancers,
       formations: [
-        {id:uid('f'), name:'Startlinie', pos: startlinie, showAxes:true},
-        {id:uid('f'), name:'Kreis', pos: kreis, showAxes:true},
-        {id:uid('f'), name:'Diagonale', pos: diagonale, showAxes:true}
+        {id:uid('f'), name:'Startlinie', pos: startlinie, showAxes:true, localAxes:[]},
+        {id:uid('f'), name:'Kreis', pos: kreis, showAxes:true, localAxes:[]},
+        {id:uid('f'), name:'Diagonale', pos: diagonale, showAxes:true, localAxes:[]}
       ],
       axes: [],
       showAxes: true,
@@ -125,6 +125,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         });
         // migration: older saves only had the single global `showAxes` — fall back to it per Bild
         if(typeof f.showAxes !== 'boolean') f.showAxes = parsed.showAxes;
+        // migration: older saves predate per-Bild-only axes entirely
+        if(!Array.isArray(f.localAxes)) f.localAxes = [];
       });
       return parsed;
     }catch(e){ return defaultState(); }
