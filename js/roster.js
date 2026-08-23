@@ -6,6 +6,8 @@
     rosterListEl.innerHTML = '';
     rosterCoordInputs = {};
     rosterPairMidpointInputs = {};
+    rosterRowEls = {};
+    rosterPairGroupEls = {};
     var pos = currentFormation().pos;
     var rendered = {};
     state.dancers.forEach(function(d){
@@ -24,6 +26,7 @@
       rosterListEl.appendChild(buildDancerRow(d, pos, null));
     });
     dancerCountEl.textContent = state.dancers.length;
+    updateRosterSelectionHighlight();
   }
 
   // Partners always render together, wherever the first-encountered member sits in
@@ -77,6 +80,7 @@
       group.appendChild(buildDancerRow(a, pos, 'lead'));
       group.appendChild(buildDancerRow(b, pos, 'follow'));
     }
+    rosterPairGroupEls[pair.id] = group;
     return group;
   }
 
@@ -233,6 +237,7 @@
 
       row.appendChild(main);
       row.appendChild(coords);
+      rosterRowEls[d.id] = row;
       return row;
   }
 
