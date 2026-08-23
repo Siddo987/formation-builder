@@ -169,10 +169,44 @@
 
   function buildStageLayers(){
     buildStageLogo();
+    buildOnionSkinLayer();
     buildPairMidpointMarker();
     buildGridOverlay();
     buildAxesOverlay();
     buildLayoutGhostLayer();
+  }
+
+  // Faint preview of the adjacent Bilder while positioning the current one: the next Bild's
+  // dancers in their own colors (barely visible), the previous Bild's in a uniform light gray —
+  // purely visual, no pointer events. Refreshed whenever the active Bild changes (piggybacked on
+  // resetLayoutGhost, see its comment for why).
+  function buildOnionSkinLayer(){
+    var layer = document.createElement('div');
+    layer.className = 'onion-skin-layer';
+    layer.id = 'onionSkinLayer';
+    stageEl.appendChild(layer);
+    renderOnionSkin();
+  }
+
+  function renderOnionSkin(){
+    var layer = document.getElementById('onionSkinLayer');
+    if(!layer) return;
+    layer.innerHTML = '';
+    function addDots(formation, extraClass, useDancerColor){
+      if(!formation) return;
+      state.dancers.forEach(function(d){
+        var p = formation.pos[d.id];
+        if(!p) return;
+        var dot = document.createElement('span');
+        dot.className = 'onion-dot ' + extraClass;
+        dot.style.left = gridToPercent(p.x) + '%';
+        dot.style.top = gridToPercent(p.y) + '%';
+        if(useDancerColor) dot.style.background = d.color;
+        layer.appendChild(dot);
+      });
+    }
+    addDots(state.formations[state.activeIndex-1], 'onion-dot-prev', false);
+    addDots(state.formations[state.activeIndex+1], 'onion-dot-next', true);
   }
 
   function buildStageLogo(){
@@ -466,8 +500,12 @@
   // Called wherever the active Bild actually changes (never from e.g. the axes-visibility toggle,
   // which also touches the stage but isn't a Bild switch) — a chosen Vorlage, and any placement
   // applied to it, is a reference for the Bild you were just positioning, not something that
-  // should silently carry over.
+  // should silently carry over. Doubles as the one shared "Bild switch happened" hook already
+  // wired into every relevant call site, so the onion-skin overlay (renderOnionSkin — a different
+  // concern, but needs the exact same trigger) piggybacks on it too, ahead of the
+  // Vorlage-specific early return below.
   function resetLayoutGhost(){
+    renderOnionSkin();
     if(!activeLayoutId) return;
     activeLayoutId = null;
     activeLayoutOffset = {x:0, y:0};

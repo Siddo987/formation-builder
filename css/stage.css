@@ -68,6 +68,18 @@
     pointer-events:auto; cursor:grab; touch-action:none;
   }
   .layout-ghost-origin:active{cursor:grabbing; opacity:.85;}
+  /* Faint preview of the adjacent Bilder — see renderOnionSkin(). Purely visual (no pointer
+     events); a fixed light gray for "where things came from" reads clearly against the stage's
+     always-dark floor regardless of the app's own light/dark theme. */
+  .onion-skin-layer{position:absolute; inset:0; pointer-events:none;}
+  .onion-dot{
+    position:absolute;
+    width:10px; height:10px;
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+  }
+  .onion-dot-prev{background:#c9c2d6; opacity:.35;}
+  .onion-dot-next{opacity:.3;}
   .stage{
     position:relative;
     aspect-ratio:3/2;
