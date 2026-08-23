@@ -167,4 +167,46 @@
     opacity:.5; pointer-events:none;
   }
 
-  
+  /* ---- Schritte: printable per-dancer/pair step sheet (js/steps.js) ---- */
+  #stepsPrintArea{display:none;}
+  .step-sheet-title{
+    font-family:var(--font-display); font-weight:400; letter-spacing:.02em;
+    font-size:1.3rem; margin:0 0 1rem;
+  }
+  .step-card{
+    display:flex; align-items:center; gap:1.5rem;
+    border:1px solid #ddd; border-radius:12px;
+    padding:1.4rem; margin-bottom:1rem;
+  }
+  .step-diagram{
+    position:relative; flex:none;
+    width:180px; height:180px;
+    border:1px solid #ccc; border-radius:10px;
+  }
+  .step-room{position:absolute; inset:22px;}
+  .step-cross{position:absolute; left:50%; top:50%; width:14px; height:14px; transform:translate(-50%,-50%);}
+  .step-cross::before,.step-cross::after{content:"";position:absolute;background:#ccc;}
+  .step-cross::before{left:0;right:0;top:50%;height:2px;transform:translateY(-50%);}
+  .step-cross::after{top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);}
+  .step-wall{position:absolute; font-size:.62rem; letter-spacing:.08em; color:#999; font-weight:700;}
+  .step-wall-top{top:2px; left:50%; transform:translateX(-50%);}
+  .step-wall-bottom{bottom:2px; left:50%; transform:translateX(-50%);}
+  .step-wall-left{left:2px; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; text-orientation:mixed;}
+  .step-wall-right{right:2px; top:50%; transform:translateY(-50%) rotate(180deg); writing-mode:vertical-rl; text-orientation:mixed;}
+  .step-dot{position:absolute; width:18px; height:18px; border-radius:50%; transform:translate(-50%,-50%);}
+  .step-dot-primary{background:#d99a34; border:2px solid #fff; box-shadow:0 0 0 1px #d99a34;}
+  .step-dot-secondary{background:#fff; border:2px solid #bbb;}
+  .step-info{flex:1; min-width:0;}
+  .step-info h3{margin:0 0 .25rem; font-family:var(--font-display); font-weight:400; font-size:1.4rem; letter-spacing:.03em; color:#8a7c9c;}
+  .step-coords{font-size:2rem; font-weight:800; letter-spacing:.02em; margin-bottom:.35rem; font-family:var(--font-mono);}
+  .step-desc{margin:0; font-size:1rem; font-weight:600;}
+  .step-secondary{margin:.3rem 0 0; font-size:.8rem; font-style:italic; color:#999;}
+
+  @media print{
+    body > *:not(#stepsPrintArea){display:none !important;}
+    #stepsPrintArea{display:block !important; background:#fff; color:#1c1626;}
+    .step-sheet-title{page-break-before:always;}
+    .step-sheet-title:first-child{page-break-before:auto;}
+    .step-card{page-break-inside:avoid;}
+  }
+

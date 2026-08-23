@@ -70,6 +70,10 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
         Marker
       </button>
+      <button class="btn-ghost" id="stepsBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4v-4H4v4Z"/><path d="M10 20h4v-9h-4v9Z"/><path d="M16 20h4V4h-4v16Z"/></svg>
+        Schritte
+      </button>
       <button class="btn-ghost" id="settingsBtn" type="button">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Einstellungen
@@ -406,6 +410,34 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="stepsBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="stepsTitle">
+    <div class="modal-header">
+      <h2 id="stepsTitle">Schritte exportieren</h2>
+      <button class="modal-close" id="stepsCloseBtn" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <div class="modal-body">
+      <section class="settings-section">
+        <label for="stepsWhoSelect">Wer?</label>
+        <select id="stepsWhoSelect"></select>
+        <p class="settings-hint" id="stepsEmptyHint" hidden>Noch keine Tänzer angelegt.</p>
+        <p class="settings-hint">
+          Video zeigt nur die gewählte Person (bei einem Paar beide Partner). PDF zeigt zusätzlich
+          pro Bild eine große, gut lesbare Koordinatenangabe zum Ausdrucken — bei einem einzelnen
+          Tänzer mit gespeichertem Partner wird dessen Position klein als Referenz mit angezeigt;
+          bei einem Paar wird für jeden Partner ein eigenes Blatt erzeugt.
+        </p>
+        <div class="filename-actions">
+          <button class="btn-ghost" id="stepsVideoBtn" type="button">Als Video exportieren</button>
+          <button class="btn-ghost" id="stepsPdfBtn" type="button">Als PDF exportieren</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="stepsPrintArea" aria-hidden="true"></div>
+
 <script src="js/state.js?v=8"></script>
 <script src="js/stage.js?v=8"></script>
 <script src="js/roster.js?v=8"></script>
@@ -414,6 +446,7 @@
 <script src="js/marker.js?v=8"></script>
 <script src="js/export.js?v=8"></script>
 <script src="js/share.js?v=8"></script>
+<script src="js/steps.js?v=8"></script>
 <script src="js/main.js?v=8"></script>
 
 </body>

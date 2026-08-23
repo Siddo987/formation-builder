@@ -407,7 +407,10 @@
     });
   }
 
-  function renderCanvasFrame(ctx, W, H, posMap, logoImg, showAxes, localAxes){
+  // focusIds (optional array of dancer ids): when given, only those dancers are drawn — used by
+  // the "Schritte" per-dancer/pair video export (js/steps.js). Omitted/null draws everyone, same
+  // as always.
+  function renderCanvasFrame(ctx, W, H, posMap, logoImg, showAxes, localAxes, focusIds){
     ctx.clearRect(0, 0, W, H);
     var grad = ctx.createLinearGradient(0, 0, W, H);
     grad.addColorStop(0, '#241a30');
@@ -467,6 +470,7 @@
     state.dancers.forEach(function(d){
       var pos = posMap[d.id];
       if(!pos) return;
+      if(focusIds && focusIds.indexOf(d.id) === -1) return;
       var cx = gridToPercent(pos.x)/100*W;
       var cy = gridToPercent(pos.y)/100*H;
       var rot = pos.rot || 0;
@@ -520,7 +524,8 @@
     if(exportState) exportState.cancelled = true;
   });
 
-  function startVideoExport(filename){
+  // focusIds: see renderCanvasFrame's comment — passed through unchanged all the way down.
+  function startVideoExport(filename, focusIds){
     pausePlayback();
     videoBackdrop.hidden = false;
     videoProgressFill.classList.remove('indeterminate');
@@ -530,7 +535,7 @@
 
     var logoPromise = (state.logo && state.logo.url) ? loadImage(state.logo.url) : Promise.resolve(null);
     logoPromise.then(function(logoImg){
-      runVideoRecording(logoImg, filename);
+      runVideoRecording(logoImg, filename, focusIds);
     }).catch(function(err){
       console.error(err);
       videoStatusText.textContent = 'Fehler beim Rendern.';
@@ -571,7 +576,7 @@
     });
   }
 
-  function runVideoRecording(logoImg, filename){
+  function runVideoRecording(logoImg, filename, focusIds){
     if(!window.MediaRecorder || !canvasCaptureStreamSupported()){
       videoStatusText.textContent = 'Dieser Browser unterstützt keine Videoaufnahme.';
       setTimeout(finishExportUI, 2000);
@@ -619,11 +624,11 @@
         tracks = tracks.concat(destNode.stream.getAudioTracks());
       }
 
-      recordSegments(segments, totalDuration, tracks, canvas, ctx, W, H, logoImg, exportAudioEl, audioCtx, filename);
+      recordSegments(segments, totalDuration, tracks, canvas, ctx, W, H, logoImg, exportAudioEl, audioCtx, filename, focusIds);
     });
   }
 
-  function recordSegments(segments, totalDuration, tracks, canvas, ctx, W, H, logoImg, exportAudioEl, audioCtx, filename){
+  function recordSegments(segments, totalDuration, tracks, canvas, ctx, W, H, logoImg, exportAudioEl, audioCtx, filename, focusIds){
     var combinedStream = new MediaStream(tracks);
     var mimeCandidates = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
     var mimeType = '';
@@ -678,7 +683,7 @@
         segShowAxes = state.formations[seg.to].showAxes !== false;
         segLocalAxes = state.formations[seg.to].localAxes;
       }
-      renderCanvasFrame(ctx, W, H, posMap, logoImg, segShowAxes, segLocalAxes);
+      renderCanvasFrame(ctx, W, H, posMap, logoImg, segShowAxes, segLocalAxes, focusIds);
 
       var elapsedBefore = 0;
       for(var s=0; s<segIdx; s++) elapsedBefore += segments[s].dur;
@@ -692,7 +697,7 @@
         segStart = now;
         if(segIdx >= segments.length){
           var lastSeg = segments[segments.length-1];
-          renderCanvasFrame(ctx, W, H, state.formations[lastSeg.idx].pos, logoImg, state.formations[lastSeg.idx].showAxes !== false, state.formations[lastSeg.idx].localAxes);
+          renderCanvasFrame(ctx, W, H, state.formations[lastSeg.idx].pos, logoImg, state.formations[lastSeg.idx].showAxes !== false, state.formations[lastSeg.idx].localAxes, focusIds);
           videoProgressFill.style.width = '100%';
           videoProgressFill.classList.add('indeterminate');
           videoStatusText.textContent = 'Wird finalisiert…';
