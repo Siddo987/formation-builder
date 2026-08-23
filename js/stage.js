@@ -69,10 +69,39 @@
       var ind = el.querySelector('.rot-indicator');
       if(ind) ind.style.transform = 'rotate(' + (pos.rot||0) + 'deg)';
     });
+    updatePairMidpointMarker(posMap);
+  }
+
+  // Small crosshair marking the centroid a 2+ selection rotates around (rotatePairSelection's
+  // pivot — the midpoint between the two partners for an exactly-2 pair). Tracked against
+  // whatever position map is currently being displayed, so it follows along through dragging,
+  // Bild switches, and playback interpolation alike, not just live drags.
+  function updatePairMidpointMarker(posMap){
+    var marker = document.getElementById('pairMidpointMarker');
+    if(!marker) return;
+    if(pairSelection.length < 2){ marker.hidden = true; return; }
+    var sx=0, sy=0, n=0;
+    pairSelection.forEach(function(id){
+      var p = posMap[id];
+      if(p){ sx+=p.x; sy+=p.y; n++; }
+    });
+    if(!n){ marker.hidden = true; return; }
+    marker.style.left = gridToPercent(sx/n) + '%';
+    marker.style.top = gridToPercent(sy/n) + '%';
+    marker.hidden = false;
+  }
+
+  function buildPairMidpointMarker(){
+    var marker = document.createElement('div');
+    marker.className = 'pair-midpoint-marker';
+    marker.id = 'pairMidpointMarker';
+    marker.hidden = true;
+    stageEl.appendChild(marker);
   }
 
   function buildStageLayers(){
     buildStageLogo();
+    buildPairMidpointMarker();
     buildGridOverlay();
     buildAxesOverlay();
     buildLayoutGhostLayer();
@@ -512,6 +541,7 @@
   }
 
   function updatePairRotateUI(){
+    updatePairMidpointMarker(currentFormation().pos);
     if(pairSelection.length < 2){
       pairRotateEl.hidden = true;
       return;
