@@ -42,7 +42,7 @@
     return {
       projectName: 'Meine Formation',
       dancers: dancers, formations: formations,
-      axes: [], showAxes: true, pairs: [], logo: null, song: null,
+      axes: [], showAxes: true, pairs: [], customFigures: [], logo: null, song: null,
       activeIndex: 0, tempo: tempo
     };
   }
@@ -106,6 +106,7 @@
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
       pairs: (s.pairs||[]).map(function(p){ return {id:p.id, memberIds:p.memberIds.slice()}; }),
+      customFigures: (s.customFigures||[]).map(function(fig){ return {id:fig.id, name:fig.name, transform:fig.transform}; }),
       activeIndex: s.activeIndex,
       tempo: s.tempo,
       logo: logoMeta || null,
@@ -185,6 +186,9 @@
       return p && Array.isArray(p.memberIds) && p.memberIds.length === 2 &&
         validDancerIds.indexOf(p.memberIds[0]) !== -1 && validDancerIds.indexOf(p.memberIds[1]) !== -1;
     });
+    var customFigures = (Array.isArray(header.customFigures) ? header.customFigures : []).filter(function(fig){
+      return fig && typeof fig.name === 'string' && fig.transform && typeof fig.transform === 'object';
+    }).map(function(fig){ return {id: fig.id || uid('cf'), name: fig.name, transform: fig.transform}; });
 
     return {
       projectName: header.projectName || 'Meine Formation',
@@ -193,6 +197,7 @@
       axes: Array.isArray(header.axes) ? header.axes : [],
       showAxes: header.showAxes !== false,
       pairs: pairs,
+      customFigures: customFigures,
       activeIndex: typeof header.activeIndex === 'number' ? header.activeIndex : 0,
       tempo: typeof header.tempo === 'number' ? header.tempo : 50,
       logo: logo,
@@ -703,7 +708,9 @@
   function fullRerender(){
     stageEl.innerHTML = '';
     stageMarkers = {};
+    activeLayoutId = null; // a freshly imported/reset project has no business keeping the old ghost
     buildStageLayers();
+    renderLayoutSelectOptions();
     ensureMarkers();
     positionMarkers(currentFormation().pos);
     renderRoster();

@@ -128,6 +128,39 @@
   }
   .sync-badge[hidden]{display:none;}
 
+  /* ---- Figuren (add-Bild modal: catalog + custom, per-project) ---- */
+  .figures-list{display:flex;flex-direction:column;gap:.3rem;}
+  .figure-row{display:flex;align-items:stretch;gap:.3rem;}
+  .figure-row .export-menu-item{flex:1;min-width:0;}
+  .figure-delete{
+    flex:none; width:32px; border-radius:8px; border:none;
+    background:var(--panel-2); color:var(--ink-faint);
+    font-size:.8rem; display:flex; align-items:center; justify-content:center;
+    transition:background .12s ease,color .12s ease;
+  }
+  .figure-delete:hover{background:var(--curtain-wash);color:var(--curtain);}
+  .figure-delete.armed{background:var(--curtain);color:#fff;animation:armPulse 1.1s ease-in-out infinite;}
+
+  .figure-form{
+    display:flex; flex-direction:column; gap:.6rem;
+    margin-top:.5rem; padding:.7rem; border-radius:10px;
+    background:var(--panel-2); border:1px solid var(--panel-border);
+  }
+  .figure-form[hidden]{display:none;}
+  .figure-form-row{display:flex; flex-direction:column; gap:.25rem;}
+  .figure-form-row label{font-size:.72rem; font-weight:700; color:var(--ink-soft);}
+  .figure-form-row input[type="text"],.figure-form-row select{
+    border:1px solid var(--panel-border); background:var(--panel);
+    border-radius:8px; padding:.45rem .6rem; color:var(--ink); font:inherit; font-size:.85rem;
+  }
+  .figure-form-row input[type="text"]:focus,.figure-form-row select:focus{outline:2px solid var(--gold); border-color:transparent;}
+  .figure-form-triplet{display:flex; gap:.6rem; flex-wrap:wrap;}
+  .figure-form-triplet > div{display:flex; flex-direction:column; gap:.2rem;}
+  .figure-form-triplet label{font-size:.62rem; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.03em;}
+  .figure-form-triplet .coord-input{width:64px;}
+  .figure-form-partner{display:flex; flex-direction:column; gap:.35rem; padding:.4rem 0;}
+  .figure-form-partner + .figure-form-partner{border-top:1px solid var(--panel-border);}
+
   /* ---- video export ---- */
   .exporting .stage,.exporting .roster,.exporting .playbar,.exporting .filmstrip-area{
     opacity:.5; pointer-events:none;

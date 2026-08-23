@@ -165,7 +165,11 @@
   .btn-ghost:disabled{opacity:.5;cursor:not-allowed;}
   .btn-ghost:disabled:hover{border-color:var(--panel-border);background:var(--panel);}
 
+  /* "click again to confirm" state for icon-only delete buttons (roster/filmstrip remove) */
+  @keyframes armPulse{0%,100%{box-shadow:0 0 0 0 var(--curtain-wash);}50%{box-shadow:0 0 0 4px var(--curtain-wash);}}
+
   @media (prefers-reduced-motion:reduce){
     .btn-ghost,.btn-icon,.btn-play,.dancer .label,.film-card{transition-duration:.001ms !important;}
     .progress-fill.indeterminate{animation:none;}
+    .armed{animation:none !important;}
   }

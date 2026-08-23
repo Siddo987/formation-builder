@@ -63,4 +63,11 @@ function db_ensure_schema(): void {
         transform_json TEXT NOT NULL,
         sort_order INTEGER NOT NULL DEFAULT 0
     )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS layouts (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        positions_json TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0
+    )");
 }

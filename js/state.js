@@ -21,6 +21,31 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     var hue = (i*137.508) % 360;
     return 'hsl(' + hue.toFixed(0) + ',48%,54%)';
   }
+  // Shared "click again to confirm" pattern for small icon-only delete buttons (roster remove,
+  // Bild remove) — same idea as the text-swapping resetBtn confirm, adapted for buttons with no
+  // room for a label: a CSS-driven "armed" state stands in for the text change, and a second
+  // click within the window actually deletes. Attaches its own click listener; callers don't add
+  // one themselves.
+  function armDeleteButton(btn, onConfirm){
+    var armed = false, timer = null;
+    function disarm(){
+      armed = false;
+      clearTimeout(timer);
+      btn.classList.remove('armed');
+    }
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      if(armed){
+        disarm();
+        onConfirm();
+      }else{
+        armed = true;
+        btn.classList.add('armed');
+        timer = setTimeout(disarm, 2500);
+      }
+    });
+  }
+
   function initials(name){
     var parts = name.trim().split(/\s+/).filter(Boolean);
     if(!parts.length) return '?';
@@ -61,6 +86,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       axes: [],
       showAxes: true,
       pairs: [],
+      customFigures: [],
       logo: null,
       song: null,
       activeIndex: 0,
@@ -85,6 +111,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         return p && Array.isArray(p.memberIds) && p.memberIds.length === 2 &&
           knownDancerIds.indexOf(p.memberIds[0]) !== -1 && knownDancerIds.indexOf(p.memberIds[1]) !== -1;
       });
+      if(!Array.isArray(parsed.customFigures)) parsed.customFigures = [];
+      parsed.customFigures = parsed.customFigures.filter(function(fig){
+        return fig && typeof fig.name === 'string' && fig.transform && typeof fig.transform === 'object';
+      });
       // logo/song blobs are never stored in this localStorage JSON (too large/binary) — they're
       // persisted separately in IndexedDB and hydrated back in via hydrateBlobsFromIdb().
       parsed.logo = null;
@@ -108,6 +138,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         axes: state.axes,
         showAxes: state.showAxes,
         pairs: state.pairs,
+        customFigures: state.customFigures,
         activeIndex: state.activeIndex,
         tempo: state.tempo
       };

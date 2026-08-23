@@ -134,6 +134,7 @@ function reconstructSharedState(payload){
     axes: Array.isArray(payload.axes) ? payload.axes : [],
     showAxes: payload.showAxes !== false,
     pairs: Array.isArray(payload.pairs) ? payload.pairs : [],
+    customFigures: Array.isArray(payload.customFigures) ? payload.customFigures : [],
     activeIndex: typeof payload.activeIndex === 'number' ? payload.activeIndex : 0,
     tempo: typeof payload.tempo === 'number' ? payload.tempo : 50,
     logo: null,

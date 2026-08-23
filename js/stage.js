@@ -71,6 +71,7 @@
     buildStageLogo();
     buildGridOverlay();
     buildAxesOverlay();
+    buildLayoutGhostLayer();
   }
 
   function buildStageLogo(){
@@ -144,6 +145,89 @@
         lbl.textContent = ax.label;
         labelLayer.appendChild(lbl);
       }
+    });
+  }
+
+  /* ---------- layout templates ("Vorlagen"): admin-presettable target arrangements shown as a
+     transparent ghost overlay to drag dancers onto — a positioning aid, not an auto-transform like
+     Figuren. Picking one is per-session/transient (not saved in state), and resets whenever the
+     active Bild changes (a fresh reference point for a specific Bild you're now positioning). ---------- */
+
+  var layoutsCatalog = null; // null until first fetch resolves
+  var layoutsFetchPromise = null;
+  var activeLayoutId = null;
+
+  function ensureLayoutsLoaded(){
+    if(!layoutsFetchPromise){
+      layoutsFetchPromise = fetch('api/layouts.php')
+        .then(function(res){ return res.ok ? res.json() : {layouts:[]}; })
+        .then(function(data){ layoutsCatalog = Array.isArray(data.layouts) ? data.layouts : []; })
+        .catch(function(){ layoutsCatalog = []; })
+        .then(function(){ renderLayoutSelectOptions(); });
+    }
+    return layoutsFetchPromise;
+  }
+
+  function renderLayoutSelectOptions(){
+    var wrap = document.getElementById('layoutSelectWrap');
+    var select = document.getElementById('layoutSelect');
+    if(!wrap || !select) return;
+    wrap.hidden = !(layoutsCatalog && layoutsCatalog.length);
+    select.innerHTML = '';
+    var noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = '— Keine Vorlage —';
+    select.appendChild(noneOpt);
+    (layoutsCatalog || []).forEach(function(layout){
+      var opt = document.createElement('option');
+      opt.value = layout.id;
+      opt.textContent = layout.name;
+      select.appendChild(opt);
+    });
+    select.value = activeLayoutId || '';
+  }
+
+  function buildLayoutGhostLayer(){
+    var layer = document.createElement('div');
+    layer.className = 'layout-ghost-layer';
+    layer.id = 'layoutGhostLayer';
+    stageEl.appendChild(layer);
+  }
+
+  function renderLayoutGhost(){
+    var layer = document.getElementById('layoutGhostLayer');
+    if(!layer) return;
+    layer.innerHTML = '';
+    if(!activeLayoutId || !layoutsCatalog) return;
+    var layout = layoutsCatalog.find(function(l){ return l.id === activeLayoutId; });
+    if(!layout || !Array.isArray(layout.positions)) return;
+    var n = Math.min(layout.positions.length, state.dancers.length);
+    for(var i=0; i<n; i++){
+      var p = layout.positions[i];
+      var dot = document.createElement('span');
+      dot.className = 'layout-ghost-dot';
+      dot.style.left = gridToPercent(clampGrid(p.x||0)) + '%';
+      dot.style.top = gridToPercent(clampGrid(p.y||0)) + '%';
+      dot.style.borderColor = state.dancers[i].color;
+      layer.appendChild(dot);
+    }
+  }
+
+  // Called wherever the active Bild actually changes (never from e.g. the axes-visibility toggle,
+  // which also touches the stage but isn't a Bild switch) — a chosen Vorlage is a reference for
+  // the Bild you were just positioning, not something that should silently carry over.
+  function resetLayoutGhost(){
+    if(!activeLayoutId) return;
+    activeLayoutId = null;
+    renderLayoutSelectOptions();
+    renderLayoutGhost();
+  }
+
+  var layoutSelectEl = document.getElementById('layoutSelect');
+  if(layoutSelectEl){
+    layoutSelectEl.addEventListener('change', function(){
+      activeLayoutId = layoutSelectEl.value || null;
+      renderLayoutGhost();
     });
   }
 

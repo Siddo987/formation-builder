@@ -19,6 +19,7 @@
     if(!videoBackdrop.hidden && exportState) exportState.cancelled = true;
     if(!filenameBackdrop.hidden) closeFilenameDialog();
     if(!markerBackdrop.hidden) closeMarkerModal();
+    if(!addBildBackdrop.hidden) closeAddBildModal();
   });
 
   projectNameInput.addEventListener('input', function(){
@@ -172,3 +173,4 @@
 
   loadSharedProjectFromUrl();
   ensureFiguresLoaded();
+  ensureLayoutsLoaded();

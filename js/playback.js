@@ -17,15 +17,31 @@
 
   function updateProgress(pct){ progressFillEl.style.width = pct + '%'; }
 
+  // Shows a rate ("Bilder pro Sekunde"), not a raw duration — a duration shrinks as you push the
+  // slider up, which reads as the control running backwards even though the underlying speed is
+  // correct. A rate grows with the slider instead, matching what "Tempo" implies.
   function updateTempoReadout(){
     var d = durations();
-    tempoReadoutEl.textContent = (d.move/1000).toFixed(1) + 's';
+    tempoReadoutEl.textContent = (1000/d.move).toFixed(1) + '/s';
   }
 
   function playPause(){
     if(state.formations.length < 2) return;
     playing = !playing;
     if(playing){
+      // On the last Bild, pressing play has nothing left to advance to (tick() would just hold
+      // then immediately stop) — jump back to the first Bild so playback actually runs, matching
+      // "stop after the last Bild" ending back at a state play can restart from.
+      if(state.activeIndex >= state.formations.length - 1){
+        state.activeIndex = 0;
+        renderFilmstrip();
+        positionMarkers(currentFormation().pos);
+        refreshRosterCoords();
+        updatePlaybarInfo();
+        renderAxes();
+        resetLayoutGhost();
+        saveState();
+      }
       syncActive = isSyncActive();
       if(syncActive){
         songAudioEl.currentTime = 0;
@@ -96,6 +112,7 @@
       refreshRosterCoords();
       updatePlaybarInfo();
       renderAxes();
+      resetLayoutGhost();
     }
     if(isFinite(totalDur) && totalDur > 0) updateProgress(Math.min(100, (ct/totalDur)*100));
     if(playing && syncActive) rafId = requestAnimationFrame(syncTick);
@@ -140,6 +157,7 @@
         refreshRosterCoords();
         updatePlaybarInfo();
         renderAxes();
+        resetLayoutGhost();
       }
     }
     if(playing) rafId = requestAnimationFrame(tick);

@@ -29,7 +29,7 @@
       remove.type = 'button';
       remove.setAttribute('aria-label', d.name + ' entfernen');
       remove.textContent = '✕';
-      remove.addEventListener('click', function(){ removeDancer(d.id); });
+      armDeleteButton(remove, function(){ removeDancer(d.id); });
 
       main.appendChild(swatch);
       main.appendChild(input);
