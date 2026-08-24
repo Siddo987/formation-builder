@@ -50,12 +50,21 @@ function db_ensure_schema(): void {
     $pdo->exec("CREATE TABLE IF NOT EXISTS shares (
         id TEXT PRIMARY KEY,
         created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT '',
+        version TEXT NOT NULL DEFAULT '',
         project_name TEXT NOT NULL,
         payload_json TEXT NOT NULL,
         logo_path TEXT,
         song_path TEXT,
         delete_token TEXT
     )");
+    // Migration for a dev sqlite file created before updated_at/version existed (see
+    // layouts.origin_x/y above for why this pattern is needed) — and backfill any pre-existing
+    // rows so they don't read as an empty string.
+    try { $pdo->exec("ALTER TABLE shares ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''"); } catch (Throwable $e) {}
+    try { $pdo->exec("ALTER TABLE shares ADD COLUMN version TEXT NOT NULL DEFAULT ''"); } catch (Throwable $e) {}
+    $pdo->exec("UPDATE shares SET updated_at = created_at WHERE updated_at = ''");
+    $pdo->exec("UPDATE shares SET version = lower(hex(randomblob(12))) WHERE version = ''");
     $pdo->exec("CREATE TABLE IF NOT EXISTS figures (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,

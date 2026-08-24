@@ -15,6 +15,14 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   function gridToPercent(v){ return GRID_INSET + ((v-GRID_MIN)/GRID_SPAN)*(100-2*GRID_INSET); }
   function percentToGrid(p){ return ((p-GRID_INSET)/(100-2*GRID_INSET))*GRID_SPAN + GRID_MIN; }
   function roundNum(v){ return Math.round(v*10)/10; }
+  // A plain {dancerId:{x,y}} copy of a pos map, detached from the source object — used to freeze a
+  // Bild's own startPos (see addFormation/applyFigure) so later edits to the position it was
+  // copied from never leak into it.
+  function snapshotPos(pos){
+    var out = {};
+    Object.keys(pos || {}).forEach(function(id){ out[id] = {x: pos[id].x, y: pos[id].y}; });
+    return out;
+  }
   function easeInOutCubic(t){ return t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
   function paletteColor(i){
     if(i < PALETTE.length) return PALETTE[i];
@@ -79,9 +87,12 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       projectName: 'Meine Formation',
       dancers: dancers,
       formations: [
+        // startPos is the *fixed* position dancers arrive at this Bild from — snapshotted once,
+        // not a live pointer to "whatever sits at the previous index" (see renderOnionSkin()).
+        // The very first Bild has no such thing to show, so it's simply left out.
         {id:uid('f'), name:'Startlinie', pos: startlinie, showAxes:true, localAxes:[], category:''},
-        {id:uid('f'), name:'Kreis', pos: kreis, showAxes:true, localAxes:[], category:''},
-        {id:uid('f'), name:'Diagonale', pos: diagonale, showAxes:true, localAxes:[], category:''}
+        {id:uid('f'), name:'Kreis', pos: kreis, showAxes:true, localAxes:[], category:'', startPos: snapshotPos(startlinie)},
+        {id:uid('f'), name:'Diagonale', pos: diagonale, showAxes:true, localAxes:[], category:'', startPos: snapshotPos(kreis)}
       ],
       axes: [],
       showAxes: true,
@@ -91,7 +102,11 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       logo: null,
       song: null,
       activeIndex: 0,
-      tempo: 50
+      tempo: 50,
+      // Local-only pointer at a live share (see js/share.js) — null until "Teilen" is used (or a
+      // ?share=<id> link is opened), never itself part of what gets pushed to/pulled from the
+      // server, and never written into .stg/.auf exports (buildProjectHeader doesn't reference it).
+      sharedId: null
     };
   }
 
@@ -126,11 +141,12 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       parsed.customFigures = parsed.customFigures.filter(function(fig){
         return fig && typeof fig.name === 'string' && fig.transform && typeof fig.transform === 'object';
       });
+      if(typeof parsed.sharedId !== 'string' || !parsed.sharedId) parsed.sharedId = null;
       // logo/song blobs are never stored in this localStorage JSON (too large/binary) — they're
       // persisted separately in IndexedDB and hydrated back in via hydrateBlobsFromIdb().
       parsed.logo = null;
       parsed.song = null;
-      parsed.formations.forEach(function(f){
+      parsed.formations.forEach(function(f, i){
         Object.keys(f.pos).forEach(function(id){
           if(typeof f.pos[id].rot !== 'number') f.pos[id].rot = 0;
         });
@@ -140,6 +156,12 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         if(!Array.isArray(f.localAxes)) f.localAxes = [];
         // migration: older saves predate section categories entirely
         if(typeof f.category !== 'string') f.category = '';
+        // migration: older saves predate the fixed per-Bild startPos snapshot (see
+        // renderOnionSkin()) — best guess is whatever Bild directly precedes it today.
+        if(!f.startPos || typeof f.startPos !== 'object'){
+          var prevF = parsed.formations[i-1];
+          f.startPos = prevF ? snapshotPos(prevF.pos) : null;
+        }
       });
       return parsed;
     }catch(e){ return defaultState(); }
@@ -156,10 +178,17 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         pairs: state.pairs,
         customFigures: state.customFigures,
         activeIndex: state.activeIndex,
-        tempo: state.tempo
+        tempo: state.tempo,
+        sharedId: state.sharedId
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
     }catch(e){}
+    // Every mutation in the app funnels through saveState() (directly or via saveStateDebounced),
+    // so this is the one choke point that guarantees "bound to a live share -> every edit
+    // propagates" without every individual call site needing to know about sharing. Soft dependency
+    // (js/share.js defines this) so state.js — loaded first — doesn't need to know share.js exists;
+    // by the time any edit actually happens, every script has finished loading regardless of order.
+    if(state.sharedId && typeof schedulePushSharedUpdate === 'function') schedulePushSharedUpdate();
   }
   var saveStateDebounced = (function(){
     var timer = null;

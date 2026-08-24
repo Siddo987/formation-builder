@@ -17,12 +17,15 @@ if (!preg_match('/^[A-Za-z0-9]{6,32}$/', $id)) {
     json_error('Ungültige Link-ID', 400);
 }
 
-$stmt = db()->prepare('SELECT project_name, payload_json, logo_path, song_path FROM shares WHERE id = :id');
+$stmt = db()->prepare('SELECT project_name, payload_json, logo_path, song_path, version FROM shares WHERE id = :id');
 $stmt->execute([':id' => $id]);
 $row = $stmt->fetch();
 if (!$row) json_error('Dieser Link wurde nicht gefunden oder ist nicht mehr gültig', 404);
 
 $payload = json_decode($row['payload_json'], true) ?: [];
+// Opaque token the client compares across polls (pollSharedUpdate() in js/share.js) to notice
+// someone else's edit without re-diffing the whole payload.
+$payload['rev'] = (string) $row['version'];
 
 // uploads/ sits next to api/ (see create.php) — build a root-relative URL the client can fetch
 // directly regardless of which path this app is deployed under. payload_json already carries

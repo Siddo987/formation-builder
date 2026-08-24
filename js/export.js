@@ -28,7 +28,10 @@
       }
       else if(kw === 'FORMATION'){
         var fid = parts[1], fname = parts.slice(2).join(' ') || 'Bild';
-        current = {id: fid, name: fname, pos: {}, showAxes: true, localAxes: [], category: ''};
+        // .auf stays the lightweight positions/names/rotations-only format — no startPos snapshot
+        // (that's .stg/share-link territory, like axes/pairs); the onion-skin gray dot just won't
+        // show for a project opened straight from a .auf import until re-saved as .stg.
+        current = {id: fid, name: fname, pos: {}, showAxes: true, localAxes: [], category: '', startPos: null};
         formations.push(current);
       }
       else if(kw === 'POS' && current){
@@ -104,7 +107,12 @@
         });
         var time = formationTime(f);
         var localAxes = (f.localAxes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; });
-        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100};
+        var startPos = null;
+        if(f.startPos){
+          startPos = {};
+          Object.keys(f.startPos).forEach(function(id){ startPos[id] = {x: roundNum(f.startPos[id].x), y: roundNum(f.startPos[id].y)}; });
+        }
+        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100, startPos: startPos};
       }),
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
@@ -167,7 +175,7 @@
       throw new Error('Datei enthält keine Tänzer oder Bilder');
     }
 
-    var formations = header.formations.map(function(f){
+    var formations = header.formations.map(function(f, i){
       var pos = {};
       Object.keys(f.pos||{}).forEach(function(id){
         var p = f.pos[id];
@@ -177,7 +185,22 @@
       var localAxes = (Array.isArray(f.localAxes) ? f.localAxes : []).filter(function(ax){
         return ax && typeof ax.x1 === 'number' && typeof ax.y1 === 'number' && typeof ax.x2 === 'number' && typeof ax.y2 === 'number';
       }).map(function(ax){ return {id: ax.id || uid('ax'), x1:clampGrid(ax.x1), y1:clampGrid(ax.y1), x2:clampGrid(ax.x2), y2:clampGrid(ax.y2), label:ax.label||''}; });
-      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : ''};
+      var startPos = null;
+      if(f.startPos && typeof f.startPos === 'object'){
+        startPos = {};
+        Object.keys(f.startPos).forEach(function(id){
+          var p = f.startPos[id];
+          if(p) startPos[id] = {x: clampGrid(p.x||0), y: clampGrid(p.y||0)};
+        });
+      }else{
+        // migration: files saved before this field existed — best guess is the preceding Bild
+        var prevRaw = header.formations[i-1];
+        if(prevRaw && prevRaw.pos){
+          startPos = {};
+          Object.keys(prevRaw.pos).forEach(function(id){ startPos[id] = {x: clampGrid(prevRaw.pos[id].x||0), y: clampGrid(prevRaw.pos[id].y||0)}; });
+        }
+      }
+      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos};
       if(typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) out.time = f.time;
       return out;
     });
@@ -348,6 +371,11 @@
     revokeStateBlobs(state);
     state = parsed;
     state.activeIndex = Math.min(state.activeIndex || 0, state.formations.length-1);
+    // A plain local .stg/.auf import carries no sharedId, so this correctly severs any previous
+    // live-share binding (importing an unrelated file shouldn't keep pushing edits into the old
+    // link). Callers that DO want the binding kept (loadSharedProjectFromUrl, pollSharedUpdate)
+    // set parsed.sharedId themselves before calling this and (re)start polling on their own.
+    if(!state.sharedId) stopSharePolling();
     syncBlobsToIdb();
     saveState();
     fullRerender();
@@ -391,6 +419,7 @@
       resetBtn.innerHTML = resetLabel;
       pausePlayback();
       revokeStateBlobs(state);
+      stopSharePolling();
       state = defaultState();
       syncBlobsToIdb();
       saveState();

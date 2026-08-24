@@ -82,14 +82,24 @@ if ($songFile) {
     $songPath = $rel;
 }
 
-$stmt = db()->prepare('INSERT INTO shares (id, created_at, project_name, payload_json, logo_path, song_path) VALUES (:id, :created_at, :project_name, :payload_json, :logo_path, :song_path)');
+// updated_at starts out equal to created_at (set explicitly here rather than relying on a column
+// default, which differs between MySQL's CURRENT_TIMESTAMP and sqlite's — see db.php) — bumped by
+// api/share/update.php on every subsequent edit once a project is bound to this id. `version` is a
+// fresh opaque token the client polls against (pollSharedUpdate() in js/share.js) — not the
+// DATETIME itself, which only has one-second resolution and could miss two edits landing in the
+// same second.
+$now = gmdate('Y-m-d H:i:s');
+$version = random_id(16);
+$stmt = db()->prepare('INSERT INTO shares (id, created_at, updated_at, version, project_name, payload_json, logo_path, song_path) VALUES (:id, :created_at, :updated_at, :version, :project_name, :payload_json, :logo_path, :song_path)');
 $stmt->execute([
     ':id' => $id,
-    ':created_at' => gmdate('Y-m-d H:i:s'),
+    ':created_at' => $now,
+    ':updated_at' => $now,
+    ':version' => $version,
     ':project_name' => substr((string) ($payload['projectName'] ?? ''), 0, 120),
     ':payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
     ':logo_path' => $logoPath,
     ':song_path' => $songPath,
 ]);
 
-json_response(['id' => $id], 201);
+json_response(['id' => $id, 'rev' => $version], 201);

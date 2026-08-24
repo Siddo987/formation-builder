@@ -87,6 +87,11 @@
       if(ind) ind.style.transform = 'rotate(' + (pos.rot||0) + 'deg)';
     });
     updatePairMidpointMarker(posMap);
+    // Skip during playback: mid-transition frames are interpolating *toward* the next Bild while
+    // state.activeIndex (and therefore currentFormation().startPos) still belongs to the one just
+    // left, so comparing against it here would flicker nonsense until the move completes — at
+    // which point resetLayoutGhost() already re-renders this correctly against the right Bild.
+    if(!playing) renderOnionSkin(posMap);
   }
 
   // Small crosshair marking the centroid a 2+ selection rotates around (rotatePairSelection's
@@ -176,10 +181,16 @@
     buildLayoutGhostLayer();
   }
 
-  // Faint preview of the adjacent Bilder while positioning the current one: the next Bild's
-  // dancers in their own colors (barely visible), the previous Bild's in a uniform light gray —
-  // purely visual, no pointer events. Refreshed whenever the active Bild changes (piggybacked on
-  // resetLayoutGhost, see its comment for why).
+  // Faint preview around the current Bild: the next Bild's dancers in their own colors (barely
+  // visible), and — per dancer — a uniform light gray dot at *this* Bild's own frozen startPos
+  // (see snapshotPos/addFormation), not a live read of "whatever formation sits before it". Only
+  // shown once a dancer has actually been moved away from that startPos within this Bild — right
+  // when a fresh Bild is created every dancer's current pos still equals its startPos, so there's
+  // nothing to see yet; as soon as one gets dragged, its own gray "came from here" dot appears.
+  // Purely visual, no pointer events. Refreshed on every Bild switch (piggybacked on
+  // resetLayoutGhost, see its comment for why) and on every position update (positionMarkers) so
+  // the reveal-on-drag behaves live.
+  var ONION_MOVED_EPSILON = 0.001;
   function buildOnionSkinLayer(){
     var layer = document.createElement('div');
     layer.className = 'onion-skin-layer';
@@ -188,14 +199,14 @@
     renderOnionSkin();
   }
 
-  function renderOnionSkin(){
+  function renderOnionSkin(curPosMap){
     var layer = document.getElementById('onionSkinLayer');
     if(!layer) return;
     layer.innerHTML = '';
-    function addDots(formation, extraClass, useDancerColor){
-      if(!formation) return;
+    function addDots(posMap, extraClass, useDancerColor){
+      if(!posMap) return;
       state.dancers.forEach(function(d){
-        var p = formation.pos[d.id];
+        var p = posMap[d.id];
         if(!p) return;
         var dot = document.createElement('span');
         dot.className = 'onion-dot ' + extraClass;
@@ -205,8 +216,19 @@
         layer.appendChild(dot);
       });
     }
-    addDots(state.formations[state.activeIndex-1], 'onion-dot-prev', false);
-    addDots(state.formations[state.activeIndex+1], 'onion-dot-next', true);
+    var startPos = currentFormation().startPos;
+    var curPos = curPosMap || currentFormation().pos;
+    if(startPos){
+      var movedOnly = {};
+      state.dancers.forEach(function(d){
+        var s = startPos[d.id], c = curPos[d.id];
+        if(!s || !c) return;
+        if(Math.abs(c.x - s.x) > ONION_MOVED_EPSILON || Math.abs(c.y - s.y) > ONION_MOVED_EPSILON) movedOnly[d.id] = s;
+      });
+      addDots(movedOnly, 'onion-dot-prev', false);
+    }
+    var next = state.formations[state.activeIndex+1];
+    addDots(next ? next.pos : null, 'onion-dot-next', true);
   }
 
   // Editable labels around the stage edges (default "WAND"/"SPIEGEL"/"EINGANG"/"FENSTER", matching

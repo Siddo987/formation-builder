@@ -10,12 +10,25 @@
 CREATE TABLE IF NOT EXISTS shares (
   id            VARCHAR(32)   NOT NULL PRIMARY KEY,
   created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  version       VARCHAR(40)   NOT NULL DEFAULT '',
   project_name  VARCHAR(120)  NOT NULL DEFAULT '',
   payload_json  JSON          NOT NULL,
   logo_path     VARCHAR(255)  NULL,
   song_path     VARCHAR(255)  NULL,
   delete_token  VARCHAR(64)   NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Re-running this file against a database that already has an older `shares` table (created
+-- before updated_at/version existed, i.e. before live/persistent share links — see
+-- api/share/update.php) — CREATE TABLE IF NOT EXISTS above is a no-op there, so add the columns
+-- explicitly. Needs MySQL 8.0.29+ for ADD COLUMN IF NOT EXISTS; on an older MySQL, drop the "IF
+-- NOT EXISTS" and ignore the resulting "duplicate column" error if it's already there (same as the
+-- layouts migration below). `version` is an opaque per-write token the client polls against
+-- (pollSharedUpdate() in js/share.js) — deliberately not the DATETIME itself, which only has
+-- one-second resolution and could miss two edits landing in the same second.
+ALTER TABLE shares ADD COLUMN IF NOT EXISTS updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE shares ADD COLUMN IF NOT EXISTS version VARCHAR(40) NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS figures (
   id              VARCHAR(32)   NOT NULL PRIMARY KEY,

@@ -80,7 +80,10 @@
       });
     }
 
-    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: newPos, showAxes: currentFormation().showAxes !== false, localAxes: copyLocalAxes(currentFormation()), category: '' };
+    // startPos freezes exactly where the dancers stood right before this Figur was applied — the
+    // Bild's own fixed "came from here" reference (see renderOnionSkin()), independent of whatever
+    // Bild ends up sitting before this one later (reordering, deletes, further edits to srcPos).
+    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: newPos, showAxes: currentFormation().showAxes !== false, localAxes: copyLocalAxes(currentFormation()), category: '', startPos: snapshotPos(srcPos) };
     state.formations.push(f);
     state.activeIndex = state.formations.length - 1;
     saveState();
@@ -403,20 +406,28 @@
   // gets "1." the first time it starts a section; a "Tango" section elsewhere in the sequence gets
   // its own "1."; a later section again named "Langsamer Walzer" automatically becomes "2." — so
   // the user only ever types the dance name itself ("Langsamer Walzer"), never a number.
+  //
+  // Consecutive Bilder sharing the same name (nothing of a different name between them) still
+  // count as one run of the same dance and get the same number — a bump only happens the moment
+  // the name actually changes to something else, not just because the field was typed again
+  // instead of left blank.
   function renumberFilmCategories(){
     var wraps = filmTrackEl.querySelectorAll('.film-category');
-    var counts = {}; // normalized section name -> how many section-starts with that name seen so far
+    var counts = {}; // normalized section name -> how many separate runs of that name seen so far
+    var prevKey = null; // the previous Bild's own effective (non-blank) category, normalized
     wraps.forEach(function(wrap, i){
       var f = state.formations[i];
       var numEl = wrap.querySelector('.film-category-num');
       var text = f && f.category ? f.category.trim() : '';
       if(text){
         var key = text.toLowerCase();
-        counts[key] = (counts[key] || 0) + 1;
+        if(key !== prevKey) counts[key] = (counts[key] || 0) + 1;
         numEl.textContent = counts[key] + '.';
         numEl.hidden = false;
+        prevKey = key;
       }else{
         numEl.hidden = true;
+        // blank continues whatever the previous Bild's name was — prevKey stays as-is
       }
     });
   }
@@ -437,7 +448,10 @@
     var src = currentFormation();
     var copy = {};
     Object.keys(src.pos).forEach(function(k){ copy[k] = {x:src.pos[k].x, y:src.pos[k].y, rot:src.pos[k].rot||0}; });
-    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: copy, showAxes: src.showAxes !== false, localAxes: copyLocalAxes(src), category: '' };
+    // startPos freezes the position this new Bild starts from (identical to `copy` right now, but
+    // kept as an independent object — see snapshotPos — so later dragging dancers within this new
+    // Bild, or editing the Bild before it, never changes what this Bild remembers as its own start).
+    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: copy, showAxes: src.showAxes !== false, localAxes: copyLocalAxes(src), category: '', startPos: snapshotPos(src.pos) };
     state.formations.push(f);
     state.activeIndex = state.formations.length - 1;
     saveState();
