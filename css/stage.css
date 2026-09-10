@@ -29,6 +29,19 @@
     text-transform:uppercase; color:inherit;
     border:none; background:transparent; outline:none; padding:0; text-align:center;
   }
+  /* Shown only while posing a Zwischenposition instead of the active Bild itself (editingBetween in
+     state.js, entered from a filmstrip connector chip — see formations.js's enterBetweenEdit()) —
+     makes it obvious the stage/roster are editing something other than the current Bild, and gives
+     an explicit way back out besides just switching Bilder. */
+  .between-edit-banner{
+    display:flex; align-items:center; justify-content:space-between; gap:.6rem;
+    background:var(--pair-wash); border:1px solid var(--pair);
+    border-radius:10px;
+    padding:.4rem .6rem;
+    margin:0 0 .55rem;
+    font-size:.74rem; font-weight:600; color:var(--pair);
+  }
+  .between-edit-banner[hidden]{display:none;}
   .stage-frame{position:relative;}
   /* Sits directly on the stage floor, which is always dark regardless of the app's light/dark
      theme (see .stage's own background) — so, like .grid-label, this uses a fixed light tint
@@ -230,16 +243,29 @@
   .pair-midpoint-marker::before{left:0;right:0;top:50%;height:2px;transform:translateY(-50%);}
   .pair-midpoint-marker::after{top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);}
 
-  /* ---- themed scrollbars (roster list + filmstrip track) ---- */
-  .roster-list,.film-track{
+  /* ---- themed scrollbars ---- */
+  /* Every scrollable panel in the app (roster/filmstrip here, every modal body + the Verlauf/Marker/
+     Merge lists in css/modals.css), not just the two this rule originally covered — a bare default
+     OS scrollbar next to this much custom chrome elsewhere stood out. Firefox gets the standardized
+     scrollbar-width/-color properties; the ::-webkit-scrollbar-* rules do the same for Chrome/Edge/
+     Safari, which don't support those yet. */
+  .roster-list,.film-track,.modal-body,.marker-list,.history-list,.history-diff,.merge-conflicts{
     scrollbar-width:thin;
     scrollbar-color:var(--gold) var(--panel-2);
     scrollbar-gutter:stable; /* reserves the bar's space so content doesn't shift when it appears; no-op in browsers without support */
   }
-  .roster-list::-webkit-scrollbar,.film-track::-webkit-scrollbar{width:9px;height:9px;}
-  .roster-list::-webkit-scrollbar-track,.film-track::-webkit-scrollbar-track{background:var(--panel-2);border-radius:6px;}
-  .roster-list::-webkit-scrollbar-thumb,.film-track::-webkit-scrollbar-thumb{background:var(--gold);border-radius:6px;border:2px solid var(--panel-2);}
-  .roster-list::-webkit-scrollbar-thumb:hover,.film-track::-webkit-scrollbar-thumb:hover{background:var(--gold-deep);}
+  .roster-list::-webkit-scrollbar,.film-track::-webkit-scrollbar,.modal-body::-webkit-scrollbar,
+  .marker-list::-webkit-scrollbar,.history-list::-webkit-scrollbar,.history-diff::-webkit-scrollbar,
+  .merge-conflicts::-webkit-scrollbar{width:9px;height:9px;}
+  .roster-list::-webkit-scrollbar-track,.film-track::-webkit-scrollbar-track,.modal-body::-webkit-scrollbar-track,
+  .marker-list::-webkit-scrollbar-track,.history-list::-webkit-scrollbar-track,.history-diff::-webkit-scrollbar-track,
+  .merge-conflicts::-webkit-scrollbar-track{background:var(--panel-2);border-radius:6px;}
+  .roster-list::-webkit-scrollbar-thumb,.film-track::-webkit-scrollbar-thumb,.modal-body::-webkit-scrollbar-thumb,
+  .marker-list::-webkit-scrollbar-thumb,.history-list::-webkit-scrollbar-thumb,.history-diff::-webkit-scrollbar-thumb,
+  .merge-conflicts::-webkit-scrollbar-thumb{background:var(--gold);border-radius:6px;border:2px solid var(--panel-2);}
+  .roster-list::-webkit-scrollbar-thumb:hover,.film-track::-webkit-scrollbar-thumb:hover,.modal-body::-webkit-scrollbar-thumb:hover,
+  .marker-list::-webkit-scrollbar-thumb:hover,.history-list::-webkit-scrollbar-thumb:hover,.history-diff::-webkit-scrollbar-thumb:hover,
+  .merge-conflicts::-webkit-scrollbar-thumb:hover{background:var(--gold-deep);}
   .dancer-row{
     display:flex;
     flex-direction:column;
@@ -247,13 +273,21 @@
     padding:.4rem .45rem;
     border-radius:10px;
     transition:background .12s ease;
+    cursor:pointer; /* the row itself selects on click (handleRosterSelectClick) — its inputs/buttons
+                       set their own native cursor, so this only shows over the plain row background */
   }
   .dancer-row:hover,.dancer-row:focus-within{background:var(--panel-2);}
-  /* Mirrors the stage's current selection (selectedDancerId) — "am Rand in der Leiste
-     gehighlighted" — a gold edge on the dancer's own row, and separately on their pair's whole
-     group container (updateRosterSelectionHighlight keeps both in sync). */
+  /* Mirrors the stage's current selection into the roster (see updateRosterSelectionHighlight) —
+     a gold edge for the single selectedDancerId, on the dancer's own row and separately on their
+     pair's whole group container; a teal edge for everyone currently in the 2+ multi-selection
+     (pairSelection), matching the stage markers' own gold/teal split (.dancer.selected /
+     .dancer.pair-selected above). */
   .dancer-row.roster-row-selected{box-shadow:inset 3px 0 0 var(--gold);}
+  .dancer-row.roster-row-pair-selected{box-shadow:inset 3px 0 0 var(--pair);}
+  .dancer-row.roster-row-selected.roster-row-pair-selected{box-shadow:inset 3px 0 0 var(--gold), inset 6px 0 0 var(--pair);}
   .pair-group.roster-pairgroup-selected{border-color:var(--gold); box-shadow:inset 3px 0 0 var(--gold);}
+  .pair-group.roster-pairgroup-pair-selected{border-color:var(--pair); box-shadow:inset 3px 0 0 var(--pair);}
+  .pair-group.roster-pairgroup-selected.roster-pairgroup-pair-selected{box-shadow:inset 3px 0 0 var(--gold), inset 6px 0 0 var(--pair);}
   .dancer-row-main{display:flex;align-items:center;gap:.55rem;}
   .swatch{
     width:13px;height:13px;
@@ -415,6 +449,7 @@
   .pair-group-header{
     display:flex; align-items:center; gap:.3rem;
     padding:.1rem .2rem;
+    cursor:pointer; /* selects the whole pair on click (handleRosterPairSelectClick) */
   }
   .pair-group-collapse{
     flex:none;
@@ -445,6 +480,7 @@
     grid-template-columns:repeat(2, minmax(0,1fr));
     gap:.15rem .3rem;
     padding:.3rem .3rem .2rem 1.35rem;
+    cursor:pointer; /* selects the whole pair on click (handleRosterPairSelectClick) */
   }
   .role-tag{
     flex:none;

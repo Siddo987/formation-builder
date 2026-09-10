@@ -1,15 +1,20 @@
 <?php
 /**
- * POST /api/share/create.php — stores a snapshot of the current project so it can be opened
- * via a link (rwkreator.sidowski.de/?share=<id>). Not live/collaborative editing — visiting the
- * link loads a read-only copy into the app, the same way opening a .stg file does.
+ * POST /api/share/create.php — creates the share row a link points at (rwkreator.sidowski.de/?share=<id>)
+ * and stores the project's current state as its first revision. The link is live from then on:
+ * api/share/update.php overwrites this same row on every edit anyone with the link makes, and each
+ * open browser pulls the latest on its 8s poll (see js/share.js). This endpoint only mints the id
+ * and seeds it — all later writes go through update.php.
  *
  * multipart/form-data body:
- *   payload : JSON string — {projectName, dancers, formations, axes, showAxes, pairs, tempo, activeIndex}
- *             (same shape buildStgBlob() already serializes client-side, minus the logo/song blobs,
- *             which travel as separate file fields below instead of being embedded/base64'd)
- *   logo    : optional file
- *   song    : optional file
+ *   payload        : JSON string — {projectName, dancers, formations, axes, showAxes, pairs, tempo, activeIndex}
+ *                    (same shape buildStgBlob() already serializes client-side, minus the logo/song
+ *                    blobs, which travel separately instead of being embedded/base64'd)
+ *   logo, song     : optional files — used when the media is small enough to ride in this request
+ *   logo_upload_id, song_upload_id, logo_filename, song_filename
+ *                  : the alternative for media too big for one request — see media_chunk.php and
+ *                    _media.php's share_resolve_incoming(). *_filename only matters for its
+ *                    extension (used to pick the stored file's name), same as a raw file's name.
  *
  * No auth to create (matches the low-friction "share via link" intent) and no auth to view.
  * Ids are opaque/non-sequential (see random_id()). No revoke/delete in this version — see the
@@ -17,19 +22,20 @@
  *
  * NOTE on upload size: SHARE_MAX_BYTES (checked below) is this app's own cap, but PHP's
  * `upload_max_filesize`/`post_max_size` ini settings are enforced by PHP itself *before* this
- * script ever runs (commonly 2M/8M by default on shared hosting) — a song file bigger than that
+ * script ever runs (commonly 2M/8M by default on shared hosting) — a single chunk bigger than that
  * fails silently at the PHP layer regardless of SHARE_MAX_BYTES. Raise both ini settings (via
- * php.ini, or a hosting control panel's PHP settings page) to comfortably above SHARE_MAX_BYTES
- * if uploads are failing for normal-sized songs.
+ * php.ini, or a hosting control panel's PHP settings page) if chunk uploads start failing; the
+ * client's MEDIA_CHUNK_BYTES (js/share.js) is picked comfortably under the common 2M default.
  */
 
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/http.php';
+require_once __DIR__ . '/_media.php';
 
 require_method('POST');
 db_ensure_schema();
 
-$maxBytes = (int) env_get('SHARE_MAX_BYTES', 26214400);
+$maxBytes = (int) env_get('SHARE_MAX_BYTES', 104857600);
 
 $payloadRaw = $_POST['payload'] ?? '';
 $payload = json_decode($payloadRaw, true);
@@ -39,48 +45,24 @@ if (!is_array($payload) || !isset($payload['dancers']) || !isset($payload['forma
 
 $logoFile = (!empty($_FILES['logo']['tmp_name']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) ? $_FILES['logo'] : null;
 $songFile = (!empty($_FILES['song']['tmp_name']) && $_FILES['song']['error'] === UPLOAD_ERR_OK) ? $_FILES['song'] : null;
+$logoUploadId = $logoFile ? null : share_post_upload_id('logo_upload_id');
+$songUploadId = $songFile ? null : share_post_upload_id('song_upload_id');
 
-$totalBytes = strlen($payloadRaw) + ($logoFile ? $logoFile['size'] : 0) + ($songFile ? $songFile['size'] : 0);
+$totalBytes = strlen($payloadRaw) + share_incoming_size($logoFile, $logoUploadId) + share_incoming_size($songFile, $songUploadId);
 if ($totalBytes > $maxBytes) {
+    share_discard_incoming_upload($logoUploadId);
+    share_discard_incoming_upload($songUploadId);
     json_error('Datei zu groß (' . round($totalBytes / 1048576, 1) . ' MB, Limit ' . round($maxBytes / 1048576, 1) . ' MB)', 413);
 }
 
-function share_safe_ext(array $file, string $fallback): string {
-    $fromName = strtolower(pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
-    if (preg_match('/^[a-z0-9]{2,4}$/', $fromName)) return $fromName;
-    $mimeMap = [
-        'image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/gif' => 'gif', 'image/svg+xml' => 'svg',
-        'audio/mpeg' => 'mp3', 'audio/wav' => 'wav', 'audio/ogg' => 'ogg', 'audio/mp4' => 'm4a', 'audio/aac' => 'aac',
-    ];
-    return $mimeMap[$file['type'] ?? ''] ?? $fallback;
-}
-
 $id = random_id();
-$uploadsRoot = __DIR__ . '/../uploads/shares/' . $id;
-$logoPath = null;
-$songPath = null;
-
-if ($logoFile || $songFile) {
-    if (!mkdir($uploadsRoot, 0770, true) && !is_dir($uploadsRoot)) {
-        json_error('Konnte Upload-Verzeichnis nicht anlegen', 500);
-    }
-}
-if ($logoFile) {
-    $ext = share_safe_ext($logoFile, 'bin');
-    $rel = 'shares/' . $id . '/logo.' . $ext;
-    if (!move_uploaded_file($logoFile['tmp_name'], $uploadsRoot . '/logo.' . $ext)) {
-        json_error('Logo-Upload fehlgeschlagen', 500);
-    }
-    $logoPath = $rel;
-}
-if ($songFile) {
-    $ext = share_safe_ext($songFile, 'bin');
-    $rel = 'shares/' . $id . '/song.' . $ext;
-    if (!move_uploaded_file($songFile['tmp_name'], $uploadsRoot . '/song.' . $ext)) {
-        json_error('Song-Upload fehlgeschlagen', 500);
-    }
-    $songPath = $rel;
-}
+// create.php has no "existing" media to weigh against — presence is just "was a file/upload_id
+// given at all", same shape share_apply_media() already expects from update.php/commit.php.
+[$logoPath, $songPath] = share_apply_media(
+    $id, null, null, $logoFile !== null || $logoUploadId !== null, $songFile !== null || $songUploadId !== null,
+    $logoFile, $songFile, $logoUploadId, $songUploadId,
+    (string) ($_POST['logo_filename'] ?? ''), (string) ($_POST['song_filename'] ?? '')
+);
 
 // updated_at starts out equal to created_at (set explicitly here rather than relying on a column
 // default, which differs between MySQL's CURRENT_TIMESTAMP and sqlite's — see db.php) — bumped by
@@ -90,7 +72,11 @@ if ($songFile) {
 // same second.
 $now = gmdate('Y-m-d H:i:s');
 $version = random_id(16);
-$stmt = db()->prepare('INSERT INTO shares (id, created_at, updated_at, version, project_name, payload_json, logo_path, song_path) VALUES (:id, :created_at, :updated_at, :version, :project_name, :payload_json, :logo_path, :song_path)');
+// Wer den Link erstellt, bekommt dieses Token einmalig zurück (der Client hängt es an den
+// Bearbeiten-Link als ?t=…). Ohne passendes Token weisen update.php/commit.php/merge.php jeden
+// Schreibversuch ab -> ein Link ohne ?t= ist reiner Nur-Ansehen-Link.
+$editToken = random_id(32);
+$stmt = db()->prepare('INSERT INTO shares (id, created_at, updated_at, version, project_name, payload_json, logo_path, song_path, edit_token) VALUES (:id, :created_at, :updated_at, :version, :project_name, :payload_json, :logo_path, :song_path, :edit_token)');
 $stmt->execute([
     ':id' => $id,
     ':created_at' => $now,
@@ -100,6 +86,7 @@ $stmt->execute([
     ':payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
     ':logo_path' => $logoPath,
     ':song_path' => $songPath,
+    ':edit_token' => $editToken,
 ]);
 
-json_response(['id' => $id, 'rev' => $version], 201);
+json_response(['id' => $id, 'rev' => $version, 'edit_token' => $editToken], 201);

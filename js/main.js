@@ -20,6 +20,20 @@
     if(!filenameBackdrop.hidden) closeFilenameDialog();
     if(!markerBackdrop.hidden) closeMarkerModal();
     if(!addBildBackdrop.hidden) closeAddBildModal();
+    var hb = document.getElementById('historyBackdrop');
+    if(hb && !hb.hidden && typeof closeHistoryPanel === 'function') closeHistoryPanel();
+    var mb = document.getElementById('mergeBackdrop');
+    if(mb && !mb.hidden && typeof closeMergeModal === 'function'){ pendingMerge = null; closeMergeModal(); }
+  });
+
+  // Rückgängig / Wiederholen (js/history.js) — not while typing in a field.
+  document.addEventListener('keydown', function(e){
+    if(!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    var ae = document.activeElement;
+    if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+    var k = (e.key || '').toLowerCase();
+    if(k === 'z' && !e.shiftKey){ e.preventDefault(); if(typeof historyUndo === 'function') historyUndo(); }
+    else if((k === 'z' && e.shiftKey) || k === 'y'){ e.preventDefault(); if(typeof historyRedo === 'function') historyRedo(); }
   });
 
   projectNameInput.addEventListener('input', function(){
@@ -118,7 +132,6 @@
     idbPut('song', { name:state.song.name, mime:state.song.mime, blob:state.song.blob });
     applySongSource();
     updateSongSettingsUI();
-    resetBeatData();
     saveState();
     e.target.value = '';
   });
@@ -129,7 +142,6 @@
     idbDelete('song');
     applySongSource();
     updateSongSettingsUI();
-    resetBeatData();
     saveState();
   });
 
@@ -173,5 +185,8 @@
   }
 
   loadSharedProjectFromUrl();
+  // With a ?share= link, js/share.js re-keys the history to the share id once the project loads;
+  // otherwise start it now against the local project.
+  if(!/[?&]share=/.test(location.search) && typeof initHistory === 'function') initHistory();
   ensureFiguresLoaded();
   ensureLayoutsLoaded();

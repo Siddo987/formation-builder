@@ -30,6 +30,34 @@ CREATE TABLE IF NOT EXISTS shares (
 ALTER TABLE shares ADD COLUMN IF NOT EXISTS updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE shares ADD COLUMN IF NOT EXISTS version VARCHAR(40) NOT NULL DEFAULT '';
 
+-- Version history / branching for share links (see js/history.js + api/share/commit.php|merge.php).
+-- Each edit that reaches the server is a commit; concurrent editors who no longer sit on the
+-- mainline tip get their own branch_id; a merge commit has two parents (comma-separated). The
+-- `shares` row keeps head_commit = the mainline tip, and its payload_json/version mirror that
+-- commit's payload (so get.php and read-only opens stay a single fast lookup).
+ALTER TABLE shares ADD COLUMN IF NOT EXISTS head_commit VARCHAR(32) NULL;
+
+-- Nur-Ansehen-Links: create.php vergibt pro Link ein edit_token und gibt es nur dem Ersteller
+-- zurück. Der Bearbeiten-Link trägt ?t=<edit_token>, der Ansehen-Link nicht. update.php /
+-- commit.php / merge.php weisen einen Schreibversuch ohne passendes Token mit 403 ab. Alt-Links
+-- (edit_token IS NULL) bleiben wie bisher frei bearbeitbar, damit bereits verschickte Links weiter
+-- funktionieren.
+ALTER TABLE shares ADD COLUMN IF NOT EXISTS edit_token VARCHAR(64) NULL;
+
+CREATE TABLE IF NOT EXISTS share_commits (
+  commit_id    VARCHAR(32)  NOT NULL PRIMARY KEY,
+  share_id     VARCHAR(32)  NOT NULL,
+  parent_ids   VARCHAR(140) NOT NULL DEFAULT '',
+  branch_id    VARCHAR(32)  NOT NULL DEFAULT '',
+  author       VARCHAR(60)  NOT NULL DEFAULT '',
+  note         VARCHAR(200) NOT NULL DEFAULT '',
+  -- UTC ISO-8601 string with ms ("2026-08-29T14:30:05.123Z"); a plain DATETIME truncates the
+  -- sub-second part that keeps two commits landing in the same second ordered.
+  created_at   VARCHAR(30)  NOT NULL,
+  payload_json JSON         NOT NULL,
+  INDEX share_commits_by_share (share_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS figures (
   id              VARCHAR(32)   NOT NULL PRIMARY KEY,
   name            VARCHAR(120)  NOT NULL,

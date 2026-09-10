@@ -2,6 +2,49 @@
 
 /* ---------- roster ---------- */
 
+  // Clicking a roster row/pair selects it exactly like clicking its marker on the stage would
+  // (attachDancerEvents in stage.js) — same plain-click-selects-the-saved-pair and Ctrl/Cmd-click-
+  // toggles-into-the-multi-selection rules, just without the drag that follows a stage pointerdown.
+  // Bails out of anything that started on an actual control (name/coord input, remove/collapse/
+  // unpair button) so those keep working as plain form controls instead of also re-selecting.
+  function handleRosterSelectClick(e, dancerId){
+    if(e.target.closest('input, button, textarea, select')) return;
+    if(playing) pausePlayback();
+    var isolate = e.ctrlKey || e.metaKey;
+    if(isolate){
+      var idx = pairSelection.indexOf(dancerId);
+      if(idx !== -1) pairSelection.splice(idx, 1); else pairSelection.push(dancerId);
+    }else{
+      var pair = findPairForDancer(dancerId);
+      pairSelection = pair ? pair.memberIds.slice() : [dancerId];
+    }
+    selectedDancerId = dancerId;
+    ensureMarkers();
+    updatePairRotateUI();
+  }
+
+  // Same idea for clicking a pair as a whole (its header, or its collapsed midpoint row) — plain
+  // click selects both members; Ctrl/Cmd-click toggles the whole pair in/out of the multi-selection
+  // together rather than just one member of it.
+  function handleRosterPairSelectClick(e, pair){
+    if(e.target.closest('input, button, textarea, select')) return;
+    if(playing) pausePlayback();
+    var isolate = e.ctrlKey || e.metaKey;
+    if(isolate){
+      var allIn = pair.memberIds.every(function(id){ return pairSelection.indexOf(id) !== -1; });
+      if(allIn){
+        pairSelection = pairSelection.filter(function(id){ return pair.memberIds.indexOf(id) === -1; });
+      }else{
+        pair.memberIds.forEach(function(id){ if(pairSelection.indexOf(id) === -1) pairSelection.push(id); });
+      }
+    }else{
+      pairSelection = pair.memberIds.slice();
+    }
+    selectedDancerId = pair.memberIds[0];
+    ensureMarkers();
+    updatePairRotateUI();
+  }
+
   function renderRoster(){
     rosterListEl.innerHTML = '';
     rosterCoordInputs = {};
@@ -72,6 +115,7 @@
     header.appendChild(collapseBtn);
     header.appendChild(nameInput);
     header.appendChild(unpairBtn);
+    header.addEventListener('click', function(e){ handleRosterPairSelectClick(e, pair); });
     group.appendChild(header);
 
     if(pair.collapsed){
@@ -90,6 +134,7 @@
   function buildPairMidpointRow(pair, a, b){
     var row = document.createElement('div');
     row.className = 'pair-group-midpoint';
+    row.addEventListener('click', function(e){ handleRosterPairSelectClick(e, pair); });
     var mid = pairMidpoint(pair);
 
     var xLabel = document.createElement('span');
@@ -131,6 +176,7 @@
   function buildDancerRow(d, pos, role){
       var row = document.createElement('div');
       row.className = 'dancer-row';
+      row.addEventListener('click', function(e){ handleRosterSelectClick(e, d.id); });
 
       var main = document.createElement('div');
       main.className = 'dancer-row-main';
@@ -243,7 +289,7 @@
 
   function addDancer(){
     var idx = state.dancers.length;
-    var d = { id: uid('d'), name: 'Tänzer ' + (idx+1), color: paletteColor(idx) };
+    var d = { id: uid('d'), name: String(idx+1), color: paletteColor(idx) };
     state.dancers.push(d);
     state.formations.forEach(function(f){ f.pos[d.id] = {x:0, y:5, rot:0}; });
     saveState();

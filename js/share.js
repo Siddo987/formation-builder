@@ -25,15 +25,112 @@ var shareCopyBtn = document.getElementById('shareCopyBtn');
 var shareCopiedHint = document.getElementById('shareCopiedHint');
 var shareErrorTextEl = document.getElementById('shareErrorText');
 var shareUnlinkBtn = document.getElementById('shareUnlinkBtn');
+var shareEditLinkField = document.getElementById('shareEditLinkField');
+var shareEditLinkInput = document.getElementById('shareEditLinkInput');
+var shareEditCopyBtn = document.getElementById('shareEditCopyBtn');
+var shareViewOnlyNote = document.getElementById('shareViewOnlyNote');
+var shareMainLinkHeading = document.getElementById('shareMainLinkHeading');
+var shareLegacyNote = document.getElementById('shareLegacyNote');
+var readonlyBanner = document.getElementById('readonlyBanner');
+var historyBackdrop = document.getElementById('historyBackdrop');
+var mergeBackdrop = document.getElementById('mergeBackdrop');
+var mergeCloseBtn = document.getElementById('mergeCloseBtn');
+var mergeCancelBtn = document.getElementById('mergeCancelBtn');
+var mergeConfirmBtn = document.getElementById('mergeConfirmBtn');
+var mergeIntroEl = document.getElementById('mergeIntro');
+var mergeConflictListEl = document.getElementById('mergeConflictList');
+
+// The share endpoints sit behind a proxy that caps the whole request body near 1 MB. The project
+// JSON is always tiny, but a real song file (several MB, sometimes tens of MB) blows past that — a
+// direct upload would just stall until the proxy resets it. So media only rides directly in the
+// create/update/commit request when the whole thing comfortably fits under that cap; anything
+// bigger is split into chunks first (see uploadMediaInChunks below and api/share/media_chunk.php)
+// and only a small upload_id reference travels in the main request. Either way the full file
+// reaches the server — nothing is skipped or dropped anymore, see [[share-link-1mb-upload-cap]].
+var SHARE_BODY_BUDGET = 950 * 1024;
+var MEDIA_CHUNK_BYTES = 700 * 1024; // comfortably under SHARE_BODY_BUDGET's own margin
+
+// Uploads one media blob to media_chunk.php in pieces, each well under the proxy's cap, and
+// resolves to the upload_id the main request should reference instead of the raw blob.
+// onProgress(label, percent) — if given — is called after every chunk lands.
+function uploadMediaInChunks(blob, label, onProgress){
+  var uploadId = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+  var total = Math.max(1, Math.ceil(blob.size / MEDIA_CHUNK_BYTES));
+  var index = 0;
+  function sendNext(){
+    if(index >= total) return Promise.resolve(uploadId);
+    var start = index * MEDIA_CHUNK_BYTES;
+    var chunk = blob.slice(start, start + MEDIA_CHUNK_BYTES);
+    var fd = new FormData();
+    fd.append('upload_id', uploadId);
+    fd.append('index', String(index));
+    fd.append('chunk', chunk, 'chunk');
+    return fetch('api/share/media_chunk.php', {method:'POST', body: fd})
+      .then(function(res){ if(!res.ok) throw new Error('chunk upload failed: HTTP ' + res.status); return res.json(); })
+      .then(function(data){
+        if(!data || !data.ok) throw new Error('chunk upload rejected');
+        index++;
+        if(onProgress) onProgress(label, Math.round((index / total) * 100));
+        return sendNext();
+      });
+  }
+  return sendNext();
+}
+
+// Attaches state.logo/state.song to formData, either directly (small enough) or by chunk-uploading
+// first and leaving a `<kind>_upload_id` + `<kind>_filename` reference for the server to resolve
+// (see _media.php's share_resolve_incoming()). Returns a Promise that resolves once formData is
+// ready to send; onProgress(label, percent), if given, reports chunk-upload progress only (the
+// direct case is small enough that the caller's own xhr upload-progress event covers it).
+function attachShareMedia(formData, usedBytes, onProgress){
+  var items = [];
+  if(state.logo && state.logo.blob) items.push({kind:'logo', label:'Logo', media: state.logo});
+  if(state.song && state.song.blob) items.push({kind:'song', label:'Lied', media: state.song});
+
+  var chain = Promise.resolve();
+  items.forEach(function(item){
+    chain = chain.then(function(){
+      if(usedBytes + item.media.blob.size <= SHARE_BODY_BUDGET){
+        formData.append(item.kind, item.media.blob, item.media.name || item.kind);
+        usedBytes += item.media.blob.size;
+        return;
+      }
+      return uploadMediaInChunks(item.media.blob, item.label, onProgress).then(function(uploadId){
+        formData.append(item.kind + '_upload_id', uploadId);
+        formData.append(item.kind + '_filename', item.media.name || item.kind);
+      });
+    });
+  });
+  return chain;
+}
 
 function shareUrlFor(id){ return location.origin + location.pathname + '?share=' + id; }
+function shareEditUrlFor(id, token){ return shareUrlFor(id) + '&t=' + token; }
+
+function isShareReadOnly(){ return !!(state.sharedId && state.shareReadOnly); }
+
+// Blendet Banner + Sperr-Klasse für den Nur-Ansehen-Modus ein/aus.
+function applyShareReadonlyUi(){
+  var ro = isShareReadOnly();
+  document.body.classList.toggle('share-readonly', ro);
+  if(readonlyBanner) readonlyBanner.hidden = !ro;
+}
 
 function showShareLink(id){
   shareIntroEl.hidden = true;
   shareProgressEl.hidden = true;
   shareErrorTextEl.hidden = true;
   shareResultEl.hidden = false;
+
   shareLinkInput.value = shareUrlFor(id);
+
+  var haveToken = !!state.shareEditToken;
+  var legacy = !haveToken && !isShareReadOnly();   // vor diesem Feature erstellter Link: ?share= erlaubt allen das Bearbeiten
+  shareEditLinkField.hidden = !haveToken;
+  if(haveToken) shareEditLinkInput.value = shareEditUrlFor(id, state.shareEditToken);
+  shareViewOnlyNote.hidden = !isShareReadOnly();
+  shareLegacyNote.hidden = !legacy;
+  shareMainLinkHeading.textContent = legacy ? 'Link' : 'Nur zum Ansehen';
 }
 
 function resetShareModal(){
@@ -74,45 +171,68 @@ shareCreateBtn.addEventListener('click', function(){
     state.logo ? {name:state.logo.name, mime:state.logo.mime, opacity:state.logo.opacity||18} : null,
     state.song ? {name:state.song.name, mime:state.song.mime} : null
   );
+  var payloadStr = JSON.stringify(header);
   var formData = new FormData();
-  formData.append('payload', JSON.stringify(header));
-  if(state.logo && state.logo.blob) formData.append('logo', state.logo.blob, state.logo.name || 'logo');
-  if(state.song && state.song.blob) formData.append('song', state.song.blob, state.song.name || 'song');
+  formData.append('payload', payloadStr);
 
-  var xhr = new XMLHttpRequest();
-  xhr.open('POST', 'api/share/create.php');
-  xhr.upload.addEventListener('progress', function(e){
-    if(e.lengthComputable) shareProgressFillEl.style.width = Math.round((e.loaded/e.total)*100) + '%';
+  attachShareMedia(formData, payloadStr.length, function(label, pct){
+    shareProgressFillEl.style.width = pct + '%';
+    shareProgressTextEl.textContent = 'Wird hochgeladen… ' + label + ' ' + pct + '%';
+  }).then(function(){
+    shareProgressFillEl.style.width = '0%';
+    shareProgressTextEl.textContent = 'Wird hochgeladen…';
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', 'api/share/create.php');
+    xhr.timeout = 45000; // never leave the user staring at "Wird hochgeladen…" forever
+    xhr.upload.addEventListener('progress', function(e){
+      if(e.lengthComputable){
+        var pct = Math.round((e.loaded/e.total)*100);
+        shareProgressFillEl.style.width = pct + '%';
+        shareProgressTextEl.textContent = 'Wird hochgeladen… ' + pct + '%';
+      }
+    });
+    xhr.addEventListener('load', function(){
+      var data = null;
+      try{ data = JSON.parse(xhr.responseText); }catch(e){}
+      if(xhr.status >= 200 && xhr.status < 300 && data && data.id){
+        state.sharedId = data.id;
+        state.shareEditToken = data.edit_token || null;
+        state.shareReadOnly = false;   // wer den Link erstellt, darf bearbeiten
+        applyShareReadonlyUi();
+        lastKnownRev = data.rev || null;
+        lastPushedLogoRef = state.logo;
+        lastPushedSongRef = state.song;
+        suppressSharePush = true;
+        saveState(); // persists the binding locally — server already has this exact payload, see suppressSharePush
+        suppressSharePush = false;
+        startSharePolling();        // first poll bootstraps shareBaseCommit from the graph head
+        if(typeof initHistory === 'function') initHistory(); // re-file the Verlauf under the share id
+        showShareLink(data.id);
+      }else if(xhr.status === 413){
+        showShareError('Das Projekt ist zu groß zum Teilen. Meist liegt es am Lied — ohne Lied teilen, oder das Server-Limit (SHARE_MAX_BYTES) erhöhen.');
+      }else{
+        showShareError((data && data.error) ? data.error : 'Der Link konnte nicht erstellt werden.');
+      }
+    });
+    xhr.addEventListener('error', function(){
+      showShareError('Der Link konnte nicht erstellt werden (Netzwerkfehler).');
+    });
+    xhr.addEventListener('timeout', function(){
+      showShareError('Zeitüberschreitung beim Hochladen — bitte erneut versuchen.');
+    });
+    xhr.send(formData);
+  }).catch(function(){
+    showShareError('Der Link konnte nicht erstellt werden (Medien-Upload fehlgeschlagen). Bitte erneut versuchen.');
   });
-  xhr.addEventListener('load', function(){
-    var data = null;
-    try{ data = JSON.parse(xhr.responseText); }catch(e){}
-    if(xhr.status >= 200 && xhr.status < 300 && data && data.id){
-      state.sharedId = data.id;
-      lastKnownRev = data.rev || null;
-      lastPushedLogoRef = state.logo;
-      lastPushedSongRef = state.song;
-      suppressSharePush = true;
-      saveState(); // persists the binding locally — server already has this exact payload, see suppressSharePush
-      suppressSharePush = false;
-      startSharePolling();
-      showShareLink(data.id);
-    }else{
-      showShareError((data && data.error) ? data.error : 'Der Link konnte nicht erstellt werden.');
-    }
-  });
-  xhr.addEventListener('error', function(){
-    showShareError('Der Link konnte nicht erstellt werden (Netzwerkfehler).');
-  });
-  xhr.send(formData);
 });
 
-shareCopyBtn.addEventListener('click', function(){
-  shareLinkInput.focus();
-  shareLinkInput.select();
+function copyLinkFrom(inputEl){
+  inputEl.focus();
+  inputEl.select();
   function done(){ shareCopiedHint.hidden = false; }
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(shareLinkInput.value).then(done).catch(function(){
+    navigator.clipboard.writeText(inputEl.value).then(done).catch(function(){
       try{ document.execCommand('copy'); }catch(e){}
       done();
     });
@@ -120,7 +240,9 @@ shareCopyBtn.addEventListener('click', function(){
     try{ document.execCommand('copy'); }catch(e){}
     done();
   }
-});
+}
+shareCopyBtn.addEventListener('click', function(){ copyLinkFrom(shareLinkInput); });
+shareEditCopyBtn.addEventListener('click', function(){ copyLinkFrom(shareEditLinkInput); });
 
 // Same manual two-click-with-text-swap pattern as resetBtn (export.js) — matches its weight
 // (visible-text btn-ghost.danger, moderately consequential but easily reversible by sharing again).
@@ -136,85 +258,125 @@ shareUnlinkBtn.addEventListener('click', function(){
     shareUnlinkArmed = false;
     shareUnlinkBtn.textContent = shareUnlinkLabel;
     state.sharedId = null;
+    state.shareEditToken = null;
+    state.shareReadOnly = false;
     stopSharePolling();
+    applyShareReadonlyUi();
     saveState();
     resetShareModal();
   }
 });
 
-/* ---------- pushing local edits to a bound share ---------- */
+/* ---------- syncing a bound share as a commit graph -------------------------------------------
+   Every edit that reaches the server is a commit (api/share/commit.php). While this client sits on
+   the mainline tip its commits fast-forward it; once it has diverged (someone else committed
+   first) its commits land on its own branch_id and the Verlauf panel offers "zusammenführen"
+   (3-way merge, js/history.js, then api/share/merge.php). See also the plan / [[share-link-1mb-upload-cap]].
+   ------------------------------------------------------------------------------------------- */
 
 var PUSH_DEBOUNCE_MS = 700;
 var pushDebounceTimer = null;
 var pushInFlight = false;
 var pushQueuedAgain = false;
-var lastKnownRev = null; // last opaque revision token this tab has seen (its own push or a poll)
-var lastPushedLogoRef = undefined; // reference tracking (not deep-equal) — see pushSharedUpdateNow
+var lastKnownRev = null;          // opaque mainline token (for read-only opens / dedup)
+var lastPushedLogoRef = undefined;
 var lastPushedSongRef = undefined;
-// Suppresses the automatic push saveState() would otherwise schedule — used both while
-// pollSharedUpdate() is applying an incoming remote state (so pulling someone else's edit never
-// turns around and pushes it straight back as a "new" local change) and right after create.php
-// first binds this project (the server already has that exact payload — scheduling a redundant
-// push here would open a real race: if it lands *after* someone else's fast follow-up edit, it'd
-// silently clobber their change with this tab's now-stale copy).
-var suppressSharePush = false;
+var suppressSharePush = false;    // set while applying an incoming state, so it isn't pushed back
 
-// Debounced entry point saveState() calls on every edit once state.sharedId is set. Skipped while
-// we're in the middle of *applying* a remote update ourselves, so pulling someone else's edit
-// never turns right back around and pushes it straight back as if it were a new local change.
+// Where this client sits in the commit graph.
+var shareBaseCommit = null;   // the commit our current state descends from (last push or pull)
+var shareBranchId = null;     // null on the mainline, else our own branch id
+var shareHeadCommit = null;   // last-seen mainline tip
+var shareGraph = null;        // last history.php result {head_commit, commits:[], branches:[]}
+var shareNeedsInitialPull = false; // a returning tab (localStorage binding, no ?share=) may hold a
+                                   // stale project — its first poll pulls the current head instead
+                                   // of adopting whatever it had as "current".
+
 function schedulePushSharedUpdate(){
   if(suppressSharePush) return;
   clearTimeout(pushDebounceTimer);
   pushDebounceTimer = setTimeout(pushSharedUpdateNow, PUSH_DEBOUNCE_MS);
 }
 
+function shareLogoMeta(){ return state.logo ? {name:state.logo.name, mime:state.logo.mime, opacity:state.logo.opacity||18} : null; }
+function shareSongMeta(){ return state.song ? {name:state.song.name, mime:state.song.mime} : null; }
+function shareAuthor(){ return (typeof currentAuthor === 'function') ? currentAuthor() : ''; }
+
+function detachShare(){
+  state.sharedId = null;
+  state.shareEditToken = null;
+  state.shareReadOnly = false;
+  shareBaseCommit = null; shareBranchId = null; shareHeadCommit = null; shareGraph = null;
+  stopSharePolling();
+  applyShareReadonlyUi();
+  saveState();
+}
+
 function pushSharedUpdateNow(){
-  pushDebounceTimer = null; // the debounce has resolved — clearTimeout() alone doesn't reset this
-  if(!state.sharedId) return;
+  pushDebounceTimer = null;
+  if(!state.sharedId || state.shareReadOnly) return;   // Nur-Ansehen-Link: nichts hochladen
   if(pushInFlight){ pushQueuedAgain = true; return; }
   pushInFlight = true;
   var id = state.sharedId;
-  // Blob references only ever change on an actual upload/remove (opacity tweaks mutate the
-  // existing object in place — see main.js) — so this cheaply answers "do the bytes need
-  // re-uploading" without diffing anything, and keeps routine position/name edits from re-sending
-  // a multi-MB song on every debounced save.
   var mediaDirty = (state.logo !== lastPushedLogoRef) || (state.song !== lastPushedSongRef);
-  var header = buildProjectHeader(
-    state,
-    state.logo ? {name:state.logo.name, mime:state.logo.mime, opacity:state.logo.opacity||18} : null,
-    state.song ? {name:state.song.name, mime:state.song.mime} : null
-  );
+  var payloadStr = JSON.stringify(buildProjectHeader(state, shareLogoMeta(), shareSongMeta()));
   var formData = new FormData();
   formData.append('id', id);
-  formData.append('payload', JSON.stringify(header));
+  formData.append('edit_token', state.shareEditToken || '');
+  formData.append('base_commit', shareBaseCommit || '');
+  formData.append('payload', payloadStr);
+  formData.append('author', shareAuthor());
+  formData.append('note', (typeof lastEditSummary === 'function') ? lastEditSummary() : '');
   formData.append('logo_present', state.logo ? '1' : '0');
   formData.append('song_present', state.song ? '1' : '0');
-  if(mediaDirty && state.logo && state.logo.blob) formData.append('logo', state.logo.blob, state.logo.name || 'logo');
-  if(mediaDirty && state.song && state.song.blob) formData.append('song', state.song.blob, state.song.name || 'song');
+  var mediaReady = mediaDirty ? attachShareMedia(formData, payloadStr.length) : Promise.resolve();
 
-  fetch('api/share/update.php', {method:'POST', body: formData})
-    .then(function(res){ return res.json().catch(function(){ return null; }).then(function(data){ return {ok: res.ok, status: res.status, data: data}; }); })
+  mediaReady
+    .then(function(){ return fetch('api/share/commit.php', {method:'POST', body: formData}); })
+    .then(function(res){ return res.json().catch(function(){ return null; }).then(function(data){ return {ok:res.ok, status:res.status, data:data}; }); })
     .then(function(r){
-      if(r.ok && r.data && r.data.rev){
-        lastKnownRev = r.data.rev;
+      if(r.ok && r.data && r.data.commit_id){
+        shareBaseCommit = r.data.commit_id;
         lastPushedLogoRef = state.logo;
         lastPushedSongRef = state.song;
+        if(r.data.is_branch){
+          shareBranchId = r.data.branch_id || shareBranchId || 'ast';
+          shareHeadCommit = r.data.head_commit || shareHeadCommit;
+        }else{
+          shareBranchId = null;
+          shareHeadCommit = r.data.head_commit || r.data.commit_id;
+          if(r.data.rev) lastKnownRev = r.data.rev;
+        }
+        refreshShareBranchUI();
       }else if(r.status === 404){
-        // the id no longer exists server-side (e.g. a dev DB reset) — stop trying to push into a
-        // link that's gone rather than failing silently forever; the project itself is untouched
-        state.sharedId = null;
-        stopSharePolling();
-        saveState();
+        detachShare();
       }
     })
-    .catch(function(){ /* offline or similar — the next edit's debounced push retries */ })
+    .catch(function(){})
     .then(function(){
       pushInFlight = false;
       if(pushQueuedAgain){ pushQueuedAgain = false; schedulePushSharedUpdate(); }
     });
 }
 
-/* ---------- pulling other people's edits ---------- */
+// Force the pending debounced commit out now and resolve once it (and any queued follow-up) has
+// settled — used before a merge so "ours" is a real committed tip.
+function flushPendingCommit(){
+  return new Promise(function(resolve){
+    if(!state.sharedId){ resolve(); return; }
+    if(!pushInFlight && !pushDebounceTimer && !pushQueuedAgain){ resolve(); return; }
+    clearTimeout(pushDebounceTimer); pushDebounceTimer = null;
+    var tries = 0;
+    (function wait(){
+      if(!pushInFlight && !pushDebounceTimer && !pushQueuedAgain){ resolve(); return; }
+      if(!pushInFlight && (pushDebounceTimer || pushQueuedAgain)) pushSharedUpdateNow();
+      if(++tries > 60){ resolve(); return; } // ~9s safety net
+      setTimeout(wait, 150);
+    })();
+  });
+}
+
+/* ---------- polling: watch the graph, fast-forward when it's safe ---------- */
 
 var SHARE_POLL_MS = 8000;
 var sharePollTimer = null;
@@ -223,54 +385,335 @@ function startSharePolling(){
   stopSharePolling();
   if(!state.sharedId) return;
   sharePollTimer = setInterval(pollSharedUpdate, SHARE_POLL_MS);
+  pollSharedUpdate();
 }
 function stopSharePolling(){
   if(sharePollTimer){ clearInterval(sharePollTimer); sharePollTimer = null; }
 }
 
-// A short allowlist of reasons to skip *this* tick rather than yank a shared project out from
-// under someone mid-action — the next tick tries again a few seconds later regardless.
-function sharePollShouldSkip(){
-  if(!state.sharedId || document.visibilityState !== 'visible') return true;
-  if(pushInFlight || pushDebounceTimer) return true; // a local edit is still in flight/queued
+function haveLocalPendingEdits(){ return pushInFlight || !!pushDebounceTimer || pushQueuedAgain; }
+
+// The graph is fetched every tick so the Verlauf panel stays current; this only gates *swapping
+// state under the user* (a fast-forward pull) — never the fetch itself.
+function pollApplyBlocked(){
+  if(haveLocalPendingEdits()) return true;
   var ae = document.activeElement;
-  if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return true; // actively typing somewhere
-  var openModals = [shareBackdrop, settingsBackdrop, markerBackdrop, filenameBackdrop, videoBackdrop, addBildBackdrop, stepsBackdrop];
-  for(var i=0;i<openModals.length;i++){ if(openModals[i] && !openModals[i].hidden) return true; }
+  if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return true;
+  var m = [shareBackdrop, settingsBackdrop, markerBackdrop, filenameBackdrop, videoBackdrop, addBildBackdrop, stepsBackdrop, mergeBackdrop, historyBackdrop, document.getElementById('resetBackdrop')];
+  for(var i=0;i<m.length;i++){ if(m[i] && !m[i].hidden) return true; }
   return false;
 }
 
 function pollSharedUpdate(){
-  if(sharePollShouldSkip()) return;
+  if(!state.sharedId || document.visibilityState !== 'visible') return;
   var id = state.sharedId;
-  fetch('api/share/get.php?id=' + encodeURIComponent(id))
+  fetch('api/share/history.php?id=' + encodeURIComponent(id))
     .then(function(res){
       if(res.status === 404) throw {notFound:true};
       if(!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     })
-    .then(function(payload){
-      if(payload.rev === lastKnownRev) return; // nothing new since our last push/pull
-      lastKnownRev = payload.rev;
-      return reconstructSharedState(payload).then(function(newState){
-        if(state.sharedId !== id) return; // unlinked/switched while the fetch was in flight
-        newState.sharedId = id;
-        suppressSharePush = true;
-        applyImportedState(newState);
-        lastPushedLogoRef = newState.logo;
-        lastPushedSongRef = newState.song;
-        suppressSharePush = false;
-      });
+    .then(function(graph){
+      if(state.sharedId !== id) return;
+      shareGraph = graph;
+      var newHead = graph.head_commit;
+
+      if(!shareBaseCommit){
+        shareHeadCommit = newHead;
+        if(shareNeedsInitialPull){
+          shareNeedsInitialPull = false;
+          return fetch('api/share/get.php?id=' + encodeURIComponent(id))
+            .then(function(r){ return r.json(); })
+            .then(function(payload){
+              return reconstructSharedState(payload).then(function(newState){
+                if(state.sharedId !== id) return;
+                suppressSharePush = true;
+                applyState(newState, {keepBinding: true, keepBlobs: false});
+                suppressSharePush = false;
+                lastPushedLogoRef = newState.logo;
+                lastPushedSongRef = newState.song;
+                lastKnownRev = payload.rev || lastKnownRev;
+                shareBaseCommit = newHead;
+                refreshShareBranchUI();
+              });
+            });
+        }
+        shareBaseCommit = newHead; // freshly created/loaded — local state already equals head
+        refreshShareBranchUI();
+        return;
+      }
+
+      var headMoved = newHead && newHead !== shareHeadCommit;
+      shareHeadCommit = newHead || shareHeadCommit;
+
+      // Our own branch is safe to fast-forward past once its tip is an ancestor of the new head —
+      // that means someone merged it into the mainline, our work is already in there.
+      var branchMerged = shareBranchId && isAncestorCommit(graph.commits || [], shareBaseCommit, newHead);
+      var canFastForward = headMoved && shareBaseCommit !== newHead && !pollApplyBlocked()
+        && (!shareBranchId || branchMerged);
+
+      if(canFastForward){
+        return fetch('api/share/get.php?id=' + encodeURIComponent(id))
+          .then(function(r){ return r.json(); })
+          .then(function(payload){
+            if(state.sharedId !== id || haveLocalPendingEdits()) return;
+            return reconstructSharedState(payload).then(function(newState){
+              if(state.sharedId !== id || haveLocalPendingEdits()) return;
+              suppressSharePush = true;
+              applyState(newState, {keepBinding: true, keepBlobs: false});
+              lastPushedLogoRef = newState.logo;
+              lastPushedSongRef = newState.song;
+              lastKnownRev = payload.rev || lastKnownRev;
+              shareBaseCommit = newHead;
+              shareBranchId = null;
+              suppressSharePush = false;
+              refreshShareBranchUI();
+            });
+          });
+      }
+      refreshShareBranchUI();
     })
     .catch(function(err){
-      if(err && err.notFound){
-        state.sharedId = null;
-        stopSharePolling();
-        saveState();
-      }
-      // any other error (offline, hiccup): just try again on the next tick
+      if(err && err.notFound) detachShare();
     });
 }
+
+/* ---------- branch view + 3-way merge (Verlauf panel) ---------- */
+
+function relTimeStr(iso){
+  var t = Date.parse(iso);
+  if(isNaN(t)) return '';
+  var s = Math.round((Date.now() - t) / 1000);
+  if(s < 60) return 'vor ' + Math.max(0, s) + ' s';
+  if(s < 3600) return 'vor ' + Math.round(s / 60) + ' min';
+  if(s < 86400) return 'vor ' + Math.round(s / 3600) + ' h';
+  return 'vor ' + Math.round(s / 86400) + ' Tagen';
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+function refreshShareBranchUI(){ if(typeof updateHistoryUI === 'function') updateHistoryUI(); }
+
+// Called by js/history.js while rendering the Verlauf panel (only when state.sharedId is set).
+function renderShareBranchArea(container){
+  if(!shareGraph) return;
+  var foreign = (shareGraph.branches || []).filter(function(b){ return b.branch_id !== shareBranchId; });
+  var onBranch = !!shareBranchId;
+  if(!onBranch && !foreign.length) return;
+
+  if(onBranch){
+    var note = document.createElement('div');
+    note.className = 'history-branch-note';
+    note.textContent = 'Du arbeitest auf einem eigenen Ast — deine Änderungen sind noch nicht im gemeinsamen Hauptast.';
+    container.appendChild(note);
+  }
+
+  var list = document.createElement('div');
+  list.className = 'branch-list';
+  function row(label, sub, onMerge){
+    var r = document.createElement('div');
+    r.className = 'branch-row';
+    var info = document.createElement('div');
+    info.className = 'branch-row-info';
+    info.innerHTML = '<b>' + escapeHtml(label) + '</b>' + (sub ? '<br>' + escapeHtml(sub) : '');
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'btn-ghost';
+    btn.textContent = 'Zusammenführen';
+    btn.addEventListener('click', function(){ onMerge(); });
+    r.appendChild(info); r.appendChild(btn);
+    list.appendChild(r);
+  }
+
+  if(onBranch){
+    row('Hauptast', '', function(){ startMerge(shareGraph.head_commit); });
+  }
+  foreign.forEach(function(b){
+    row('Ast von ' + (b.author || 'jemandem'), relTimeStr(b.created_at), function(){ startMerge(b.tip); });
+  });
+  container.appendChild(list);
+
+  if(foreign.length + (onBranch ? 1 : 0) > 1){
+    var all = document.createElement('button');
+    all.type = 'button'; all.className = 'btn-ghost';
+    all.style.marginTop = '.5rem';
+    all.textContent = 'Alle zusammenführen';
+    all.addEventListener('click', function(){ mergeAll(); });
+    container.appendChild(all);
+  }
+}
+
+function commitParents(byId, id){ var c = byId[id]; return c ? String(c.parent_ids || '').split(',').filter(Boolean) : []; }
+
+// Is `anc` reachable by walking parents from `desc`? (i.e. did our branch tip get merged into head)
+function isAncestorCommit(commits, anc, desc){
+  if(!anc || !desc) return false;
+  if(anc === desc) return true;
+  var byId = {};
+  commits.forEach(function(c){ byId[c.commit_id] = c; });
+  var stack = [desc], seen = {};
+  while(stack.length){
+    var id = stack.pop();
+    if(!id || seen[id]) continue;
+    seen[id] = true;
+    if(id === anc) return true;
+    commitParents(byId, id).forEach(function(p){ stack.push(p); });
+  }
+  return false;
+}
+
+function findLCA(commits, a, b){
+  var byId = {};
+  commits.forEach(function(c){ byId[c.commit_id] = c; });
+  function parents(id){ return commitParents(byId, id); }
+  var ancA = {}, stack = [a];
+  while(stack.length){
+    var id = stack.pop();
+    if(!id || ancA[id]) continue;
+    ancA[id] = true;
+    parents(id).forEach(function(p){ stack.push(p); });
+  }
+  var q = [b], seen = {};
+  while(q.length){
+    var id2 = q.shift();
+    if(!id2 || seen[id2]) continue;
+    seen[id2] = true;
+    if(ancA[id2]) return id2;
+    parents(id2).forEach(function(p){ q.push(p); });
+  }
+  return null;
+}
+
+function fetchCommitPayload(commitId){
+  return fetch('api/share/get.php?id=' + encodeURIComponent(state.sharedId) + '&commit=' + encodeURIComponent(commitId))
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+}
+
+var pendingMerge = null; // {ourTip, theirTip, merged, conflicts}
+
+function startMerge(theirTip){
+  if(!state.sharedId || !shareGraph) return;
+  refreshShareBranchUI();
+  flushPendingCommit().then(function(){
+    var ourTip = shareBaseCommit;
+    if(!ourTip || !theirTip || ourTip === theirTip) return;
+    var lca = findLCA(shareGraph.commits || [], ourTip, theirTip) || ourTip;
+    return Promise.all([fetchCommitPayload(lca), fetchCommitPayload(ourTip), fetchCommitPayload(theirTip)])
+      .then(function(p){
+        var res = mergeStates(p[0], p[1], p[2]);
+        pendingMerge = {ourTip: ourTip, theirTip: theirTip, merged: res.merged, conflicts: res.conflicts};
+        if(!res.conflicts.length){ finishMerge(); }
+        else openMergeModal();
+      });
+  }).catch(function(err){ console.error('Merge fehlgeschlagen', err); alert('Zusammenführen fehlgeschlagen.'); });
+}
+
+function finishMerge(){
+  if(!pendingMerge) return;
+  var mergedState = applyConflictChoices(pendingMerge.merged, pendingMerge.conflicts); // canonical shape
+  var fd = new FormData();
+  fd.append('id', state.sharedId);
+  fd.append('edit_token', state.shareEditToken || '');
+  fd.append('commit_a', pendingMerge.ourTip);
+  fd.append('commit_b', pendingMerge.theirTip);
+  fd.append('expected_head', (shareGraph && shareGraph.head_commit) || '');
+  fd.append('payload', JSON.stringify(mergedState));
+  fd.append('author', shareAuthor());
+  var theirTip = pendingMerge.theirTip;
+  return fetch('api/share/merge.php', {method:'POST', body: fd})
+    .then(function(res){ return res.json().catch(function(){ return null; }).then(function(d){ return {ok:res.ok, status:res.status, data:d}; }); })
+    .then(function(r){
+      if(r.ok && r.data && r.data.commit_id){
+        suppressSharePush = true;
+        applyState(mergedState, {keepBinding: true, keepBlobs: true});
+        suppressSharePush = false;
+        shareBaseCommit = r.data.commit_id;
+        shareHeadCommit = r.data.head_commit || r.data.commit_id;
+        shareBranchId = null;
+        if(r.data.rev) lastKnownRev = r.data.rev;
+        pendingMerge = null;
+        closeMergeModal();
+        pollSharedUpdate(); // refresh the graph
+        return theirTip;
+      }
+      if(r.status === 409){
+        alert('Der Hauptast hat sich gerade geändert. Ich hole den neuen Stand — bitte erneut zusammenführen.');
+        pendingMerge = null; closeMergeModal(); pollSharedUpdate();
+        return null;
+      }
+      alert((r.data && r.data.error) || 'Zusammenführen fehlgeschlagen.');
+      return null;
+    });
+}
+
+function mergeAll(){
+  if(!shareGraph) return;
+  var onBranch = !!shareBranchId;
+  var targets = (shareGraph.branches || []).filter(function(b){ return b.branch_id !== shareBranchId; }).map(function(b){ return b.tip; });
+  if(onBranch) targets.unshift(shareGraph.head_commit);
+  (function next(){
+    if(!targets.length) return;
+    var tip = targets.shift();
+    var before = pendingMerge;
+    startMerge(tip);
+    // startMerge is async; chain the rest only once this one clears without an open conflict modal
+    var guard = 0;
+    (function wait(){
+      if(pendingMerge && mergeBackdrop && !mergeBackdrop.hidden) return; // stop — user must resolve
+      if(!pendingMerge){ if(++guard > 40){ return; } setTimeout(next, 400); return; }
+      if(++guard > 40) return;
+      setTimeout(wait, 200);
+    })();
+  })();
+}
+
+/* ---------- conflict resolution modal ---------- */
+
+function openMergeModal(){
+  if(!mergeBackdrop || !pendingMerge) return;
+  mergeIntroEl.textContent = pendingMerge.conflicts.length === 1
+    ? 'Eine Stelle wurde auf beiden Seiten unterschiedlich geändert. Wähle, was gelten soll:'
+    : pendingMerge.conflicts.length + ' Stellen wurden auf beiden Seiten unterschiedlich geändert. Wähle jeweils, was gelten soll:';
+  mergeConflictListEl.innerHTML = '';
+  pendingMerge.conflicts.forEach(function(c, i){
+    var wrap = document.createElement('div');
+    wrap.className = 'merge-conflict';
+    var lab = document.createElement('div');
+    lab.className = 'merge-conflict-label';
+    lab.textContent = c.label;
+    var choices = document.createElement('div');
+    choices.className = 'merge-conflict-choices';
+    function choiceBtn(which, title, val){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'merge-choice' + (c.choice === which ? ' merge-choice--picked' : '');
+      b.innerHTML = '<small>' + title + '</small>' + escapeHtml(describeConflictValue(c.path, val));
+      b.addEventListener('click', function(){
+        c.choice = which;
+        openMergeModal();
+      });
+      return b;
+    }
+    choices.appendChild(choiceBtn('mine', 'Meine', c.mine));
+    choices.appendChild(choiceBtn('theirs', 'Andere', c.theirs));
+    wrap.appendChild(lab); wrap.appendChild(choices);
+    mergeConflictListEl.appendChild(wrap);
+  });
+  mergeBackdrop.hidden = false;
+}
+function closeMergeModal(){ if(mergeBackdrop) mergeBackdrop.hidden = true; }
+
+function describeConflictValue(path, val){
+  if(val === undefined) return '(entfernt)';
+  if(path.indexOf('/pos/') !== -1) return '(' + val.x + ', ' + val.y + ')' + (val.rot ? ' · ' + val.rot + '°' : '');
+  if(path === 'meta/tempo') return 'Tempo ' + val;
+  if(typeof val === 'object' && val.name !== undefined) return '„' + val.name + '“';
+  if(typeof val === 'object') return JSON.stringify(val);
+  return String(val);
+}
+
+if(mergeCloseBtn) mergeCloseBtn.addEventListener('click', function(){ pendingMerge = null; closeMergeModal(); });
+if(mergeCancelBtn) mergeCancelBtn.addEventListener('click', function(){ pendingMerge = null; closeMergeModal(); });
+if(mergeConfirmBtn) mergeConfirmBtn.addEventListener('click', function(){ finishMerge(); });
+if(mergeBackdrop) mergeBackdrop.addEventListener('click', function(e){ if(e.target === mergeBackdrop){ pendingMerge = null; closeMergeModal(); } });
 
 /* ---------- loading a shared project (?share=<id> on page load, or a returning bound tab) ---------- */
 
@@ -299,15 +742,18 @@ function reconstructSharedState(payload){
     var localAxes = (Array.isArray(f.localAxes) ? f.localAxes : []).map(function(ax){
       return {id: ax.id || uid('ax'), x1:clampGrid(ax.x1||0), y1:clampGrid(ax.y1||0), x2:clampGrid(ax.x2||0), y2:clampGrid(ax.y2||0), label:ax.label||''};
     });
-    var startPos = null;
+    var startPos = {};
     if(f.startPos && typeof f.startPos === 'object'){
-      startPos = {};
       Object.keys(f.startPos).forEach(function(id){
         var p = f.startPos[id];
         if(p) startPos[id] = {x: clampGrid(p.x||0), y: clampGrid(p.y||0)};
       });
+    }else{
+      // payload predates the field — seed from this Bild's own pos so nothing shows until a
+      // dancer is dragged, rather than leaving the onion-skin gray dot permanently disabled.
+      Object.keys(pos).forEach(function(id){ startPos[id] = {x: pos[id].x, y: pos[id].y}; });
     }
-    var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos};
+    var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, payload.dancers)};
     if(typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) out.time = f.time;
     return out;
   });
@@ -349,11 +795,13 @@ function loadSharedProjectFromUrl(){
   var id = params.get('share');
   if(!id){
     // No ?share= this time — a returning tab that's already bound to a link still needs its
-    // binding honored: pick up right where the last visit left off (refresh against the server
-    // once, then keep polling) without needing the id in the URL again.
-    if(state.sharedId){ lastKnownRev = null; startSharePolling(); pollSharedUpdate(); }
+    // binding honored: pick up right where the last visit left off (poll the graph once, then
+    // keep polling) without needing the id in the URL again.
+    if(state.sharedId){ lastKnownRev = null; shareNeedsInitialPull = true; applyShareReadonlyUi(); startSharePolling(); if(typeof initHistory === 'function') initHistory(); }
     return;
   }
+  // ?t=<edit_token> im Link => Bearbeiten erlaubt; ohne t => reiner Nur-Ansehen-Link.
+  var editToken = params.get('t') || null;
   fetch('api/share/get.php?id=' + encodeURIComponent(id))
     .then(function(res){
       if(!res.ok){
@@ -369,17 +817,24 @@ function loadSharedProjectFromUrl(){
     })
     .then(function(newState){
       newState.sharedId = id;
+      newState.shareEditToken = editToken;
+      newState.shareReadOnly = !editToken;
+      suppressSharePush = true;     // loading the link must not turn around and commit it back
       applyImportedState(newState);
+      suppressSharePush = false;
+      applyShareReadonlyUi();
       lastPushedLogoRef = newState.logo;
       lastPushedSongRef = newState.song;
       syncBlobsToIdb();
-      // Drop ?share= from the visible URL — the binding now lives in state.sharedId (persisted to
-      // localStorage) and no longer needs the query param to be remembered across reloads.
+      // Drop ?share= (und ?t=) aus der sichtbaren URL — die Bindung liegt jetzt in
+      // state.sharedId / state.shareEditToken (localStorage) und braucht die Query nicht mehr.
       history.replaceState(null, '', location.pathname);
-      startSharePolling();
+      startSharePolling();          // first poll bootstraps shareBaseCommit from the graph head
+      if(typeof initHistory === 'function') initHistory();
     })
     .catch(function(err){
       console.error('Konnte geteilten Link nicht laden:', err);
       showImportError();
+      if(typeof initHistory === 'function') initHistory();
     });
 }

@@ -173,3 +173,17 @@
     .progress-fill.indeterminate{animation:none;}
     .armed{animation:none !important;}
   }
+
+  /* Nur-Ansehen-Link (js/share.js applyShareReadonlyUi) */
+  .readonly-banner{
+    background:#fef9c3;color:#713f12;border-bottom:1px solid #fde68a;
+    padding:.5rem 1rem;text-align:center;font-size:.82rem;font-weight:600;
+  }
+  body.share-readonly .stage-area,
+  body.share-readonly .roster,
+  body.share-readonly .project-name-field{pointer-events:none;opacity:.94;}
+  body.share-readonly #resetBtn,
+  body.share-readonly #importBtn,
+  body.share-readonly #markerBtn,
+  body.share-readonly #historyUndoBtn,
+  body.share-readonly #historyRedoBtn{display:none;}

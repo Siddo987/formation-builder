@@ -20,6 +20,21 @@
     return !!(state.song && state.song.url) && syncWaypoints().length >= 2;
   }
 
+  // Time markers are expected to climb in Bild order. Returns the Bilder where that breaks — a
+  // marked Bild whose time is not strictly after the previous marked Bild's (hand-entered out of
+  // sequence, or a filmstrip reorder left them scrambled). Sync playback still runs (syncWaypoints
+  // sorts by time), it just visibly jumps around; js/marker.js turns this into a warning.
+  function markerOrderIssues(){
+    var issues = [], lastT = -Infinity, lastIdx = -1;
+    state.formations.forEach(function(f, i){
+      var t = formationTime(f);
+      if(t === null) return;
+      if(t <= lastT) issues.push({idx: i, prevIdx: lastIdx});
+      lastT = t; lastIdx = i;
+    });
+    return issues;
+  }
+
   /* ---------- stage markers ---------- */
 
   function ensureMarkers(){
@@ -60,19 +75,25 @@
     updateRosterSelectionHighlight();
   }
 
-  // Mirrors the stage's current single selection (selectedDancerId) into the roster: an edge
-  // highlight on that dancer's own row, and — separately — on their saved pair's whole group
-  // container too, so "wenn ich einen Tänzer auswähle, wird sowohl sein Paar als auch er selber
-  // am Rand in der Leiste gehighlighted" holds even while the pair is collapsed (no per-dancer
-  // row to highlight in that case — the group container carries it instead).
+  // Mirrors the stage's current selection into the roster: a gold edge on selectedDancerId's own
+  // row (and, separately, on their saved pair's whole group container too, so "wenn ich einen
+  // Tänzer auswähle, wird sowohl sein Paar als auch er selber am Rand in der Leiste gehighlighted"
+  // holds even while the pair is collapsed) — plus a teal edge on every row/group that's part of
+  // the current 2+ multi-selection (pairSelection), mirroring the stage markers' own gold/teal
+  // split (.dancer.selected / .dancer.pair-selected above) now that roster rows are click-
+  // selectable too (see handleRosterSelectClick/handleRosterPairSelectClick).
   function updateRosterSelectionHighlight(){
+    var multi = pairSelection.length >= 2;
     Object.keys(rosterRowEls).forEach(function(id){
       rosterRowEls[id].classList.toggle('roster-row-selected', selectedDancerId === id);
+      rosterRowEls[id].classList.toggle('roster-row-pair-selected', multi && pairSelection.indexOf(id) !== -1);
     });
     Object.keys(rosterPairGroupEls).forEach(function(pairId){
       var pair = state.pairs.find(function(p){ return p.id === pairId; });
       var hi = !!pair && pair.memberIds.indexOf(selectedDancerId) !== -1;
+      var groupMulti = !!pair && multi && pair.memberIds.some(function(id){ return pairSelection.indexOf(id) !== -1; });
       rosterPairGroupEls[pairId].classList.toggle('roster-pairgroup-selected', hi);
+      rosterPairGroupEls[pairId].classList.toggle('roster-pairgroup-pair-selected', groupMulti);
     });
   }
 
@@ -87,11 +108,10 @@
       if(ind) ind.style.transform = 'rotate(' + (pos.rot||0) + 'deg)';
     });
     updatePairMidpointMarker(posMap);
-    // Skip during playback: mid-transition frames are interpolating *toward* the next Bild while
-    // state.activeIndex (and therefore currentFormation().startPos) still belongs to the one just
-    // left, so comparing against it here would flicker nonsense until the move completes — at
-    // which point resetLayoutGhost() already re-renders this correctly against the right Bild.
-    if(!playing) renderOnionSkin(posMap);
+    // Kept live during playback too now — the gray/faint ghosts are just the neighbouring Bilder's
+    // static positions (no comparison against the interpolating markers), so there's nothing to
+    // flicker. renderOnionSkin() reads `playing` itself to pick the right neighbours.
+    renderOnionSkin();
   }
 
   // Small crosshair marking the centroid a 2+ selection rotates around (rotatePairSelection's
@@ -181,16 +201,19 @@
     buildLayoutGhostLayer();
   }
 
-  // Faint preview around the current Bild: the next Bild's dancers in their own colors (barely
-  // visible), and — per dancer — a uniform light gray dot at *this* Bild's own frozen startPos
-  // (see snapshotPos/addFormation), not a live read of "whatever formation sits before it". Only
-  // shown once a dancer has actually been moved away from that startPos within this Bild — right
-  // when a fresh Bild is created every dancer's current pos still equals its startPos, so there's
-  // nothing to see yet; as soon as one gets dragged, its own gray "came from here" dot appears.
+  // Onion-skin preview around the current Bild. A Bild is a single snapshot; the movement happens
+  // *between* Bilder — so we show the neighbouring snapshots as ghosts: a uniform light gray dot
+  // per dancer at the Bild *behind* you, and the Bild *ahead* of you in each dancer's own colour,
+  // barely visible. "Woher man kommt, wohin man geht."
+  //   - editing a Bild:  gray = formations[activeIndex-1].pos,  faint = formations[activeIndex+1].pos
+  //   - during playback: state.activeIndex is the Bild the current move *starts from* (see
+  //     playback.js tick/syncTick), so gray = that Bild itself (start of the move) and faint =
+  //     activeIndex+1 (its destination) — i.e. the two endpoints of the move in progress.
+  // Both are shown whenever the neighbour exists — no "only once a dancer has been dragged" gate,
+  // and no dependence on the per-Bild startPos field. The first Bild has no gray, the last no faint.
   // Purely visual, no pointer events. Refreshed on every Bild switch (piggybacked on
-  // resetLayoutGhost, see its comment for why) and on every position update (positionMarkers) so
-  // the reveal-on-drag behaves live.
-  var ONION_MOVED_EPSILON = 0.001;
+  // resetLayoutGhost, see its comment for why) and on every position update (positionMarkers),
+  // playback included.
   function buildOnionSkinLayer(){
     var layer = document.createElement('div');
     layer.className = 'onion-skin-layer';
@@ -199,7 +222,7 @@
     renderOnionSkin();
   }
 
-  function renderOnionSkin(curPosMap){
+  function renderOnionSkin(){
     var layer = document.getElementById('onionSkinLayer');
     if(!layer) return;
     layer.innerHTML = '';
@@ -216,18 +239,10 @@
         layer.appendChild(dot);
       });
     }
-    var startPos = currentFormation().startPos;
-    var curPos = curPosMap || currentFormation().pos;
-    if(startPos){
-      var movedOnly = {};
-      state.dancers.forEach(function(d){
-        var s = startPos[d.id], c = curPos[d.id];
-        if(!s || !c) return;
-        if(Math.abs(c.x - s.x) > ONION_MOVED_EPSILON || Math.abs(c.y - s.y) > ONION_MOVED_EPSILON) movedOnly[d.id] = s;
-      });
-      addDots(movedOnly, 'onion-dot-prev', false);
-    }
-    var next = state.formations[state.activeIndex+1];
+    var prevIdx = playing ? state.activeIndex : state.activeIndex - 1;
+    var prev = state.formations[prevIdx];
+    addDots(prev ? prev.pos : null, 'onion-dot-prev', false);
+    var next = state.formations[state.activeIndex + 1];
     addDots(next ? next.pos : null, 'onion-dot-next', true);
   }
 

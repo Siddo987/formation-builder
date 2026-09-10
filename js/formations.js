@@ -47,6 +47,7 @@
   // positions (so the result is a normal, freely-editable Bild afterward — no separate
   // "editable preset instance" concept needed).
   function applyFigure(figure){
+    if(editingBetween){ editingBetween = null; updateBetweenEditBanner(); } // a new Bild always applies to the real timeline, not whatever Zwischenposition was being posed
     var t = figure.transform || {};
     var srcPos = currentFormation().pos;
     var newPos = {};
@@ -273,6 +274,201 @@
     el.style.height = el.scrollHeight + 'px';
   }
 
+  /* ---------- Zwischenpositionen: poses along a move that don't get their own Bild ----------
+     Sit in the filmstrip's gap between the Bild they leave from and the next one (see
+     renderFilmstrip()'s buildBetweenConnector call) rather than as cards of their own — no section
+     number, no onion-skin ghost, nothing in the "NN / NN" counter. Posing one reuses the exact same
+     stage/roster editing code a real Bild uses, via currentFormation()'s editingBetween override
+     (state.js) — see interpolateThroughBetweens() there for how they play back. */
+
+  function buildBetweenConnector(f, idx){
+    var wrap = document.createElement('div');
+    wrap.className = 'film-connector';
+    var next = state.formations[idx + 1];
+
+    var chips = document.createElement('div');
+    chips.className = 'film-between-chips';
+    (f.betweens || []).forEach(function(between, bIdx){
+      var chipWrap = document.createElement('div');
+      chipWrap.className = 'film-between-chip-wrap';
+
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'film-between-chip' + (editingBetween && editingBetween.fIdx === idx && editingBetween.bIdx === bIdx ? ' active' : '');
+      chip.textContent = String(bIdx + 1);
+      chip.title = 'Zwischenposition ' + (bIdx + 1) + (between.name ? ' — ' + between.name : '')
+        + ' bearbeiten — zwischen „' + f.name + '“ und „' + (next ? next.name : '?') + '“ (Rechtsklick zum Umbenennen)';
+      chip.addEventListener('click', function(){ enterBetweenEdit(idx, bIdx); });
+      chip.addEventListener('contextmenu', function(e){ e.preventDefault(); openBetweenRenamePopover(chip, idx, bIdx); });
+
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'film-between-chip-remove';
+      del.setAttribute('aria-label', 'Zwischenposition ' + (bIdx + 1) + ' entfernen');
+      del.textContent = '✕';
+      armDeleteButton(del, function(){ removeBetween(idx, bIdx); });
+
+      chipWrap.appendChild(chip);
+      chipWrap.appendChild(del);
+      chips.appendChild(chipWrap);
+    });
+
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'film-between-add';
+    addBtn.textContent = '+';
+    addBtn.title = 'Zwischenposition hinzufügen — eine zusätzliche Pose auf dem Weg zu „' + (next ? next.name : '?') + '“, ohne eigenes Bild';
+    addBtn.addEventListener('click', function(){ addBetween(idx); });
+
+    wrap.appendChild(chips);
+    wrap.appendChild(addBtn);
+    return wrap;
+  }
+
+  // New Zwischenposition's starting pose: linearly interpolated between the two Bilder it sits
+  // between, at whatever fraction its position among any existing ones implies — just a seed the
+  // user then poses properly by dragging on the stage, same as a freshly duplicated Bild's pos.
+  function addBetween(fIdx){
+    var f = state.formations[fIdx];
+    var next = state.formations[fIdx + 1];
+    if(!f || !next) return;
+    if(!Array.isArray(f.betweens)) f.betweens = [];
+    var frac = (f.betweens.length + 1) / (f.betweens.length + 2);
+    var pos = {};
+    state.dancers.forEach(function(d){
+      var a = f.pos[d.id] || {x:0, y:0, rot:0};
+      var b = next.pos[d.id] || {x:0, y:0, rot:0};
+      pos[d.id] = { x: a.x + (b.x-a.x)*frac, y: a.y + (b.y-a.y)*frac, rot: lerpAngle(a.rot||0, b.rot||0, frac) };
+    });
+    f.betweens.push({id: uid('bw'), name: '', pos: pos});
+    saveState();
+    renderFilmstrip();
+    enterBetweenEdit(fIdx, f.betweens.length - 1);
+  }
+
+  function removeBetween(fIdx, bIdx){
+    var f = state.formations[fIdx];
+    if(!f || !Array.isArray(f.betweens)) return;
+    f.betweens.splice(bIdx, 1);
+    if(editingBetween && editingBetween.fIdx === fIdx){
+      if(editingBetween.bIdx === bIdx){ exitBetweenEdit(); return; }
+      if(editingBetween.bIdx > bIdx) editingBetween.bIdx -= 1;
+    }
+    saveState();
+    renderFilmstrip();
+  }
+
+  function enterBetweenEdit(fIdx, bIdx){
+    pausePlayback();
+    // Also adopts fIdx as the active Bild — otherwise clicking a between chip on a connector
+    // elsewhere in the filmstrip would pose that Zwischenposition while onion-skin, the "NN / NN"
+    // counter and the gold active-card highlight all kept pointing at some unrelated Bild.
+    state.activeIndex = fIdx;
+    editingBetween = {fIdx: fIdx, bIdx: bIdx};
+    renderFilmstrip(); // refreshes the chips' .active state (and the active-card highlight)
+    positionMarkers(currentFormation().pos);
+    refreshRosterCoords();
+    updatePlaybarInfo();
+    renderAxes();
+    resetLayoutGhost();
+    updateBetweenEditBanner();
+    saveState();
+  }
+
+  function exitBetweenEdit(){
+    if(!editingBetween) return;
+    editingBetween = null;
+    renderFilmstrip();
+    positionMarkers(currentFormation().pos);
+    refreshRosterCoords();
+    updatePlaybarInfo();
+    renderAxes();
+    resetLayoutGhost();
+    updateBetweenEditBanner();
+  }
+
+  function updateBetweenEditBanner(){
+    var banner = document.getElementById('betweenEditBanner');
+    if(!banner) return;
+    if(!editingBetween){ banner.hidden = true; return; }
+    var anchor = state.formations[editingBetween.fIdx];
+    var next = state.formations[editingBetween.fIdx + 1];
+    if(!anchor || !next){ banner.hidden = true; return; }
+    var between = (anchor.betweens || [])[editingBetween.bIdx];
+    var textEl = document.getElementById('betweenEditBannerText');
+    if(textEl){
+      textEl.textContent = 'Zwischenposition ' + (editingBetween.bIdx + 1) + (between && between.name ? ' — ' + between.name : '')
+        + ' wird bearbeitet — zwischen „' + anchor.name + '“ und „' + next.name + '“';
+    }
+    banner.hidden = false;
+  }
+
+  var betweenEditDoneBtn = document.getElementById('betweenEditDoneBtn');
+  if(betweenEditDoneBtn) betweenEditDoneBtn.addEventListener('click', exitBetweenEdit);
+
+  // Right-click a between chip to rename it (see buildBetweenConnector) — a floating popover rather
+  // than swapping the tiny 22px chip itself into a text field, which has no room for typing. Follows
+  // this app's existing "commit as you type" convention (pair/dancer/Bild names all save on every
+  // 'input' event, not on blur/Enter) — blur just closes the popover and refreshes the chip's
+  // tooltip/banner text with whatever's already been saved.
+  var betweenRenamePopoverEl = null;
+  function closeBetweenRenamePopover(){
+    if(betweenRenamePopoverEl){ betweenRenamePopoverEl.remove(); betweenRenamePopoverEl = null; }
+  }
+  function openBetweenRenamePopover(anchorEl, fIdx, bIdx){
+    closeBetweenRenamePopover();
+    var f = state.formations[fIdx];
+    var between = f && f.betweens && f.betweens[bIdx];
+    if(!between) return;
+
+    var rect = anchorEl.getBoundingClientRect();
+    var pop = document.createElement('div');
+    pop.className = 'between-rename-popover';
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'between-rename-input';
+    input.maxLength = 40;
+    input.placeholder = 'Zwischenposition ' + (bIdx + 1);
+    input.value = between.name || '';
+    input.setAttribute('aria-label', 'Name der Zwischenposition ' + (bIdx + 1));
+
+    pop.appendChild(input);
+    document.body.appendChild(pop);
+    betweenRenamePopoverEl = pop;
+
+    // Chips sit low in the filmstrip row, at roughly the same height as the Bild name fields either
+    // side of them — anchoring the popover *below* the chip (like a normal dropdown) landed it right
+    // on top of "Startlinie"/"Kreis" etc. Above the chip is clear space instead (the card previews
+    // end well before the chip's own height), so open upward; only measurable once it's in the DOM.
+    // The horizontal centering is also clamped so it can't run off either edge of the viewport for a
+    // chip near the start/end of a scrolled filmstrip.
+    var popRect = pop.getBoundingClientRect();
+    var left = rect.left + rect.width / 2;
+    left = Math.min(Math.max(left, popRect.width / 2 + 8), window.innerWidth - popRect.width / 2 - 8);
+    pop.style.left = left + 'px';
+    pop.style.top = (rect.top - popRect.height - 14) + 'px';
+
+    input.focus();
+    input.select();
+
+    input.addEventListener('input', function(){
+      between.name = input.value;
+      saveState();
+    });
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === 'Escape'){ e.preventDefault(); input.blur(); }
+    });
+    input.addEventListener('blur', function(){
+      renderFilmstrip();
+      if(editingBetween){
+        updateBetweenEditBanner();
+        updatePlaybarInfo(); // the playbar's Bild-name readout also carries a between's own name
+      }
+      closeBetweenRenamePopover();
+    });
+  }
+
   function renderFilmstrip(){
     filmTrackEl.innerHTML = '';
     state.formations.forEach(function(f, idx){
@@ -379,6 +575,9 @@
 
       filmTrackEl.appendChild(card);
       autosizeFnameInput(nameInput);
+      // Zwischenpositionen (see enterBetweenEdit() below) live in the gap after this Bild, so the
+      // connector only makes sense while there's a next Bild to move to — never after the last one.
+      if(idx < state.formations.length - 1) filmTrackEl.appendChild(buildBetweenConnector(f, idx));
     });
 
     var addWrap = document.createElement('div');
@@ -395,6 +594,9 @@
     addWrap.appendChild(addCard);
     filmTrackEl.appendChild(addWrap);
     renumberFilmCategories();
+    // Reordering/adding/deleting Bilder can leave the song time markers out of Bild order — keep the
+    // toolbar Marker button's warning dot in sync (js/marker.js, loaded after this file).
+    if(typeof updateMarkerWarnings === 'function') updateMarkerWarnings();
   }
 
   // Recomputes each section-start badge's running number without touching the
@@ -445,6 +647,7 @@
   }
 
   function addFormation(){
+    if(editingBetween){ editingBetween = null; updateBetweenEditBanner(); }
     var src = currentFormation();
     var copy = {};
     Object.keys(src.pos).forEach(function(k){ copy[k] = {x:src.pos[k].x, y:src.pos[k].y, rot:src.pos[k].rot||0}; });
@@ -468,6 +671,7 @@
     if(state.formations.length <= 1) return;
     var idx = state.formations.findIndex(function(f){ return f.id === id; });
     if(idx < 0) return;
+    if(editingBetween){ editingBetween = null; updateBetweenEditBanner(); } // deleting a Bild can shift every fIdx after it — simplest to just drop out
     var wasActive = idx === state.activeIndex;
     state.formations.splice(idx, 1);
     if(state.activeIndex >= state.formations.length) state.activeIndex = state.formations.length - 1;
@@ -481,6 +685,7 @@
 
   function selectFormation(idx){
     pausePlayback();
+    if(editingBetween){ editingBetween = null; updateBetweenEditBanner(); }
     state.activeIndex = idx;
     saveState();
     renderFilmstrip();
@@ -495,6 +700,7 @@
   // dragover handler in renderFilmstrip) already put the DOM cards in, then does one clean
   // re-render to normalize index badges/listeners. Called once on dragend, never mid-drag.
   function commitFilmstripOrder(){
+    if(editingBetween){ editingBetween = null; updateBetweenEditBanner(); } // reordering changes what every fIdx even refers to
     var ids = Array.prototype.map.call(filmTrackEl.querySelectorAll('.film-card'), function(el){ return el.dataset.id; });
     var activeId = currentFormation() ? currentFormation().id : null;
     var byId = {};

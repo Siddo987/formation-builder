@@ -6,17 +6,38 @@
 <title>Aufstellung — Tanzformationen planen</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iNjQiIHkyPSI2NCI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMmIyMDM4Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMWMxNjI2Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+CjxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjE2IiBmaWxsPSJ1cmwoI2cpIi8+CjxjaXJjbGUgY3g9IjIwIiBjeT0iNDEiIHI9IjkiIGZpbGw9IiM4ZDc5ZDEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyMyIgcj0iOSIgZmlsbD0iI2UwYTMzNiIvPgo8Y2lyY2xlIGN4PSI0NCIgY3k9IjQxIiByPSI5IiBmaWxsPSIjNGZhM2EwIi8+Cjwvc3ZnPgo=">
 <meta name="theme-color" content="#241a30">
+<script>
+/* Aufstellung ships no service worker. An app that lived at this domain before it did
+   (a login-screen SPA under /assets/) registered one, and a still-installed copy keeps
+   serving that old app's cached shell on normal reloads — only a hard refresh gets
+   through. See sw.js for the kill-switch that reaches other people's browsers; this
+   runs the moment the real page executes and tears down anything left behind here. */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function (regs) {
+    regs.forEach(function (r) { r.unregister(); });
+  }).catch(function () {});
+  if (window.caches && caches.keys) {
+    caches.keys().then(function (keys) {
+      keys.forEach(function (k) { caches.delete(k); });
+    }).catch(function () {});
+  }
+}
+</script>
 <!-- ?v= cache-busts these behind Cloudflare's edge cache (js/css get a 4h max-age there, keyed
      purely on the URL) — bump this on every deploy that touches css/ or js/ so browsers/CDN
      fetch the new bytes immediately instead of serving stale ones for up to 4h. index.html
      itself is never edge-cached (cf-cache-status: DYNAMIC), so this always reaches clients. -->
-<link rel="stylesheet" href="css/theme.css?v=11">
-<link rel="stylesheet" href="css/base.css?v=11">
-<link rel="stylesheet" href="css/stage.css?v=11">
-<link rel="stylesheet" href="css/roster.css?v=11">
-<link rel="stylesheet" href="css/modals.css?v=11">
+<link rel="stylesheet" href="css/theme.css?v=20">
+<link rel="stylesheet" href="css/base.css?v=20">
+<link rel="stylesheet" href="css/stage.css?v=20">
+<link rel="stylesheet" href="css/roster.css?v=20">
+<link rel="stylesheet" href="css/modals.css?v=20">
 </head>
 <body>
+
+<div class="readonly-banner" id="readonlyBanner" hidden>
+  👁 Nur-Ansehen-Link — Änderungen anderer erscheinen hier live, deine eigenen werden nicht gespeichert.
+</div>
 
 <div class="app">
   <header class="topbar">
@@ -37,6 +58,16 @@
       </div>
     </div>
     <div class="topbar-actions">
+      <button class="btn-ghost btn-icon-only" id="historyUndoBtn" type="button" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>
+      </button>
+      <button class="btn-ghost btn-icon-only" id="historyRedoBtn" type="button" aria-label="Wiederholen (Strg+Umschalt+Z)" title="Wiederholen (Strg+Umschalt+Z)" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg>
+      </button>
+      <button class="btn-ghost" id="historyBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 3"/></svg>
+        Verlauf
+      </button>
       <button class="btn-ghost" id="importBtn" type="button">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>
         Öffnen
@@ -96,6 +127,10 @@
         <input type="text" class="stage-caption" id="roomLabelTop" maxlength="24" aria-label="Beschriftung oberer Bühnenrand, z. B. Wand" title="Beschriftung des oberen Bühnenrands – wird auch in der Schritte-PDF verwendet">
         <label class="axes-bild-toggle" id="axesBildToggleWrap" hidden><input type="checkbox" id="axesBildToggle"> Achsen für dieses Bild</label>
       </div>
+      <div class="between-edit-banner" id="betweenEditBanner" hidden>
+        <span id="betweenEditBannerText">Zwischenposition wird bearbeitet</span>
+        <button class="btn-ghost" id="betweenEditDoneBtn" type="button">Fertig</button>
+      </div>
       <div class="stage-frame">
         <input type="text" class="room-label-left" id="roomLabelLeft" maxlength="20" aria-label="Beschriftung linker Bühnenrand, z. B. Fenster" title="Beschriftung des linken Bühnenrands – wird auch in der Schritte-PDF verwendet">
         <div class="stage" id="stage" aria-label="Bühnenfläche – Tänzer per Ziehen positionieren"></div>
@@ -118,7 +153,7 @@
 
     <aside class="roster">
       <div class="roster-header">
-        <span class="eyebrow">Tänzer</span>
+        <span class="eyebrow">Tänzer/Paare</span>
         <span class="count" id="dancerCount">0</span>
       </div>
       <div class="roster-list" id="rosterList"></div>
@@ -205,7 +240,7 @@
 <div class="modal-backdrop" id="markerBackdrop" hidden>
   <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="markerTitle">
     <div class="modal-header">
-      <h2 id="markerTitle">Marker &amp; Takt</h2>
+      <h2 id="markerTitle">Marker</h2>
       <button class="modal-close" id="markerCloseBtn" type="button" aria-label="Schließen">✕</button>
     </div>
     <div class="modal-body">
@@ -227,38 +262,16 @@
           <div class="marker-timeline" id="markerTimeline">
             <div class="marker-timeline-bar">
               <div class="marker-timeline-played" id="markerTimelinePlayed"></div>
-              <div class="marker-timeline-ticks" id="markerTimelineTicks"></div>
               <div class="marker-timeline-head" id="markerTimelineHead"></div>
             </div>
             <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
           </div>
-          <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken, feine Striche erkannte Taktschläge.</p>
-        </section>
-
-        <section class="settings-section">
-          <h3>Automatische Takterkennung</h3>
-          <p class="settings-hint">Analysiert die Bass-Impulse der Musik und folgt dabei dem Tempo im Verlauf des Lieds (schneller/langsamer werdende Stellen eingeschlossen) — funktioniert am besten bei Musik mit klarem, durchgehendem Beat.</p>
-          <div class="settings-row">
-            <button class="btn-ghost" id="detectBeatsBtn" type="button">Takt erkennen</button>
-            <span class="settings-hint" id="detectStatus"></span>
-          </div>
-          <div class="settings-row" id="beatsPerBarRow" hidden>
-            <span class="caption">Schläge/Takt</span>
-            <select id="beatsPerBarSelect" class="filename-ext" style="padding:.3rem .4rem;border-radius:6px;background:var(--panel);border:1px solid var(--panel-border);">
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4" selected>4</option>
-              <option value="6">6</option>
-            </select>
-            <button class="btn-ghost" id="distributeBtn" type="button">Bilder gleichmäßig auf Takte verteilen</button>
-          </div>
-          <div class="settings-row" id="snapRow" hidden>
-            <label class="toggle-label"><input type="checkbox" id="snapToggle"> Beim Setzen an nächsten Schlag einrasten</label>
-          </div>
+          <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken.</p>
         </section>
 
         <section class="settings-section">
           <h3>Bilder</h3>
+          <p class="marker-warning" id="markerOrderWarning" hidden></p>
           <div class="marker-list" id="markerList"></div>
         </section>
       </div>
@@ -280,9 +293,31 @@
           <span class="filename-ext" id="filenameExt">.stg</span>
         </div>
       </div>
+      <div class="settings-section" id="filenameGhostOption" hidden>
+        <label class="toggle-label"><input type="checkbox" id="filenameGhostToggle"> Herkunfts- und Zielpunkte einblenden</label>
+        <p class="settings-hint">Graue Punkte (Position im vorigen Bild) und blasse farbige Punkte (nächstes Bild) mit ins Video rendern – wie die Geister-Punkte im Editor.</p>
+      </div>
       <div class="filename-actions">
         <button class="btn-ghost" id="filenameCancelBtn" type="button">Abbrechen</button>
         <button class="btn-ghost" id="filenameConfirmBtn" type="button">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="resetBackdrop" hidden>
+  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
+    <div class="modal-header">
+      <h2 id="resetTitle">Choreografie wirklich zurücksetzen?</h2>
+      <button class="modal-close" id="resetCloseBtn" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="settings-hint">Das löscht <strong>alle</strong> Tänzer, Bilder, Achsen, das Logo und das Lied dieses Projekts und ersetzt sie durch ein leeres Beispielprojekt.</p>
+      <p class="settings-hint">Ein zurückgesetztes Projekt zählt als neu — der Verlauf (Rückgängig/Wiederherstellen) beginnt dann bei null und kann nicht mehr zum alten Stand zurück. Ein zuvor per Link geteiltes Projekt bleibt für alle, die den Link haben, unverändert erhalten — nur diese Ansicht hier wird zurückgesetzt.</p>
+      <label class="toggle-label"><input type="checkbox" id="resetConfirmCheckbox"> Mir ist klar, dass das nicht rückgängig gemacht werden kann.</label>
+      <div class="filename-actions">
+        <button class="btn-ghost" id="resetCancelBtn" type="button">Abbrechen</button>
+        <button class="btn-ghost danger" id="resetConfirmBtn" type="button" disabled>Zurücksetzen</button>
       </div>
     </div>
   </div>
@@ -317,16 +352,66 @@
         <p class="settings-hint" id="shareProgressText">Wird hochgeladen…</p>
       </div>
       <div class="settings-section" id="shareResult" hidden>
-        <h3>Link</h3>
+        <div id="shareEditLinkField" hidden>
+          <h3>Zum Bearbeiten</h3>
+          <div class="filename-field">
+            <input type="text" id="shareEditLinkInput" class="filename-input" readonly aria-label="Bearbeiten-Link">
+            <button class="btn-ghost" id="shareEditCopyBtn" type="button">Kopieren</button>
+          </div>
+          <p class="settings-hint">Wer diesen Link öffnet, kann die Formation ändern. Nur an Leute geben, die mitarbeiten sollen.</p>
+        </div>
+        <h3 id="shareMainLinkHeading">Nur zum Ansehen</h3>
         <div class="filename-field">
-          <input type="text" id="shareLinkInput" class="filename-input" readonly aria-label="Link zum Teilen">
+          <input type="text" id="shareLinkInput" class="filename-input" readonly aria-label="Ansehen-Link">
           <button class="btn-ghost" id="shareCopyBtn" type="button">Kopieren</button>
         </div>
         <p class="settings-hint" id="shareCopiedHint" hidden>In die Zwischenablage kopiert.</p>
-        <p class="settings-hint" id="shareLiveHint">Dieser Link bleibt live — deine Änderungen werden automatisch übertragen, Änderungen anderer landen automatisch hier.</p>
+        <p class="settings-hint" id="shareViewOnlyNote" hidden>Du hast diese Formation nur zum Ansehen geöffnet — deine Änderungen werden nicht gespeichert.</p>
+        <p class="settings-hint" id="shareLegacyNote" hidden>Dieser Link wurde früher erstellt — jeder, der ihn öffnet, kann die Formation bearbeiten. Für getrennte Ansehen-/Bearbeiten-Links „Verknüpfung aufheben" und einen neuen Link erstellen.</p>
+        <p class="settings-hint" id="shareLiveHint">Beide Links bleiben live: neue Änderungen sind für alle mit dem jeweiligen Link sofort sichtbar.</p>
         <button class="btn-ghost danger" id="shareUnlinkBtn" type="button">Verknüpfung aufheben</button>
       </div>
       <p class="settings-hint import-error-inline" id="shareErrorText" hidden></p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="historyBackdrop" hidden>
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="modal-header">
+      <h2 id="historyTitle">Verlauf</h2>
+      <button class="modal-close" id="historyCloseBtn" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-row history-author-row">
+        <label for="historyAuthorInput">Deine Änderungen heißen</label>
+        <input type="text" id="historyAuthorInput" class="filename-input" maxlength="40" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="historyBranchArea" hidden></div>
+      <div class="history-split">
+        <div class="history-list" id="historyList"></div>
+        <div class="history-diff" id="historyDiff"></div>
+      </div>
+      <div class="filename-actions">
+        <button class="btn-ghost" id="historyRevertBtn" type="button" hidden>Auf diesen Stand zurück</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="mergeBackdrop" hidden>
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="mergeTitle">
+    <div class="modal-header">
+      <h2 id="mergeTitle">Äste zusammenführen</h2>
+      <button class="modal-close" id="mergeCloseBtn" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="settings-hint" id="mergeIntro"></p>
+      <div class="merge-conflicts" id="mergeConflictList"></div>
+      <div class="filename-actions">
+        <button class="btn-ghost" id="mergeCancelBtn" type="button">Abbrechen</button>
+        <button class="btn-ghost" id="mergeConfirmBtn" type="button">Zusammenführen</button>
+      </div>
     </div>
   </div>
 </div>
@@ -426,8 +511,11 @@
     </div>
     <div class="modal-body">
       <section class="settings-section">
-        <label for="stepsWhoSelect">Wer?</label>
-        <select id="stepsWhoSelect"></select>
+        <label class="steps-who-label" for="stepsWhoSelect">Wer?</label>
+        <div class="steps-who-select-wrap">
+          <select id="stepsWhoSelect"></select>
+          <span class="steps-who-select-arrow" aria-hidden="true"></span>
+        </div>
         <p class="settings-hint" id="stepsEmptyHint" hidden>Noch keine Tänzer angelegt.</p>
         <p class="settings-hint">
           Video zeigt nur die gewählte Person (bei einem Paar beide Partner). PDF zeigt zusätzlich
@@ -440,22 +528,28 @@
           <button class="btn-ghost" id="stepsPdfBtn" type="button">Als PDF exportieren</button>
         </div>
       </section>
+      <section class="settings-section">
+        <h3>Alle auf einmal</h3>
+        <p class="settings-hint">Ein einziges PDF mit den Blättern aller Tänzer/Paare — erst alle Blätter von Paar 1, dann Paar 2 usw., zuletzt alle Tänzer ohne gespeicherten Partner.</p>
+        <button class="btn-ghost" id="stepsAllPdfBtn" type="button">Alle als PDF (ein Dokument)</button>
+      </section>
     </div>
   </div>
 </div>
 
 <div id="stepsPrintArea" aria-hidden="true"></div>
 
-<script src="js/state.js?v=11"></script>
-<script src="js/stage.js?v=11"></script>
-<script src="js/roster.js?v=11"></script>
-<script src="js/formations.js?v=11"></script>
-<script src="js/playback.js?v=11"></script>
-<script src="js/marker.js?v=11"></script>
-<script src="js/export.js?v=11"></script>
-<script src="js/share.js?v=11"></script>
-<script src="js/steps.js?v=11"></script>
-<script src="js/main.js?v=11"></script>
+<script src="js/state.js?v=20"></script>
+<script src="js/stage.js?v=20"></script>
+<script src="js/roster.js?v=20"></script>
+<script src="js/formations.js?v=20"></script>
+<script src="js/playback.js?v=20"></script>
+<script src="js/marker.js?v=20"></script>
+<script src="js/export.js?v=20"></script>
+<script src="js/history.js?v=20"></script>
+<script src="js/share.js?v=20"></script>
+<script src="js/steps.js?v=20"></script>
+<script src="js/main.js?v=20"></script>
 
 </body>
 </html>

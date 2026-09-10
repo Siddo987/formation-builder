@@ -25,8 +25,22 @@
     tempoReadoutEl.textContent = (1000/d.move).toFixed(1) + '/s';
   }
 
+  // Song position playback should begin at, given the currently selected Bild: its own time marker
+  // if it has one, else the last marked Bild before it (so playing from an unmarked Bild still lands
+  // in roughly the right place), else the start of the song.
+  function playbackStartTime(){
+    var own = formationTime(state.formations[state.activeIndex]);
+    if(own !== null) return own;
+    for(var i = state.activeIndex - 1; i >= 0; i--){
+      var t = formationTime(state.formations[i]);
+      if(t !== null) return t;
+    }
+    return 0;
+  }
+
   function playPause(){
     if(state.formations.length < 2) return;
+    if(editingBetween){ editingBetween = null; if(typeof updateBetweenEditBanner === 'function') updateBetweenEditBanner(); } // playback always plays the real timeline
     playing = !playing;
     if(playing){
       // On the last Bild, pressing play has nothing left to advance to (tick() would just hold
@@ -44,7 +58,8 @@
       }
       syncActive = isSyncActive();
       if(syncActive){
-        songAudioEl.currentTime = 0;
+        // Start the song (and therefore the animation) at the selected Bild, not always at 0.
+        songAudioEl.currentTime = playbackStartTime();
         songAudioEl.play().catch(function(){});
         rafId = requestAnimationFrame(syncTick);
       }else{
@@ -55,7 +70,7 @@
         phaseStart = performance.now();
         rafId = requestAnimationFrame(tick);
         if(state.song && state.song.url){
-          songAudioEl.currentTime = 0;
+          songAudioEl.currentTime = playbackStartTime();
           songAudioEl.play().catch(function(){});
         }
       }
@@ -97,15 +112,10 @@
     }else{
       var span = p1.time - p0.time;
       t = span > 0 ? Math.min(1, Math.max(0, (ct - p0.time)/span)) : 1;
-      var e = easeInOutCubic(t);
-      var fromPos = state.formations[p0.idx].pos, toPos = state.formations[p1.idx].pos;
-      var interp = {};
-      state.dancers.forEach(function(dd){
-        var a = fromPos[dd.id] || {x:0,y:0,rot:0};
-        var b = toPos[dd.id] || {x:0,y:0,rot:0};
-        interp[dd.id] = { x: a.x + (b.x-a.x)*e, y: a.y + (b.y-a.y)*e, rot: lerpAngle(a.rot||0, b.rot||0, e) };
-      });
-      posMap = interp;
+      // Zwischenpositionen (interpolateThroughBetweens, state.js) only chain in when p1 is literally
+      // p0+1 — a marked Bild further out just means the ones in between (unmarked, so skipped by
+      // syncWaypoints()) never show at all, betweens included.
+      posMap = interpolateThroughBetweens(p0.idx, p1.idx, t);
       activeIdx = t >= 1 ? p1.idx : p0.idx;
     }
     positionMarkers(posMap);
@@ -130,16 +140,10 @@
     var moveMs = prefersReducedMotion ? Math.min(180, d.move) : d.move;
     var elapsed = now - phaseStart;
     var t = Math.min(1, elapsed / moveMs);
-    var e = easeInOutCubic(t);
-    var fromPos = state.formations[fromIdx].pos;
-    var toPos = state.formations[toIdx].pos;
-    var interp = {};
-    state.dancers.forEach(function(dd){
-      var a = fromPos[dd.id] || {x:0,y:0,rot:0};
-      var b = toPos[dd.id] || {x:0,y:0,rot:0};
-      interp[dd.id] = { x: a.x + (b.x-a.x)*e, y: a.y + (b.y-a.y)*e, rot: lerpAngle(a.rot||0, b.rot||0, e) };
-    });
-    positionMarkers(interp);
+    // Zwischenpositionen (see interpolateThroughBetweens in state.js) chain the move through any
+    // poses on fromIdx's own betweens list — total duration unchanged, just divided evenly across
+    // them — instead of a single straight fromPos->toPos interpolation.
+    positionMarkers(interpolateThroughBetweens(fromIdx, toIdx, t));
     updateProgress(t*100);
     if(t >= 1){
       state.activeIndex = toIdx;
@@ -152,7 +156,10 @@
       if(!settingsBackdrop.hidden) renderAxesList();
       var next = toIdx + 1;
       if(next >= state.formations.length){
-        playing = false; updatePlayButton(); return;
+        playing = false;
+        updatePlayButton();
+        renderOnionSkin(); // playback finished — redraw ghosts with editing semantics (gray = Bild before)
+        return;
       }
       fromIdx = toIdx;
       toIdx = next;

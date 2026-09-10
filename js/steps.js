@@ -9,6 +9,7 @@
   var stepsEmptyHint = document.getElementById('stepsEmptyHint');
   var stepsVideoBtn = document.getElementById('stepsVideoBtn');
   var stepsPdfBtn = document.getElementById('stepsPdfBtn');
+  var stepsAllPdfBtn = document.getElementById('stepsAllPdfBtn');
   var stepsPrintArea = document.getElementById('stepsPrintArea');
 
   function renderStepsWhoOptions(){
@@ -33,6 +34,7 @@
     stepsWhoSelect.hidden = empty;
     stepsVideoBtn.disabled = empty;
     stepsPdfBtn.disabled = empty;
+    if(stepsAllPdfBtn) stepsAllPdfBtn.disabled = empty;
   }
 
   function openStepsModal(){
@@ -89,14 +91,19 @@
     var focusIds = Object.keys(ids);
     var label = sheets.length === 2 ? (sheets[0].primary.name + ' & ' + sheets[1].primary.name) : sheets[0].primary.name;
     closeStepsModal();
-    askFilename('.webm', filenameBase() + '-' + label.replace(/[^\w-]+/g,'_'), function(filename){
-      startVideoExport(filename, focusIds);
-    });
+    askFilename(bestVideoMime().ext, filenameBase() + '-' + label.replace(/[^\w-]+/g,'_'), function(filename, opts){
+      startVideoExport(filename, focusIds, opts && opts.includeGhosts);
+    }, true);
   });
 
   /* ---------- PDF: a printable step sheet per dancer, one card per Bild --------- */
 
-  function buildStepDiagram(primaryPos, secondaryPos){
+  // betweenPositions: primary dancer's Zwischenpositionen for the move leaving this Bild (see
+  // js/state.js's interpolateThroughBetweens), in order — drawn as small numbered gray dots, same
+  // idea as the "heller Ring = graue Zusatzposition" convention the source choreography PDF this
+  // app grew out of already used, just with a number instead of a bare ring since there can be more
+  // than one.
+  function buildStepDiagram(primaryPos, secondaryPos, betweenPositions){
     var diagram = document.createElement('div');
     diagram.className = 'step-diagram';
     var labels = state.roomLabels || {};
@@ -117,14 +124,18 @@
     var cross = document.createElement('span');
     cross.className = 'step-cross';
     room.appendChild(cross);
-    function addDot(pos, cls){
+    function addDot(pos, cls, label){
       if(!pos) return;
       var dot = document.createElement('span');
       dot.className = 'step-dot ' + cls;
       dot.style.left = gridToPercent(pos.x) + '%';
       dot.style.top = gridToPercent(pos.y) + '%';
+      if(label !== undefined) dot.textContent = label;
       room.appendChild(dot);
     }
+    // Between-dots first so the main/partner dots (added after, further down) paint on top of them
+    // where positions happen to overlap.
+    (betweenPositions || []).forEach(function(bp, i){ addDot(bp, 'step-dot-between', String(i+1)); });
     addDot(secondaryPos, 'step-dot-secondary');
     addDot(primaryPos, 'step-dot-primary');
     diagram.appendChild(room);
@@ -136,13 +147,20 @@
     card.className = 'step-card';
     var primaryPos = formation.pos[primary.id];
     var secondaryPos = secondary ? formation.pos[secondary.id] : null;
+    var betweens = Array.isArray(formation.betweens) ? formation.betweens : [];
+    var betweenPositions = betweens.map(function(b){ return b.pos[primary.id]; });
 
-    card.appendChild(buildStepDiagram(primaryPos, secondaryPos));
+    card.appendChild(buildStepDiagram(primaryPos, secondaryPos, betweenPositions));
 
     var info = document.createElement('div');
     info.className = 'step-info';
+    // "Bild N" and its own name used to be two separate elements — a heading, then the actual
+    // giant X/Y readout, then (smaller, further down, easy to miss) which Bild this even is by
+    // name. One combined title — same "Bild N — Name" convention as bildLabel() in js/history.js —
+    // puts identity first and the coordinates (the actual instruction) right after it, instead of
+    // splitting a Bild's number from its name.
     var h = document.createElement('h3');
-    h.textContent = 'BILD ' + (formationIdx+1);
+    h.textContent = 'Bild ' + (formationIdx+1) + (formation.name ? ' — ' + formation.name : '');
     info.appendChild(h);
 
     if(primaryPos){
@@ -152,12 +170,18 @@
       info.appendChild(coords);
     }
 
-    if(formation.name){
-      var desc = document.createElement('p');
-      desc.className = 'step-desc';
-      desc.textContent = formation.name;
-      info.appendChild(desc);
-    }
+    // Zwischenpositionen line up right under the main position, in the same order they play in —
+    // same "grau x … y … · …" phrasing the source choreography PDF used for its own gray Zusatz-
+    // positionen. Uses the between's own name (right-click a chip in the filmstrip to set one) when
+    // there is one, falling back to a generic "Zwischenposition N" otherwise.
+    betweens.forEach(function(b, i){
+      var bp = b.pos[primary.id];
+      if(!bp) return;
+      var line = document.createElement('p');
+      line.className = 'step-between-line';
+      line.textContent = 'grau x ' + fmtSigned(bp.x) + ' y ' + fmtSigned(bp.y) + ' · ' + (b.name ? b.name : ('Zwischenposition ' + (i+1)));
+      info.appendChild(line);
+    });
 
     if(secondary && secondaryPos){
       var sec = document.createElement('p');
@@ -170,28 +194,91 @@
     return card;
   }
 
-  function buildStepsPrintDocument(){
+  // A section header ("1. Langsamer Walzer" — see js/export.js's categoryLabelAt(), the same
+  // Tänze-grouping the video export overlays as a caption) inserted right before the first Bild of
+  // each dance section, so a multi-dance choreography's printed sheet reads as its actual sections
+  // instead of one undifferentiated run of Bild cards. Blank categories just continue the previous
+  // section, same as everywhere else categories show up (filmstrip, video caption).
+  function buildStepSectionHeader(label){
+    var h = document.createElement('h4');
+    h.className = 'step-section-header';
+    h.textContent = label;
+    return h;
+  }
+
+  // Every dancer's own sheet, pair by pair (each getStepsSheets()-style pair still produces one
+  // sheet per partner) then any dancer with no saved partner — "erst alles von Paar 1, dann Paar 2
+  // usw." — for the "Alle als PDF" button below, which puts them all in one print job/document
+  // instead of one at a time.
+  function getAllStepsSheets(){
+    var sheets = [];
+    var pairedIds = {};
+    state.pairs.forEach(function(pair){
+      var a = state.dancers.find(function(d){ return d.id === pair.memberIds[0]; });
+      var b = state.dancers.find(function(d){ return d.id === pair.memberIds[1]; });
+      if(!a || !b) return;
+      pairedIds[a.id] = true; pairedIds[b.id] = true;
+      sheets.push({primary: a, secondary: b});
+      sheets.push({primary: b, secondary: a});
+    });
+    state.dancers.forEach(function(d){
+      if(pairedIds[d.id]) return;
+      sheets.push({primary: d, secondary: null});
+    });
+    return sheets;
+  }
+
+  function buildStepsPrintDocument(sheets){
     stepsPrintArea.innerHTML = '';
-    var sheets = getStepsSheets();
     sheets.forEach(function(sheet, sheetIdx){
       var title = document.createElement('h2');
       title.className = 'step-sheet-title';
       title.textContent = (state.projectName || 'Aufstellung') + ' — ' + sheet.primary.name +
         (sheet.secondary ? ' (Partner: ' + sheet.secondary.name + ')' : '');
       stepsPrintArea.appendChild(title);
+      var lastCategory = null;
       state.formations.forEach(function(f, idx){
+        var cat = categoryLabelAt(idx);
+        if(cat && cat !== lastCategory){
+          stepsPrintArea.appendChild(buildStepSectionHeader(cat));
+          lastCategory = cat;
+        }
         stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary));
       });
     });
   }
 
-  stepsPdfBtn.addEventListener('click', function(){
-    var sheets = getStepsSheets();
-    if(!sheets.length || !state.formations.length) return;
-    buildStepsPrintDocument();
+  // Shared by both PDF buttons below: builds the print document, swaps in a filename-friendly
+  // document.title (restored on 'afterprint' rather than right after calling print() — modern
+  // Chrome's print dialog is asynchronous, print() returns immediately and the preview renders
+  // afterward, so restoring on a fixed timer could win the race and hand the dialog the old title
+  // back before it ever reads the new one), and opens the print dialog.
+  function printStepsSheets(sheets, titleWho){
+    buildStepsPrintDocument(sheets);
     closeStepsModal();
+    var prevTitle = document.title;
+    document.title = (state.projectName || 'Aufstellung') + ' — Schritte — ' + titleWho;
+    window.addEventListener('afterprint', function restoreTitle(){
+      window.removeEventListener('afterprint', restoreTitle);
+      document.title = prevTitle;
+    });
     // Printable view is built into #stepsPrintArea (hidden outside @media print — see
     // css/modals.css); window.print() is the vanilla, no-dependency way to get to a PDF ("Als PDF
     // speichern" in the browser's print destination picker), no server round-trip needed.
     setTimeout(function(){ window.print(); }, 50);
+  }
+
+  stepsPdfBtn.addEventListener('click', function(){
+    var sheets = getStepsSheets();
+    if(!sheets.length || !state.formations.length) return;
+    var who = sheets.length === 2 ? (sheets[0].primary.name + ' & ' + sheets[1].primary.name) : sheets[0].primary.name;
+    printStepsSheets(sheets, who);
   });
+
+  if(stepsAllPdfBtn){
+    stepsAllPdfBtn.addEventListener('click', function(){
+      var sheets = getAllStepsSheets();
+      if(!sheets.length || !state.formations.length) return;
+      printStepsSheets(sheets, 'Alle');
+    });
+  }

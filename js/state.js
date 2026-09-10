@@ -23,6 +23,56 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     Object.keys(pos || {}).forEach(function(id){ out[id] = {x: pos[id].x, y: pos[id].y}; });
     return out;
   }
+  // Validates/repairs a formation's Zwischenpositionen (see interpolateThroughBetweens below) after
+  // loading from anywhere untrusted (localStorage, an imported file, a share link) — same idea as
+  // the per-Bild startPos/localAxes migrations around loadState(), just shared across the three
+  // call sites (loadState here, parseStg in export.js, reconstructSharedState in share.js) since a
+  // between's pos is a full per-dancer map rather than a single flat field.
+  function sanitizeBetweens(betweens, dancers){
+    if(!Array.isArray(betweens)) return [];
+    var validIds = (dancers||[]).map(function(d){ return d.id; });
+    return betweens.filter(function(b){ return b && typeof b === 'object' && b.pos && typeof b.pos === 'object'; }).map(function(b){
+      var pos = {};
+      validIds.forEach(function(id){
+        var p = b.pos[id];
+        pos[id] = {
+          x: clampGrid(p && typeof p.x === 'number' ? p.x : 0),
+          y: clampGrid(p && typeof p.y === 'number' ? p.y : 0),
+          rot: normAngle(p && typeof p.rot === 'number' ? p.rot : 0)
+        };
+      });
+      return {id: b.id || uid('bw'), name: typeof b.name === 'string' ? b.name.slice(0, 40) : '', pos: pos};
+    });
+  }
+  // A move between two Bilder normally interpolates in one straight leg (fromPos -> toPos). If the
+  // *from* Bild has Zwischenpositionen — poses along the way that don't get their own Bild/filmstrip
+  // card, added via the "+" between filmstrip cards (see formations.js) — the same move instead
+  // chains through each of them in turn, without changing the move's total duration: it's simply
+  // divided evenly across (Zwischenpositionen + 1) legs, per "Gesamtlänge der Bewegung/(Anzahl der
+  // Zwischenpositionen + 1)". Used by both playback paths (playback.js tick() and syncTick()), each
+  // of which already has its own overall progress `overallT` (0..1) for the whole move — this just
+  // resolves that into the right leg and re-eases within it. Betweens only apply when `toIdx` is
+  // literally the next Bild after `fromIdx` (fromIdx+1) — sync playback can skip over Bilder with no
+  // time marker of their own, and a between belongs to a specific gap, not to whatever pair of
+  // Bilder happen to be interpolating at the moment.
+  function interpolateThroughBetweens(fromIdx, toIdx, overallT){
+    var fromF = state.formations[fromIdx], toF = state.formations[toIdx];
+    var mids = (toIdx === fromIdx + 1 && Array.isArray(fromF.betweens)) ? fromF.betweens.map(function(b){ return b.pos; }) : [];
+    var waypoints = [fromF.pos].concat(mids, [toF.pos]);
+    var legCount = waypoints.length - 1;
+    var scaled = Math.min(legCount - 1e-9, Math.max(0, overallT * legCount));
+    var legIdx = Math.min(legCount - 1, Math.floor(scaled));
+    var legT = overallT >= 1 ? 1 : (scaled - legIdx);
+    var e = easeInOutCubic(legT);
+    var a = waypoints[legIdx], b = waypoints[legIdx + 1];
+    var interp = {};
+    state.dancers.forEach(function(dd){
+      var pa = a[dd.id] || {x:0,y:0,rot:0};
+      var pb = b[dd.id] || {x:0,y:0,rot:0};
+      interp[dd.id] = { x: pa.x + (pb.x-pa.x)*e, y: pa.y + (pb.y-pa.y)*e, rot: lerpAngle(pa.rot||0, pb.rot||0, e) };
+    });
+    return interp;
+  }
   function easeInOutCubic(t){ return t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
   function paletteColor(i){
     if(i < PALETTE.length) return PALETTE[i];
@@ -62,7 +112,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   }
 
   function defaultState(){
-    var names = ['Mia','Leo','Zoe','Ken','Ida'];
+    var names = ['1','2','3','4','5'];
     var dancers = names.map(function(name,i){ return {id:uid('d'), name:name, color:paletteColor(i)}; });
 
     var startlinie = {};
@@ -87,12 +137,13 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       projectName: 'Meine Formation',
       dancers: dancers,
       formations: [
-        // startPos is the *fixed* position dancers arrive at this Bild from — snapshotted once,
-        // not a live pointer to "whatever sits at the previous index" (see renderOnionSkin()).
-        // The very first Bild has no such thing to show, so it's simply left out.
-        {id:uid('f'), name:'Startlinie', pos: startlinie, showAxes:true, localAxes:[], category:''},
-        {id:uid('f'), name:'Kreis', pos: kreis, showAxes:true, localAxes:[], category:'', startPos: snapshotPos(startlinie)},
-        {id:uid('f'), name:'Diagonale', pos: diagonale, showAxes:true, localAxes:[], category:'', startPos: snapshotPos(kreis)}
+        // startPos is this Bild's *own* frozen starting position — snapshotted once, equal to `pos`
+        // until a dancer is actually dragged within this Bild, at which point their gray "came from
+        // here" dot appears (see renderOnionSkin()). It is never a pointer at the previous Bild:
+        // landing on an untouched Bild shows only the dancers, no gray ghost.
+        {id:uid('f'), name:'Startlinie', pos: startlinie, showAxes:true, localAxes:[], category:'', startPos: snapshotPos(startlinie), betweens: []},
+        {id:uid('f'), name:'Kreis', pos: kreis, showAxes:true, localAxes:[], category:'', startPos: snapshotPos(kreis), betweens: []},
+        {id:uid('f'), name:'Diagonale', pos: diagonale, showAxes:true, localAxes:[], category:'', startPos: snapshotPos(diagonale), betweens: []}
       ],
       axes: [],
       showAxes: true,
@@ -106,7 +157,15 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       // Local-only pointer at a live share (see js/share.js) — null until "Teilen" is used (or a
       // ?share=<id> link is opened), never itself part of what gets pushed to/pulled from the
       // server, and never written into .stg/.auf exports (buildProjectHeader doesn't reference it).
-      sharedId: null
+      sharedId: null,
+      // Schreib-Token für den gebundenen Share (aus create.php bzw. ?t= im Bearbeiten-Link).
+      // Fehlt es und shareReadOnly ist true, wurde ein reiner Nur-Ansehen-Link geöffnet:
+      // dann werden lokale Änderungen nicht mehr hochgeladen (js/state.js saveState).
+      shareEditToken: null,
+      shareReadOnly: false,
+      // Stable per-project key the undo/redo history (js/history.js) is filed under while a project
+      // isn't bound to a share link. Local-only, like sharedId.
+      localId: uid('proj')
     };
   }
 
@@ -142,6 +201,11 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         return fig && typeof fig.name === 'string' && fig.transform && typeof fig.transform === 'object';
       });
       if(typeof parsed.sharedId !== 'string' || !parsed.sharedId) parsed.sharedId = null;
+      if(typeof parsed.shareEditToken !== 'string' || !parsed.shareEditToken) parsed.shareEditToken = null;
+      // Vor diesem Feature gespeicherte Bindungen haben kein shareReadOnly-Feld -> als
+      // bearbeitbar behandeln (der Server lässt Alt-Links mit edit_token IS NULL ohnehin durch).
+      parsed.shareReadOnly = parsed.shareReadOnly === true;
+      if(typeof parsed.localId !== 'string' || !parsed.localId) parsed.localId = uid('proj');
       // logo/song blobs are never stored in this localStorage JSON (too large/binary) — they're
       // persisted separately in IndexedDB and hydrated back in via hydrateBlobsFromIdb().
       parsed.logo = null;
@@ -157,11 +221,14 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         // migration: older saves predate section categories entirely
         if(typeof f.category !== 'string') f.category = '';
         // migration: older saves predate the fixed per-Bild startPos snapshot (see
-        // renderOnionSkin()) — best guess is whatever Bild directly precedes it today.
+        // renderOnionSkin()). Seed it from the Bild's *own* current pos — same as a freshly
+        // created Bild (addFormation/applyFigure) — so nothing shows until a dancer is dragged,
+        // rather than back-filling the previous Bild's pos and lighting up ghosts everywhere.
         if(!f.startPos || typeof f.startPos !== 'object'){
-          var prevF = parsed.formations[i-1];
-          f.startPos = prevF ? snapshotPos(prevF.pos) : null;
+          f.startPos = snapshotPos(f.pos);
         }
+        // migration: older saves predate Zwischenpositionen entirely — see interpolateThroughBetweens()
+        f.betweens = sanitizeBetweens(f.betweens, parsed.dancers);
       });
       return parsed;
     }catch(e){ return defaultState(); }
@@ -179,7 +246,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         customFigures: state.customFigures,
         activeIndex: state.activeIndex,
         tempo: state.tempo,
-        sharedId: state.sharedId
+        sharedId: state.sharedId,
+        shareEditToken: state.shareEditToken,
+        shareReadOnly: state.shareReadOnly,
+        localId: state.localId
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
     }catch(e){}
@@ -188,7 +258,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     // propagates" without every individual call site needing to know about sharing. Soft dependency
     // (js/share.js defines this) so state.js — loaded first — doesn't need to know share.js exists;
     // by the time any edit actually happens, every script has finished loading regardless of order.
-    if(state.sharedId && typeof schedulePushSharedUpdate === 'function') schedulePushSharedUpdate();
+    if(state.sharedId && !state.shareReadOnly && typeof schedulePushSharedUpdate === 'function') schedulePushSharedUpdate();
+    // Same soft-dependency trick for the undo/redo history (js/history.js) — one debounced snapshot
+    // per settled edit, skipped while history itself is applying an undo/redo/merge.
+    if(typeof captureHistorySoon === 'function') captureHistorySoon();
   }
   var saveStateDebounced = (function(){
     var timer = null;
@@ -279,6 +352,11 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var rosterRowEls = {}; // dancerId -> .dancer-row element
   var rosterPairGroupEls = {}; // pairId -> .pair-group element
 
+  // Non-null while posing a Zwischenposition on the stage instead of the active Bild itself — see
+  // currentFormation() below and enterBetweenEdit()/exitBetweenEdit() in formations.js. {fIdx, bIdx}:
+  // the Bild it belongs after, and its index within that Bild's own `betweens` array.
+  var editingBetween = null;
+
   var playing = false, phaseStart = 0, fromIdx = 0, toIdx = 0, rafId = null, syncActive = false;
 
   var stageEl = document.getElementById('stage');
@@ -332,9 +410,37 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     playing = false;
     cancelAnimationFrame(rafId);
     updatePlayButton();
+    renderOnionSkin(); // sync playback finished — redraw ghosts with editing semantics
   });
 
-  function currentFormation(){ return state.formations[state.activeIndex]; }
+  // Almost every stage/roster edit function reads/writes through currentFormation().pos rather than
+  // reaching into state.formations directly — which means overriding what it returns while
+  // editingBetween is set (see above) is enough to make dragging on the stage, the roster's numeric
+  // inputs, keyboard nudging and pair-rotate all transparently pose a Zwischenposition instead of
+  // the real active Bild, with no changes needed in any of them. The synthetic object forwards
+  // showAxes/localAxes reads *and writes* to the real anchor Bild (there's no separate per-
+  // Zwischenposition concept for either) via getters/setters rather than a plain copy.
+  function currentFormation(){
+    if(editingBetween){
+      var anchor = state.formations[editingBetween.fIdx];
+      var between = anchor && anchor.betweens && anchor.betweens[editingBetween.bIdx];
+      if(anchor && between){
+        return {
+          id: anchor.id + ':between:' + between.id,
+          name: 'Zwischenposition ' + (editingBetween.bIdx + 1) + (between.name ? ' — ' + between.name : '')
+            + ' (' + anchor.name + ' → ' + (state.formations[editingBetween.fIdx+1]||{}).name + ')',
+          pos: between.pos,
+          category: anchor.category,
+          get showAxes(){ return anchor.showAxes; },
+          set showAxes(v){ anchor.showAxes = v; },
+          get localAxes(){ return anchor.localAxes; },
+          set localAxes(v){ anchor.localAxes = v; }
+        };
+      }
+      editingBetween = null; // stale pointer (Bild/between deleted from under it) — fall through
+    }
+    return state.formations[state.activeIndex];
+  }
 
   function durations(){
     var t = state.tempo/100;

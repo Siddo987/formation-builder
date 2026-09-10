@@ -22,10 +22,23 @@ $stmt->execute([':id' => $id]);
 $row = $stmt->fetch();
 if (!$row) json_error('Dieser Link wurde nicht gefunden oder ist nicht mehr gültig', 404);
 
-$payload = json_decode($row['payload_json'], true) ?: [];
-// Opaque token the client compares across polls (pollSharedUpdate() in js/share.js) to notice
-// someone else's edit without re-diffing the whole payload.
-$payload['rev'] = (string) $row['version'];
+// ?commit=<id> — the payload of one specific commit (for viewing/merging a branch, js/share.js).
+// Logo/song still come from the `shares` row: media only ever lives on the mainline.
+$commitId = $_GET['commit'] ?? '';
+if ($commitId !== '') {
+    if (!preg_match('/^[A-Za-z0-9]{6,32}$/', $commitId)) json_error('Ungültige Commit-ID', 400);
+    $cs = db()->prepare('SELECT payload_json, commit_id FROM share_commits WHERE commit_id = :c AND share_id = :s');
+    $cs->execute([':c' => $commitId, ':s' => $id]);
+    $crow = $cs->fetch();
+    if (!$crow) json_error('Commit nicht gefunden', 404);
+    $payload = json_decode($crow['payload_json'], true) ?: [];
+    $payload['rev'] = (string) $crow['commit_id'];
+} else {
+    $payload = json_decode($row['payload_json'], true) ?: [];
+    // Opaque token the client compares across polls (pollSharedUpdate() in js/share.js) to notice
+    // someone else's edit without re-diffing the whole payload.
+    $payload['rev'] = (string) $row['version'];
+}
 
 // uploads/ sits next to api/ (see create.php) — build a root-relative URL the client can fetch
 // directly regardless of which path this app is deployed under. payload_json already carries

@@ -24,3 +24,46 @@
         RedirectMatch 404 ^/data/.*$
     </IfModule>
 </IfModule>
+
+# ---- Cache policy -------------------------------------------------------------
+# Without this, index.html goes out with no Cache-Control at all, so the browser
+# (and Cloudflare's "Browser Cache TTL") falls back to *heuristic* caching and
+# hangs on to a stale copy for hours: a normal reload then shows an old index.html
+# still pointing at the previous deploy's ?v= asset URLs, and only Ctrl+F5 (which
+# forces revalidation) pulls the current one — after which it's cached stale again.
+<IfModule mod_headers.c>
+    # Entry point + all dynamic PHP: always revalidate. "no-cache" still lets the
+    # browser store the bytes, it just has to check with the server every load
+    # (a cheap 304 while nothing changed).
+    <FilesMatch "\.(html|php)$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+
+    # css/ and js/ are always requested as <file>?v=N, and N is bumped on every
+    # deploy that touches them (see the note at the top of index.html) — so the
+    # bytes behind any one URL never change and can be cached permanently. woff2
+    # fonts have unique filenames and are equally safe.
+    # NOT images: share-link logos under /uploads/ reuse their filename when
+    # replaced (api/share/update.php), so those must stay revalidatable.
+    <FilesMatch "\.(css|js|woff2)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    # ...but a service worker script must NEVER be cached hard — the browser has to
+    # see a changed sw.js on its update check for the kill-switch worker to take
+    # effect. This runs after the .js rule above, so it wins for these names.
+    <FilesMatch "^(sw|service-worker)\.js$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
+# Fallback for servers with mod_expires but not mod_headers — keyed on the
+# response Content-Type, so it also covers "/" resolving to index.html.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
