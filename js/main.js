@@ -178,8 +178,11 @@
   // own content would otherwise grow the whole grid row). The roster list then scrolls internally
   // within that fixed height (see .roster-list{flex:1;min-height:0;overflow-y:auto}).
   if(window.ResizeObserver && stageAreaEl && rosterEl){
+    // Only in the two-column layout — once base.css stacks everything (≤840px, Handyversion) the
+    // roster sits below the stage and should size to its own content, not to the stage's height.
+    var twoColumnMq = window.matchMedia('(min-width:841px)');
     var roHeightObserver = new ResizeObserver(function(entries){
-      rosterEl.style.height = entries[0].contentRect.height + 'px';
+      rosterEl.style.height = twoColumnMq.matches ? entries[0].contentRect.height + 'px' : '';
     });
     roHeightObserver.observe(stageAreaEl);
   }

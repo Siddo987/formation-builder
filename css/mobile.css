@@ -1,0 +1,88 @@
+/* ---- Handyversion ----
+   Loaded last so these only override the desktop rules above them. Below 840px base.css already
+   stacks the grid into one column; this file makes that stacked layout actually usable on a phone:
+   one scrollable toolbar row instead of four wrapped ones, a roster that sizes to its content
+   instead of being pinned to the stage height (js/main.js only syncs that above 840px), a playbar
+   that stays reachable while scrolling, and touch targets that don't depend on :hover. */
+
+  @media (max-width:840px){
+    .roster{max-height:60vh;}
+    .roster-list{max-height:none;}
+    /* Stays on screen while scrolling between stage, roster and filmstrip — play/prev/next are the
+       controls you reach for most while rehearsing with the phone in hand. */
+    .playbar{
+      position:sticky; bottom:.5rem; z-index:30;
+      box-shadow:0 12px 30px -12px var(--shadow);
+    }
+  }
+
+  @media (max-width:640px){
+    .app{padding:.9rem .75rem 2rem;}
+    .topbar{gap:.6rem; margin-bottom:1rem; align-items:stretch;}
+    .brand h1{font-size:2rem;}
+    .brand .tagline{display:none;}
+    .brand-mark{width:28px; height:28px;}
+    /* One horizontally scrollable row instead of the buttons wrapping into a tall block above the
+       stage. The export menu is position:absolute inside it, so it would be clipped by the
+       overflow — it gets position:fixed below instead. */
+    .topbar-actions{
+      flex:1 1 100%;
+      flex-wrap:nowrap;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+      padding-bottom:.3rem;
+      margin:0 -.75rem;
+      padding-left:.75rem; padding-right:.75rem;
+    }
+    .topbar-actions::-webkit-scrollbar{display:none;}
+    .topbar-actions .btn-ghost{flex:none; padding:.55rem .75rem;}
+    .export-menu{position:fixed; top:auto; left:.75rem; right:.75rem; min-width:0; margin-top:.4rem;}
+    .import-error{white-space:normal; flex:none; max-width:14rem;}
+
+    .layout{gap:.9rem;}
+
+    /* Vorlage-Auswahl and "Achsen für dieses Bild" sit absolutely left/right of the centered
+       top-edge caption on desktop — on a narrow screen all three overlap. Stack them instead. */
+    .stage-caption-row{display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:.35rem .6rem;}
+    .stage-caption-row .stage-caption{order:-1; flex:1 1 100%;}
+    .layout-select-wrap,.axes-bild-toggle{position:static; transform:none;}
+    .layout-select-wrap{flex-wrap:wrap;}
+    .room-label-left{left:14px;}
+    .room-label-right{right:14px;}
+    /* Mouse/keyboard instructions — meaningless on a touch screen and just pushes the roster down. */
+    .stage-area > .hint{display:none;}
+    .pair-rotate{flex-wrap:wrap;}
+    .pair-rotate-hint{display:none;}
+
+    .playbar{gap:.6rem .9rem; padding:.6rem .75rem;}
+    .playinfo{min-width:0; flex:1 1 0;}
+    .formation-name-live{font-size:.84rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+    .progress-track{order:5; flex:1 1 100%;}
+    .tempo-control{order:4;}
+    input[type="range"]{width:84px;}
+
+    .film-card{width:104px;}
+    .film-add-wrap{width:104px;}
+
+    /* Near-fullscreen sheets instead of centered cards with a wide gutter. */
+    .modal-backdrop{padding:.5rem; align-items:flex-end;}
+    .modal,.modal-wide,.modal-narrow{max-width:none; max-height:94vh; border-radius:16px;}
+    .modal-header{padding:.9rem 1rem .6rem;}
+    .modal-body{padding:.9rem 1rem 1.1rem; gap:1.1rem;}
+    .marker-row{flex-wrap:wrap;}
+    .marker-name{flex:1 1 60%;}
+  }
+
+  /* Touch screens: no hover, coarse finger. Everything that only appeared on :hover is shown
+     permanently, and the dancer dots get an invisible padded hit area (::after counts as part of
+     the element for pointer events) without being drawn any larger on the small stage. */
+  @media (hover:none), (pointer:coarse){
+    .remove-btn,
+    .film-remove,
+    .film-between-chip-remove{opacity:1;}
+    .film-remove{opacity:.75;}
+    .dancer::after{content:""; position:absolute; inset:-9px; border-radius:50%;}
+    .btn-icon{width:40px; height:40px;}
+    .btn-play{width:50px; height:50px;}
+  }
