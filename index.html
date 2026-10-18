@@ -179,6 +179,7 @@ if ('serviceWorker' in navigator) {
         <span class="caption">Tempo <span id="tempoReadout">0.7/s</span></span>
         <input type="range" id="tempoSlider" min="0" max="100" value="50">
       </div>
+      <button class="btn-ghost music-only-btn" id="musicOnlyBtn" type="button" aria-pressed="false" title="Nur die Musik abspielen, ohne die Bühne zu bewegen" hidden>♪ Nur Musik</button>
     </div>
 
     <section class="filmstrip-area">
@@ -274,6 +275,54 @@ if ('serviceWorker' in navigator) {
           <h3>Bilder</h3>
           <p class="marker-warning" id="markerOrderWarning" hidden></p>
           <div class="marker-list" id="markerList"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="musicBackdrop" hidden>
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="musicTitle">
+    <div class="modal-header">
+      <h2 id="musicTitle">Nur Musik</h2>
+      <button class="modal-close" id="musicCloseBtn" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="settings-hint" id="musicNoSongHint">Lade zuerst ein Lied (Einstellungen → Musik).</p>
+
+      <div id="musicSongArea" hidden>
+        <section class="settings-section">
+          <div class="settings-row">
+            <button class="btn-icon" id="musicPlayBtn" type="button" aria-label="Musik abspielen">
+              <span class="icon-play" id="musicIconPlay"></span>
+              <span class="icon-pause" id="musicIconPause" hidden><i></i><i></i></span>
+            </button>
+            <span class="marker-time" id="musicTimeReadout">0:00 / 0:00</span>
+            <span class="music-current">Gerade: <strong id="musicCurrentBild">–</strong></span>
+          </div>
+          <div class="marker-timeline" id="musicTimeline">
+            <div class="marker-timeline-bar">
+              <div class="marker-timeline-played" id="musicTimelinePlayed"></div>
+              <div class="marker-timeline-head" id="musicTimelineHead"></div>
+            </div>
+            <div class="marker-timeline-flags" id="musicTimelineFlags"></div>
+          </div>
+          <p class="settings-hint">Die Bühne bleibt stehen — nur das Lied läuft. Klick in die Zeitleiste springt an die Stelle.</p>
+        </section>
+
+        <section class="settings-section">
+          <h3>Start bei</h3>
+          <div class="settings-row">
+            <input type="text" class="marker-time-input" id="musicStartInput" inputmode="decimal" placeholder="0:00.0" aria-label="Startzeit (m:ss)">
+            <button class="btn-ghost marker-now-btn" id="musicStartBtn" type="button">▶ Abspielen</button>
+          </div>
+          <label class="music-stop-toggle"><input type="checkbox" id="musicStopAtNext"> Am nächsten Marker anhalten</label>
+        </section>
+
+        <section class="settings-section">
+          <h3>Ab Marker eines Bildes</h3>
+          <p class="settings-hint" id="musicNoMarkersHint" hidden>Noch keine Bilder mit Marker — Zeitpunkte setzt du unter „Marker“.</p>
+          <div class="marker-list" id="musicMarkerList"></div>
         </section>
       </div>
     </div>
@@ -546,6 +595,7 @@ if ('serviceWorker' in navigator) {
 <script src="js/formations.js?v=21"></script>
 <script src="js/playback.js?v=21"></script>
 <script src="js/marker.js?v=21"></script>
+<script src="js/music.js?v=21"></script>
 <script src="js/export.js?v=21"></script>
 <script src="js/history.js?v=21"></script>
 <script src="js/share.js?v=21"></script>

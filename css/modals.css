@@ -347,3 +347,10 @@
   .merge-choice small{display:block; color:var(--ink-faint); font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.15rem;}
   .merge-choice--picked{border-color:var(--gold); background:var(--gold-wash); font-weight:600;}
 
+
+  /* ---- Nur Musik (js/music.js) ---- */
+  .music-only-btn{flex:none; padding:.45rem .75rem; font-size:.78rem;}
+  .music-only-btn.active{border-color:var(--gold); background:var(--gold-wash); color:var(--gold-deep);}
+  .music-current{font-size:.8rem; color:var(--ink-soft); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .music-stop-toggle{display:flex; align-items:center; gap:.45rem; font-size:.8rem; margin-top:.5rem; cursor:pointer;}
+  .marker-row.music-row--current{box-shadow:inset 3px 0 0 var(--gold);}

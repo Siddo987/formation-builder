@@ -19,6 +19,7 @@
     if(!videoBackdrop.hidden && exportState) exportState.cancelled = true;
     if(!filenameBackdrop.hidden) closeFilenameDialog();
     if(!markerBackdrop.hidden) closeMarkerModal();
+    if(!musicBackdrop.hidden) closeMusicModal();
     if(!addBildBackdrop.hidden) closeAddBildModal();
     var hb = document.getElementById('historyBackdrop');
     if(hb && !hb.hidden && typeof closeHistoryPanel === 'function') closeHistoryPanel();

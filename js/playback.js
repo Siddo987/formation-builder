@@ -43,6 +43,7 @@
     if(editingBetween){ editingBetween = null; if(typeof updateBetweenEditBanner === 'function') updateBetweenEditBanner(); } // playback always plays the real timeline
     playing = !playing;
     if(playing){
+      if(typeof stopMusicOnly === 'function') stopMusicOnly(); // js/music.js — hand the song over to animated playback
       // On the last Bild, pressing play has nothing left to advance to (tick() would just hold
       // then immediately stop) — jump back to the first Bild so playback actually runs, matching
       // "stop after the last Bild" ending back at a state play can restart from.
