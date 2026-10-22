@@ -757,7 +757,10 @@
       var pos = posMap[item.k];
       if(!pos) return;
       if(focusIds && focusIds.indexOf(d.id) === -1) return;
-      var splitRole = item.follow ? ' · F' : (posMap[followKey(d.id)] ? ' · L' : '');
+      var isSplit = item.follow || !!posMap[followKey(d.id)];
+      var splitRole = item.follow ? ' · F' : (isSplit ? ' · L' : '');
+      // Getrennte Lead/Follow-Punkte etwas kleiner als normale Paar-Punkte (wie auf der Bühne).
+      var r = isSplit ? radius*0.72 : radius;
       var cx = gx(pos.x);
       var cy = gy(pos.y);
       var rot = pos.rot || 0;
@@ -766,9 +769,9 @@
       ctx.translate(cx, cy);
       ctx.rotate(rot*Math.PI/180);
       ctx.beginPath();
-      ctx.moveTo(-4, -radius-2);
-      ctx.lineTo(4, -radius-2);
-      ctx.lineTo(0, -radius-9);
+      ctx.moveTo(-4, -r-2);
+      ctx.lineTo(4, -r-2);
+      ctx.lineTo(0, -r-9);
       ctx.closePath();
       ctx.fillStyle = 'rgba(255,255,255,.92)';
       ctx.fill();
@@ -779,18 +782,18 @@
       ctx.shadowBlur = 8;
       ctx.shadowOffsetY = 3;
       ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI*2);
+      ctx.arc(cx, cy, r, 0, Math.PI*2);
       ctx.fillStyle = d.color;
       ctx.fill();
       ctx.restore();
       ctx.lineWidth = 2;
       ctx.strokeStyle = 'rgba(255,255,255,.85)';
       if(item.follow) ctx.setLineDash([4,3]);
-      ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
       ctx.setLineDash([]);
 
       ctx.fillStyle = '#fff';
-      ctx.font = '700 ' + Math.round(radius*0.72) + 'px "Manrope",sans-serif';
+      ctx.font = '700 ' + Math.round(r*0.72) + 'px "Manrope",sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(initials(d.name), cx, cy+1);
@@ -798,7 +801,7 @@
       ctx.font = '600 13px "Manrope",sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,.92)';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(d.name + splitRole, cx, cy - radius - 16);
+      ctx.fillText(d.name + splitRole, cx, cy - r - 16);
     });
 
     if(hasPanel) drawVideoInfoPanel(ctx, panelW, H, panelCursor);

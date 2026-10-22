@@ -681,6 +681,11 @@ body.roster-open .roster{display:flex;}
 }
 .dancer.is-split .role-badge,.dancer.follow .role-badge{display:block;}
 .dancer.follow{border-style:dashed;}
+/* getrennte Lead/Follow-Punkte kleiner als normale Paar-Punkte */
+.dancer.is-split,.dancer.follow{
+  width:clamp(14px,calc(var(--s) * .028),21px);height:clamp(14px,calc(var(--s) * .028),21px);
+}
+.dancer.is-split .initials,.dancer.follow .initials{font-size:.42rem;}
 .dancer.is-split:not(.selected):not(.pair-selected),
 .dancer.follow:not(.selected):not(.pair-selected){box-shadow:0 0 0 2px var(--split),0 2px 6px rgba(0,0,0,.45);}
 .film-dot-follow{box-shadow:0 0 0 1.5px var(--split);}
