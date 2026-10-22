@@ -81,7 +81,43 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       var pb = toF.pos[k] || toF.pos[dd.id] || {x:0,y:0,rot:0};
       interp[k] = { x: pa.x + (pb.x-pa.x)*eAll, y: pa.y + (pb.y-pa.y)*eAll, rot: lerpAngle(pa.rot||0, pb.rot||0, eAll) };
     });
+    // Turning within a couple: if Lead and Follow are apart in both Bilder, they don't walk straight
+    // (and possibly right through each other) — see turnCouple below. Only for a plain move without
+    // Zwischenpositionen: those are hand-placed paths and are followed as-is. Without betweens the
+    // single leg above ran on eAll too, so overwriting both positions here stays in step.
+    if(!mids.length){
+      state.dancers.forEach(function(dd){
+        var k = followKey(dd.id);
+        if(fromF.pos[k] && toF.pos[k] && fromF.pos[dd.id] && toF.pos[dd.id]) turnCouple(interp, dd.id, k, fromF.pos, toF.pos, eAll);
+      });
+      // Legacy linked pairs (two separate dots, memberIds = [lead, follow]) turn the same way —
+      // unless one of them is itself split, which the loop above already handled.
+      (state.pairs || []).forEach(function(pr){
+        var ids = pr.memberIds || [];
+        if(ids.length !== 2 || ids.some(function(id){ return !fromF.pos[id] || !toF.pos[id] || fromF.pos[followKey(id)] || toF.pos[followKey(id)]; })) return;
+        turnCouple(interp, ids[0], ids[1], fromF.pos, toF.pos, eAll);
+      });
+    }
     return interp;
+  }
+  // The couple's midpoint — the axis they turn around — travels straight from one Bild to the next,
+  // while the Follow→Lead vector rotates around it the short way and its length eases from the old
+  // spacing to the new one. A couple that only moves (no change of direction between them) ends up
+  // exactly on the straight lines; one that swaps sides turns around its moving middle instead of
+  // running through each other.
+  function turnCouple(interp, lk, fk, pa, pb, t){
+    var la = pa[lk], fa = pa[fk], lb = pb[lk], fb = pb[fk];
+    var cx = lerp((la.x+fa.x)/2, (lb.x+fb.x)/2, t), cy = lerp((la.y+fa.y)/2, (lb.y+fb.y)/2, t);
+    var distA = Math.hypot(la.x-fa.x, la.y-fa.y), distB = Math.hypot(lb.x-fb.x, lb.y-fb.y);
+    var angA = Math.atan2(la.y-fa.y, la.x-fa.x) * 180/Math.PI, angB = Math.atan2(lb.y-fb.y, lb.x-fb.x) * 180/Math.PI;
+    // On top of each other on one side: no direction to turn from/to, just open up or close.
+    if(distA < 1e-6) angA = angB;
+    if(distB < 1e-6) angB = angA;
+    var ang = lerpAngle(angA, angB, t) * Math.PI/180;
+    var half = lerp(distA, distB, t) / 2;
+    var dx = Math.cos(ang)*half, dy = Math.sin(ang)*half;
+    interp[lk].x = cx + dx; interp[lk].y = cy + dy;
+    interp[fk].x = cx - dx; interp[fk].y = cy - dy;
   }
   // "Punkt = Paar aufspalten": every dot is a couple by default. In single Bilder it can be split
   // into Lead (the dot's own pos key) and Follow, stored in the same Bild's pos map under
