@@ -129,7 +129,9 @@
     var file = e.target.files[0];
     if(!file) return;
     if(state.song && state.song.url) URL.revokeObjectURL(state.song.url);
-    state.song = { name:file.name, mime:file.type || 'audio/mpeg', blob:file, url:URL.createObjectURL(file) };
+    // An .mp4 (e.g. a downloaded music video) works too — <audio> just plays its sound track.
+    var mime = file.type || (/\.(mp4|m4a)$/i.test(file.name) ? 'audio/mp4' : 'audio/mpeg');
+    state.song = { name:file.name, mime:mime, blob:file, url:URL.createObjectURL(file) };
     idbHydrationGen++;
     idbPut('song', { name:state.song.name, mime:state.song.mime, blob:state.song.blob });
     applySongSource();
