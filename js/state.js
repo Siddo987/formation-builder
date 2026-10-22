@@ -50,8 +50,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // chains through each of them in turn, without changing the move's total duration: it's simply
   // divided evenly across (Zwischenpositionen + 1) legs, per "Gesamtlänge der Bewegung/(Anzahl der
   // Zwischenpositionen + 1)". Used by both playback paths (playback.js tick() and syncTick()), each
-  // of which already has its own overall progress `overallT` (0..1) for the whole move — this just
-  // resolves that into the right leg and re-eases within it. Betweens only apply when `toIdx` is
+  // of which already has its own overall progress `overallT` (0..1) for the whole move — this eases
+  // that once for the whole move and then resolves it into the right leg, so the dancers keep going
+  // through each Zwischenposition instead of stopping there. Betweens only apply when `toIdx` is
   // literally the next Bild after `fromIdx` (fromIdx+1) — sync playback can skip over Bilder with no
   // time marker of their own, and a between belongs to a specific gap, not to whatever pair of
   // Bilder happen to be interpolating at the moment.
@@ -60,10 +61,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     var mids = (toIdx === fromIdx + 1 && Array.isArray(fromF.betweens)) ? fromF.betweens.map(function(b){ return b.pos; }) : [];
     var waypoints = [fromF.pos].concat(mids, [toF.pos]);
     var legCount = waypoints.length - 1;
-    var scaled = Math.min(legCount - 1e-9, Math.max(0, overallT * legCount));
+    var eAll = easeMove(overallT >= 1 ? 1 : Math.max(0, overallT));
+    var scaled = Math.min(legCount - 1e-9, eAll * legCount);
     var legIdx = Math.min(legCount - 1, Math.floor(scaled));
-    var legT = overallT >= 1 ? 1 : (scaled - legIdx);
-    var e = easeInOutCubic(legT);
+    var e = overallT >= 1 ? 1 : (scaled - legIdx);
     var a = waypoints[legIdx], b = waypoints[legIdx + 1];
     var interp = {};
     state.dancers.forEach(function(dd){
@@ -73,7 +74,6 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     });
     // Split couples: the Follow travels straight (no betweens) from its own spot — or out of the
     // couple's dot if it wasn't split before — to its next spot, or back into the dot.
-    var eAll = easeInOutCubic(overallT >= 1 ? 1 : Math.max(0, overallT));
     state.dancers.forEach(function(dd){
       var k = followKey(dd.id);
       if(!fromF.pos[k] && !toF.pos[k]) return;
@@ -98,7 +98,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     var n = d ? d.name : '?';
     return isFollowKey(id) ? n + ' (Follow)' : n;
   }
-  function easeInOutCubic(t){ return t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
+  // Nearly constant speed: mostly linear, with just enough smoothstep mixed in that a move doesn't
+  // start or end with a jolt (speed 0.8 at the ends, 1.1 in the middle — not the 0→3→0 of a cubic).
+  function easeMove(t){ return 0.8*t + 0.2*t*t*(3 - 2*t); }
   function paletteColor(i){
     if(i < PALETTE.length) return PALETTE[i];
     var hue = (i*137.508) % 360;

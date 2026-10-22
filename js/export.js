@@ -1045,7 +1045,7 @@
         // seg.to across the *whole* segment, independent of however many Zwischenpositionen-legs
         // posMap above just chained through, so the panel scrolls smoothly through exactly one Bild
         // per move regardless of how it's spatially subdivided.
-        segCursor = seg.from + easeInOutCubic(t);
+        segCursor = seg.from + easeMove(t);
       }
       renderCanvasFrame(ctx, W, H, posMap, logoImg, segShowAxes, segLocalAxes, focusIds, ghostsFor(seg), segCursor);
       // In manual-capture mode (see runVideoRecording), the stream never emits a frame on its own —
