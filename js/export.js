@@ -489,6 +489,9 @@
   // export starts; read via ghostsFor() below. One export runs at a time, so a plain module flag
   // is enough (same pattern as exportState).
   var exportIncludeGhosts = false;
+  // Schritte-Video "Andere Paare hellgrau einblenden": dancers outside focusIds are drawn as plain
+  // light-gray context dots instead of being left out. Set per export like exportIncludeGhosts.
+  var exportShowContext = false;
 
   // The onion-skin ghost source Bilder for a timeline segment — mirrors renderOnionSkin() in
   // js/stage.js: gray = the Bild *behind* you (the previous Bild while holding, the move's origin
@@ -752,6 +755,25 @@
       drawList.push({d: d, k: d.id, follow: false});
       if(posMap[followKey(d.id)]) drawList.push({d: d, k: followKey(d.id), follow: true});
     });
+    if(focusIds && exportShowContext){
+      ctx.save();
+      drawList.forEach(function(item){
+        var pos = posMap[item.k];
+        if(!pos || focusIds.indexOf(item.d.id) !== -1) return;
+        var r = (item.follow || posMap[followKey(item.d.id)]) ? radius*0.72 : radius;
+        var cx = gx(pos.x), cy = gy(pos.y);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(201,194,214,.5)';
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.75)';
+        ctx.font = '700 ' + Math.round(r*0.72) + 'px "Manrope",sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(initials(item.d.name), cx, cy+1);
+      });
+      ctx.restore();
+    }
     drawList.forEach(function(item){
       var d = item.d;
       var pos = posMap[item.k];
@@ -840,8 +862,9 @@
   });
 
   // focusIds: see renderCanvasFrame's comment — passed through unchanged all the way down.
-  function startVideoExport(filename, focusIds, includeGhosts){
+  function startVideoExport(filename, focusIds, includeGhosts, showContext){
     exportIncludeGhosts = !!includeGhosts;
+    exportShowContext = !!showContext;
     pausePlayback();
     videoBackdrop.hidden = false;
     videoProgressFill.classList.remove('indeterminate');

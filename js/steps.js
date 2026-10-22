@@ -11,6 +11,7 @@
   var stepsPdfBtn = document.getElementById('stepsPdfBtn');
   var stepsAllPdfBtn = document.getElementById('stepsAllPdfBtn');
   var stepsPrintArea = document.getElementById('stepsPrintArea');
+  var stepsContextToggle = document.getElementById('stepsContextToggle');
 
   function renderStepsWhoOptions(){
     stepsWhoSelect.innerHTML = '';
@@ -108,7 +109,7 @@
     var label = sheetsLabel(sheets);
     closeStepsModal();
     askFilename(bestVideoMime().ext, filenameBase() + '-' + label.replace(/[^\w-]+/g,'_'), function(filename, opts){
-      startVideoExport(filename, focusIds, opts && opts.includeGhosts);
+      startVideoExport(filename, focusIds, opts && opts.includeGhosts, stepsContextToggle.checked);
     }, true);
   });
 
@@ -120,8 +121,9 @@
   // app grew out of already used, just with a number instead of a bare ring since there can be more
   // than one.
   // rolePos: the couple's other role (Lead or Follow) where it's split in this Bild — then both
-  // dots are drawn smaller, the Follow dashed, same as on the stage.
-  function buildStepDiagram(primaryPos, secondaryPos, betweenPositions, rolePos, primaryIsFollow){
+  // dots are drawn smaller, the Follow dashed, same as on the stage. contextPositions: every other
+  // couple's spot in this Bild ("Andere Paare hellgrau einblenden"), drawn as small light-gray dots.
+  function buildStepDiagram(primaryPos, secondaryPos, betweenPositions, rolePos, primaryIsFollow, contextPositions){
     var diagram = document.createElement('div');
     diagram.className = 'step-diagram';
     var labels = state.roomLabels || {};
@@ -151,6 +153,7 @@
       if(label !== undefined) dot.textContent = label;
       room.appendChild(dot);
     }
+    (contextPositions || []).forEach(function(cp){ addDot(cp, 'step-dot-context'); });
     // Between-dots first so the main/partner dots (added after, further down) paint on top of them
     // where positions happen to overlap.
     (betweenPositions || []).forEach(function(bp, i){ addDot(bp, 'step-dot-between', String(i+1)); });
@@ -161,7 +164,7 @@
     return diagram;
   }
 
-  function buildStepCard(formationIdx, formation, primary, secondary, role){
+  function buildStepCard(formationIdx, formation, primary, secondary, role, showContext){
     var card = document.createElement('div');
     card.className = 'step-card';
     var fk = followKey(primary.id);
@@ -175,8 +178,15 @@
     // walks straight (see interpolateThroughBetweens), so the Follow's sheet leaves them out.
     if(role === 'follow' && (split || isCoupleSplitIn(state.formations[formationIdx+1], primary.id))) betweens = [];
     var betweenPositions = betweens.map(function(b){ return b.pos[primary.id]; });
+    var contextPositions = [];
+    if(showContext){
+      state.dancers.forEach(function(d){
+        if(d.id === primary.id || (secondary && d.id === secondary.id)) return;
+        [d.id, followKey(d.id)].forEach(function(k){ if(formation.pos[k]) contextPositions.push(formation.pos[k]); });
+      });
+    }
 
-    card.appendChild(buildStepDiagram(primaryPos, secondaryPos, betweenPositions, rolePos, ownIsFollow));
+    card.appendChild(buildStepDiagram(primaryPos, secondaryPos, betweenPositions, rolePos, ownIsFollow, contextPositions));
 
     var info = document.createElement('div');
     info.className = 'step-info';
@@ -264,6 +274,7 @@
 
   function buildStepsPrintDocument(sheets){
     stepsPrintArea.innerHTML = '';
+    var showContext = stepsContextToggle.checked;
     sheets.forEach(function(sheet, sheetIdx){
       var title = document.createElement('h2');
       title.className = 'step-sheet-title';
@@ -278,7 +289,7 @@
           stepsPrintArea.appendChild(buildStepSectionHeader(cat));
           lastCategory = cat;
         }
-        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.role));
+        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.role, showContext));
       });
     });
   }

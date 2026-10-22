@@ -236,6 +236,8 @@
   .step-dot-split{width:14px; height:14px;}
   .step-dot-role{background:#fff; border:2px solid #d99a34;}
   .step-dot-follow{border-style:dashed;}
+  /* „Andere Paare hellgrau einblenden“: die übrigen Paare nur als Kontext */
+  .step-dot-context{width:10px; height:10px; background:#e4e1ea; border:1px solid #cdc8d6;}
   /* Zwischenpositionen (see interpolateThroughBetweens in state.js) — a numbered gray dot per pose,
      matching the source choreography PDF's own "heller Ring = graue Zusatzposition" convention but
      numbered, since there can be more than one on the way to the next Bild. */
