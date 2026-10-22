@@ -744,7 +744,6 @@
       if(splitPair){
         var me = state.dancers.find(function(dd){ return dd.id === pairSelection[0]; });
         pairRotateLabelEl.textContent = (me ? me.name : '?') + ' · ' + roleLabel(dancerRole(pairSelection[0]), false) + ' (Paar in diesem Bild gelöst)';
-        pairSaveBtn.hidden = true;
         pairSameRoleBtn.hidden = true;
         pairRotateEl.hidden = false;
       }else if(pairSelection.length === 1 && canCoupleSplit(pairSelection[0])){
@@ -759,7 +758,6 @@
           : 'Teilt das Paar nur in diesem Bild in zwei Punkte, die du einzeln ziehen kannst. Auch per Doppelklick oder Taste T.';
         pairSplitBtn.classList.toggle('active', coupleSplit);
         pairRotateLabelEl.textContent = markerDisplayName(base) + (coupleSplit ? (isFollowKey(sid) ? ' · Follow' : ' · Lead') : '');
-        pairSaveBtn.hidden = true;
         pairSameRoleBtn.hidden = true;
         pairRotateEl.hidden = false;
       }else{
@@ -768,14 +766,8 @@
       return;
     }
     var names = pairSelection.map(markerDisplayName);
-    if(pairSelection.length === 2){
-      var alreadySaved = !!findPairByMembers(pairSelection);
-      pairRotateLabelEl.textContent = 'Paar: ' + names[0] + ' & ' + names[1] + (alreadySaved ? ' (gespeichert)' : '');
-      pairSaveBtn.hidden = false;
-    }else{
-      pairRotateLabelEl.textContent = 'Auswahl: ' + names.join(', ');
-      pairSaveBtn.hidden = true; // "als Paar speichern" only makes sense for exactly 2
-    }
+    var savedPair = pairSelection.length === 2 && findPairByMembers(pairSelection);
+    pairRotateLabelEl.textContent = savedPair ? 'Paar: ' + names[0] + ' & ' + names[1] : 'Auswahl: ' + names.join(', ');
     // Offer to expand to every dancer sharing the same role (Lead/Follow), whenever the current
     // selection is all one role — most useful for 2+ dancers picked from *different* pairs, but
     // also fires for a single already-selected pair (harmless: "alle Leads" then just includes
@@ -793,7 +785,8 @@
     pairRotateEl.hidden = false;
   }
 
-  /* ---------- permanent dancer pairs (Strg/Cmd-Klick-Auswahl dauerhaft merken, u. a. für Figuren) ---------- */
+  /* ---------- saved dancer pairs (nur noch aus älteren Projekten — neue werden nicht mehr angelegt;
+     getrennte Lead/Follow gibt es über „In Lead & Follow aufteilen“) ---------- */
 
   function findPairForDancer(dancerId){
     return state.pairs.find(function(p){ return p.memberIds.indexOf(dancerId) !== -1; }) || null;
@@ -823,18 +816,6 @@
 
   function allDancersWithRole(role){
     return state.pairs.map(function(p){ return role === 'lead' ? p.memberIds[0] : p.memberIds[1]; }).filter(Boolean);
-  }
-
-  // A dancer belongs to at most one saved pair — saving a new pair silently dissolves any
-  // previous pairing either member had.
-  function upsertPair(memberIds){
-    state.pairs = state.pairs.filter(function(p){
-      return p.memberIds.indexOf(memberIds[0]) === -1 && p.memberIds.indexOf(memberIds[1]) === -1;
-    });
-    state.pairs.push({ id: uid('pr'), memberIds: memberIds.slice(), name: '', collapsed: false });
-    saveState();
-    renderRoster();
-    updatePairRotateUI();
   }
 
   // Live midpoint of a pair's two current positions — "die Koordinate des Mittelpunkts des
@@ -917,10 +898,6 @@
   });
   pairRotateAngleInput.addEventListener('keydown', function(e){
     if(e.key === 'Enter'){ e.preventDefault(); pairRotateBtn.click(); }
-  });
-  pairSaveBtn.addEventListener('click', function(){
-    if(pairSelection.length !== 2) return;
-    upsertPair(pairSelection);
   });
   pairSplitBtn.addEventListener('click', function(){
     if(pairSplitBtn.dataset.couple){ toggleCoupleSplit(pairSplitBtn.dataset.couple); return; }

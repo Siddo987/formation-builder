@@ -43,6 +43,15 @@
     newPos[id] = { x: clampGrid(nx), y: clampGrid(ny), rot: normAngle((p.rot||0) + deg) };
   }
 
+  // Partner pairs a couples-Figur acts on, as [Lead/A, Follow/B] pos keys: saved pairs from older
+  // projects plus every dot split into Lead & Follow in the current Bild.
+  function figureCouples(){
+    var cf = currentFormation();
+    var list = state.pairs.map(function(p){ return p.memberIds; });
+    state.dancers.forEach(function(d){ if(isCoupleSplitIn(cf, d.id)) list.push([d.id, followKey(d.id)]); });
+    return list;
+  }
+
   // Applies a Figur to the current Bild, producing a new Bild seeded with the transformed
   // positions (so the result is a normal, freely-editable Bild afterward — no separate
   // "editable preset instance" concept needed).
@@ -56,11 +65,12 @@
     });
 
     if(t.mode === 'couples'){
-      if(!state.pairs.length) return;
-      var selPair = pairSelection.length === 2 ? findPairByMembers(pairSelection) : null;
-      var targetPairs = selPair ? [selPair] : state.pairs;
-      targetPairs.forEach(function(pair){
-        var idA = pair.memberIds[0], idB = pair.memberIds[1];
+      var couples = figureCouples();
+      if(!couples.length) return;
+      var selCouple = couples.find(function(m){ return pairSelection.length === 2 && pairSelection.indexOf(m[0]) !== -1 && pairSelection.indexOf(m[1]) !== -1; });
+      var targetPairs = selCouple ? [selCouple] : couples;
+      targetPairs.forEach(function(members){
+        var idA = members[0], idB = members[1];
         var posA = srcPos[idA], posB = srcPos[idB];
         if(!posA || !posB) return;
         var mx = (posA.x + posB.x) / 2, my = (posA.y + posB.y) / 2;
@@ -135,7 +145,7 @@
   function figureItem(fig, opts){
     opts = opts || {};
     var isCouples = fig.transform && fig.transform.mode === 'couples';
-    var disabled = isCouples && !state.pairs.length;
+    var disabled = isCouples && !figureCouples().length;
     var row = document.createElement('div');
     row.className = 'figure-row';
 
@@ -144,7 +154,7 @@
     item.className = 'export-menu-item';
     item.disabled = disabled;
     var desc = fig.description || '';
-    if(disabled) desc = 'Keine Paare festgelegt (Strg/Cmd-Klick zwei Tänzer, dann „Als Paar speichern“)';
+    if(disabled) desc = 'Kein Paar in Lead & Follow aufgeteilt (Doppelklick auf einen Punkt teilt ihn)';
     item.innerHTML = '<strong></strong><span></span>';
     item.querySelector('strong').textContent = fig.name;
     item.querySelector('span').textContent = desc;

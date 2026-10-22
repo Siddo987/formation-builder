@@ -408,7 +408,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   hydrateBlobsFromIdb();
   var selectedDancerId = null;
   // dancerIds chosen via Strg/Cmd-Klick (or auto-populated with a saved pair's members on a plain
-  // click) — rotated together around their centroid; exactly 2 also unlocks "als Paar speichern".
+  // click) — rotated together around their centroid.
   var pairSelection = [];
   var stageMarkers = {}; // dancerId -> element
   var rosterCoordInputs = {}; // dancerId -> {x, y} input elements
@@ -436,7 +436,6 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var pairRotateLabelEl = document.getElementById('pairRotateLabel');
   var pairRotateAngleInput = document.getElementById('pairRotateAngle');
   var pairRotateBtn = document.getElementById('pairRotateBtn');
-  var pairSaveBtn = document.getElementById('pairSaveBtn');
   var pairSameRoleBtn = document.getElementById('pairSameRoleBtn');
   var pairSplitBtn = document.getElementById('pairSplitBtn');
   var pairRotateClearBtn = document.getElementById('pairRotateClearBtn');
