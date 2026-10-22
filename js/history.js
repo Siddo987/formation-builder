@@ -55,7 +55,8 @@
         name: f.name || '',
         category: f.category || '',
         time: (typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) ? Math.round(f.time * 100) / 100 : null,
-        showAxes: f.showAxes !== false
+        showAxes: f.showAxes !== false,
+        splitPairs: sanitizeSplitPairs(f.splitPairs)
       });
       Object.keys(f.pos || {}).forEach(function(did){
         var p = f.pos[did];
@@ -117,7 +118,7 @@
       var meta = m.get('bild/' + fid + '/meta') || {};
       var pos = {};
       keysWithPrefix(m, 'bild/' + fid + '/pos/').forEach(function(did){
-        if(!dancerIdSet[did]) return;
+        if(!dancerIdSet[baseDancerId(did)]) return; // also keeps split Follow keys (<id>~f)
         var p = m.get('bild/' + fid + '/pos/' + did) || {};
         pos[did] = {x: p.x || 0, y: p.y || 0, rot: p.rot || 0};
       });
@@ -146,7 +147,7 @@
       });
       var startPos = {};
       Object.keys(pos).forEach(function(did){ startPos[did] = {x: pos[did].x, y: pos[did].y}; });
-      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens};
+      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, splitPairs: sanitizeSplitPairs(meta.splitPairs)};
       if(typeof meta.time === 'number' && isFinite(meta.time) && meta.time >= 0) out.time = meta.time;
       return out;
     });

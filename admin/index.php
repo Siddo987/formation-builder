@@ -81,6 +81,8 @@ function describe_transform(string $json): string {
 <meta charset="UTF-8">
 <title>Figuren — Admin — Aufstellung</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" href="../img/logo.svg" type="image/svg+xml">
 <style>
   body{font-family:system-ui,sans-serif;background:#f4efe6;color:#241a30;margin:0;padding:2rem;}
   .wrap{max-width:900px;margin:0 auto;}

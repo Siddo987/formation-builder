@@ -173,5 +173,15 @@
     var cards = filmTrackEl.querySelectorAll('.film-card');
     cards.forEach(function(card, idx){
       card.classList.toggle('active', idx === state.activeIndex);
+      if(idx === state.activeIndex) keepFilmCardVisible(card);
     });
+  }
+
+  // Scrolls only the Bilder list (never the page) so the playing Bild stays in view.
+  function keepFilmCardVisible(card){
+    var t = filmTrackEl, tr = t.getBoundingClientRect(), cr = card.getBoundingClientRect();
+    if(cr.top < tr.top) t.scrollTop -= tr.top - cr.top + 8;
+    else if(cr.bottom > tr.bottom) t.scrollTop += cr.bottom - tr.bottom + 8;
+    if(cr.left < tr.left) t.scrollLeft -= tr.left - cr.left + 8;
+    else if(cr.right > tr.right) t.scrollLeft += cr.right - tr.right + 8;
   }

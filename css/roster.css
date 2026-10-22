@@ -24,10 +24,12 @@
     color:var(--ink-faint);
     font-variant-numeric:tabular-nums;
   }
+  /* One dancer per row in a narrow roster, more columns once the roster gets wide beside the stage. */
   .roster-list{
-    display:flex;
-    flex-direction:column;
-    gap:.3rem;
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(210px,1fr));
+    align-content:start;
+    gap:.3rem .5rem;
     flex:1;
     min-height:0;
     overflow-y:auto;
@@ -176,7 +178,7 @@
   .film-remove:hover{background:var(--curtain);}
   .film-remove.armed{opacity:1;background:var(--curtain);animation:armPulse 1.1s ease-in-out infinite;}
   .film-preview{
-    aspect-ratio:3/2;
+    aspect-ratio:1;
     border-radius:8px;
     background:linear-gradient(158deg,var(--stage-floor),var(--stage-floor-2));
     position:relative;
@@ -207,7 +209,8 @@
   .film-card textarea.fname:focus{background:var(--panel);border-color:transparent;outline:2px solid var(--gold);}
   .film-add-wrap{
     flex:none;width:118px;
-    aspect-ratio:.72;
+    align-self:stretch;
+    min-height:150px;
   }
   .film-add{
     width:100%;height:100%;

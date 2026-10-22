@@ -154,7 +154,7 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn-ghost marker-now-btn';
-      btn.textContent = '▶ Ab hier';
+      setIconLabel(btn, 'play', 12, 'Ab hier');
       btn.setAttribute('aria-label', 'Musik ab Bild ' + (p.idx+1) + ' abspielen');
       btn.addEventListener('click', function(){
         musicStartInput.value = formatTime(p.time);

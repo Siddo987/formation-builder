@@ -99,7 +99,8 @@
       var clearBtn = document.createElement('button');
       clearBtn.className = 'btn-ghost danger marker-clear-btn';
       clearBtn.type = 'button';
-      clearBtn.textContent = '✕';
+      clearBtn.appendChild(svgIcon('x', 14));
+      clearBtn.setAttribute('aria-label', 'Marke entfernen');
       clearBtn.title = 'Marke entfernen';
       clearBtn.hidden = formationTime(f) === null;
       clearBtn.addEventListener('click', function(){
@@ -244,6 +245,7 @@
     row.className = 'axis-row';
 
     var labelInput = document.createElement('input');
+    labelInput.type = 'text';
     labelInput.className = 'axis-label-input';
     labelInput.value = ax.label || '';
     labelInput.placeholder = 'Bezeichnung';
@@ -274,7 +276,7 @@
     var del = document.createElement('button');
     del.className = 'remove-btn';
     del.type = 'button';
-    del.textContent = '✕';
+    del.appendChild(svgIcon('x', 14));
     del.setAttribute('aria-label', 'Achse entfernen');
     del.addEventListener('click', onDelete);
 

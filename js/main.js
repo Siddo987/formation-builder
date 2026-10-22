@@ -174,23 +174,63 @@
   document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
   applySongSource();
 
-  // Keeps the "TÄNZER" roster box exactly as tall as the stage box beside it (CSS Grid alone
-  // can't cap a sibling's height to another's intrinsic/aspect-ratio-driven height — the roster's
-  // own content would otherwise grow the whole grid row). The roster list then scrolls internally
-  // within that fixed height (see .roster-list{flex:1;min-height:0;overflow-y:auto}).
-  if(window.ResizeObserver && stageAreaEl && rosterEl){
-    // Only in the two-column layout — once base.css stacks everything (≤840px, Handyversion) the
-    // roster sits below the stage and should size to its own content, not to the stage's height.
-    var twoColumnMq = window.matchMedia('(min-width:841px)');
-    var roHeightObserver = new ResizeObserver(function(entries){
-      rosterEl.style.height = twoColumnMq.matches ? entries[0].contentRect.height + 'px' : '';
-    });
-    roHeightObserver.observe(stageAreaEl);
-  }
-
   loadSharedProjectFromUrl();
   // With a ?share= link, js/share.js re-keys the history to the share id once the project loads;
   // otherwise start it now against the local project.
   if(!/[?&]share=/.test(location.search) && typeof initHistory === 'function') initHistory();
   ensureFiguresLoaded();
   ensureLayoutsLoaded();
+
+  /* ---------- Tänzer-Schublade ---------- */
+  // Breit genug (≥1200px): die Liste steht neben der Bühne und merkt sich, ob sie offen war.
+  // Schmaler: sie legt sich über die Bühne und startet immer geschlossen.
+  (function(){
+    var KEY = 'aufstellung.rosterOpen';
+    var toggleBtn = document.getElementById('rosterToggleBtn');
+    var closeBtn = document.getElementById('rosterCloseBtn');
+    var scrim = document.getElementById('rosterScrim');
+    var countEl = document.getElementById('dancerCount');
+    var toggleCount = document.getElementById('rosterToggleCount');
+    var wideMq = window.matchMedia('(min-width:1200px)');
+    function stored(){ try{ return localStorage.getItem(KEY); }catch(e){ return null; } }
+    function setOpen(open, remember){
+      document.body.classList.toggle('roster-open', open);
+      if(open) document.body.classList.remove('menu-open');
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggleBtn.classList.toggle('active', open);
+      if(remember && wideMq.matches){ try{ localStorage.setItem(KEY, open ? '1' : '0'); }catch(e){} }
+    }
+    function initial(){ setOpen(wideMq.matches && stored() !== '0', false); }
+    toggleBtn.addEventListener('click', function(){ setOpen(!document.body.classList.contains('roster-open'), true); });
+    closeBtn.addEventListener('click', function(){ setOpen(false, true); });
+    scrim.addEventListener('click', function(){ setOpen(false, false); });
+    if(wideMq.addEventListener) wideMq.addEventListener('change', initial);
+    function syncCount(){ toggleCount.textContent = countEl.textContent; }
+    new MutationObserver(syncCount).observe(countEl, {childList:true, characterData:true, subtree:true});
+    syncCount();
+    initial();
+  })();
+
+  /* ---------- „Mehr“-Menü (nur Handy/Tablet hoch) ---------- */
+  // Am Handy liegen die Aktionen der Kopfleiste in einer Ausklappliste; auf dem Desktop
+  // ist der Knopf unsichtbar und die Klasse menu-open hat keine Wirkung.
+  (function(){
+    var moreBtn = document.getElementById('moreBtn');
+    var menu = document.getElementById('topbarMenu');
+    var scrim = document.getElementById('menuScrim');
+    function setMenu(open){
+      document.body.classList.toggle('menu-open', open);
+      moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    moreBtn.addEventListener('click', function(){ setMenu(!document.body.classList.contains('menu-open')); });
+    scrim.addEventListener('click', function(){ setMenu(false); });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && document.body.classList.contains('menu-open')) setMenu(false);
+    });
+    // Jede Aktion schließt das Menü — außer „Exportieren“, das nur sein Untermenü aufklappt.
+    menu.addEventListener('click', function(e){
+      var btn = e.target.closest('button');
+      if(!btn || btn.id === 'exportBtn') return;
+      setMenu(false);
+    });
+  })();

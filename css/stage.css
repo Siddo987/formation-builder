@@ -1,15 +1,28 @@
 /* ---- stage ---- */
-  .stage-area{grid-area:stage;}
-  .stage-caption-row{position:relative;margin:0 0 .55rem;}
+  /* The stage is square: x and y share one percentage scale (gridToPercent), so 1 m must be equally
+     long in both directions. --stage-size (set on .layout in base.css) keeps it within the viewport
+     height. Caption row, banner and audience line
+     take the same width so they stay flush with the stage edges. */
+  .stage-area{
+    grid-area:stage;
+    display:flex; flex-direction:column; align-items:center;
+    min-width:0;
+  }
+  .stage-area > .stage-caption-row,
+  .stage-area > .between-edit-banner,
+  .stage-area > .stage-frame,
+  .stage-area > .stage-audience{width:var(--stage-size);}
+  .stage-area > .hint,.stage-area > .pair-rotate{width:100%;}
+  .stage-caption-row{position:relative;margin:0 0 .6rem;min-height:1.5rem;display:flex;align-items:center;}
   .stage-caption{
     display:block;
     width:100%;
     text-align:center;
     font-family:var(--font-mono);
-    font-size:.64rem;
-    letter-spacing:.16em;
+    font-size:.66rem;
+    letter-spacing:.2em;
     text-transform:uppercase;
-    color:var(--ink-faint);
+    color:var(--ink-soft);
     margin:0;
     border:none; background:transparent; outline:none; padding:0;
   }
@@ -25,7 +38,7 @@
   }
   .room-label-bottom{
     flex:0 0 auto; width:9ch;
-    font-family:var(--font-mono); font-size:.66rem; letter-spacing:.16em;
+    font-family:var(--font-mono); font-size:.66rem; letter-spacing:.2em;
     text-transform:uppercase; color:inherit;
     border:none; background:transparent; outline:none; padding:0; text-align:center;
   }
@@ -134,10 +147,12 @@
   .onion-dot-next{opacity:.3;}
   .stage{
     position:relative;
-    aspect-ratio:3/2;
-    border-radius:22px;
-    background:linear-gradient(158deg,var(--stage-floor),var(--stage-floor-2));
-    box-shadow:0 20px 44px -20px var(--shadow), inset 0 0 0 1px var(--stage-line-strong);
+    aspect-ratio:1;
+    border-radius:18px;
+    background:
+      radial-gradient(70% 70% at 50% 45%, rgba(255,255,255,.035), transparent 70%),
+      linear-gradient(158deg,var(--stage-floor),var(--stage-floor-2));
+    box-shadow:0 24px 50px -24px var(--shadow), 0 2px 6px -2px var(--shadow), inset 0 0 0 1px var(--stage-line-strong);
     overflow:hidden;
     touch-action:none;
   }
@@ -149,18 +164,18 @@
   .grid-label{
     position:absolute;
     font-family:var(--font-mono);
-    font-size:.58rem;
-    color:rgba(255,255,255,.42);
+    font-size:.6rem;
+    color:rgba(255,255,255,.38);
     font-variant-numeric:tabular-nums;
   }
   .grid-label.zero{color:rgba(255,255,255,.65);}
-  .grid-label.x-label{bottom:3px;transform:translateX(-50%);}
-  .grid-label.y-label{left:4px;transform:translateY(-50%);}
+  .grid-label.x-label{bottom:5px;transform:translateX(-50%);}
+  .grid-label.y-label{left:6px;transform:translateY(-50%);}
   .stage-audience{
     display:flex;
     align-items:center;
-    gap:.7rem;
-    margin:.65rem 0 0;
+    gap:.8rem;
+    margin:.7rem 0 0;
     color:var(--ink-soft);
     font-family:var(--font-mono);
     font-size:.66rem;
@@ -174,28 +189,32 @@
     background:var(--panel-border);
   }
   .hint{
-    text-align:center;
-    margin:.6rem 0 0;
+    text-align:left;
+    margin:.75rem 0 0;
     color:var(--ink-faint);
-    font-size:.78rem;
+    font-size:.76rem;
+    line-height:1.5;
+    text-wrap:pretty;
   }
 
   .dancer{
     position:absolute;
-    width:clamp(16px,2.2vw,24px);
-    height:clamp(16px,2.2vw,24px);
+    width:clamp(18px,2.4vw,26px);
+    height:clamp(18px,2.4vw,26px);
     border-radius:50%;
     transform:translate(-50%,-50%);
     display:flex;
     align-items:center;
     justify-content:center;
     font-weight:700;
-    font-size:.4rem;
+    font-size:.48rem;
+    letter-spacing:-.02em;
     color:#fff;
     text-shadow:0 1px 2px rgba(0,0,0,.55);
-    border:1px solid rgba(255,255,255,.85);
-    box-shadow:0 3px 10px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.15);
+    border:1.5px solid rgba(255,255,255,.9);
+    box-shadow:0 3px 10px rgba(0,0,0,.38), inset 0 0 0 1px rgba(255,255,255,.15);
     cursor:grab;
+    transition:box-shadow .12s ease;
     user-select:none;
     touch-action:none;
   }
@@ -212,8 +231,9 @@
     color:var(--paper);
     font-weight:600;
     font-size:.72rem;
-    padding:.2rem .55rem;
+    padding:.22rem .55rem;
     border-radius:6px;
+    box-shadow:0 6px 16px -6px rgba(0,0,0,.5);
     white-space:nowrap;
     opacity:0;
     pointer-events:none;
@@ -411,10 +431,10 @@
     gap:.55rem;
     flex-wrap:wrap;
     margin:.6rem 0 0;
-    padding:.55rem .7rem;
+    padding:.6rem .75rem;
     background:var(--pair-wash);
     border:1px solid var(--pair);
-    border-radius:12px;
+    border-radius:14px;
   }
   .pair-rotate[hidden]{display:none;}
   .pair-rotate-label{font-weight:700;font-size:.8rem;color:var(--ink);white-space:nowrap;}

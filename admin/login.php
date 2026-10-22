@@ -27,6 +27,8 @@ if (admin_is_authed()) {
 <meta charset="UTF-8">
 <title>Admin-Login — Aufstellung</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" href="../img/logo.svg" type="image/svg+xml">
 <style>
   body{font-family:system-ui,sans-serif;background:#241a30;color:#f2eef7;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}
   form{background:#2b2038;padding:2rem;border-radius:14px;width:100%;max-width:320px;box-shadow:0 20px 44px -20px rgba(0,0,0,.5);}

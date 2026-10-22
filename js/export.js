@@ -32,7 +32,7 @@
         // snapshot in the file (that's .stg/share-link territory, like axes/pairs). It's seeded
         // from each Bild's own pos once the POS lines are read (see below), so the onion-skin gray
         // dot behaves normally (nothing until a dancer is dragged) rather than never appearing.
-        current = {id: fid, name: fname, pos: {}, showAxes: true, localAxes: [], category: '', startPos: null, betweens: []};
+        current = {id: fid, name: fname, pos: {}, showAxes: true, localAxes: [], category: '', startPos: null, betweens: [], splitPairs: []};
         formations.push(current);
       }
       else if(kw === 'POS' && current){
@@ -125,7 +125,7 @@
           });
           return {id: b.id, name: b.name || '', pos: bpos};
         });
-        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100, startPos: startPos, betweens: betweens};
+        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100, startPos: startPos, betweens: betweens, splitPairs: sanitizeSplitPairs(f.splitPairs)};
       }),
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
@@ -212,7 +212,7 @@
         startPos = {};
         Object.keys(pos).forEach(function(id){ startPos[id] = {x: pos[id].x, y: pos[id].y}; });
       }
-      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, header.dancers)};
+      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, header.dancers), splitPairs: sanitizeSplitPairs(f.splitPairs)};
       if(typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) out.time = f.time;
       return out;
     });
@@ -650,8 +650,11 @@
     // than the old straight gridToPercent(v)/100*W so the whole stage draws confined to the right
     // of the panel instead of across the full canvas.
     var sx0 = panelW, sw = W - panelW, sh = H;
-    function gx(v){ return sx0 + gridToPercent(v) / 100 * sw; }
-    function gy(v){ return gridToPercent(v) / 100 * sh; }
+    // The grid itself is a centered square inside that rectangle so 1 m is equally long in x and y
+    // (same as the square live stage); the floor still fills the whole rectangle around it.
+    var side = Math.min(sw, sh), gx0 = sx0 + (sw - side) / 2, gy0 = (sh - side) / 2;
+    function gx(v){ return gx0 + gridToPercent(v) / 100 * side; }
+    function gy(v){ return gy0 + gridToPercent(v) / 100 * side; }
 
     if(hasPanel){
       ctx.fillStyle = '#150f1c';
@@ -680,8 +683,8 @@
       var isZero = v === 0;
       var px = gx(v), py = gy(v);
       ctx.strokeStyle = isZero ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.08)';
-      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, sh); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(sx0, py); ctx.lineTo(sx0+sw, py); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(px, gy0); ctx.lineTo(px, gy0+side); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(gx0, py); ctx.lineTo(gx0+side, py); ctx.stroke();
     }
 
     // Room-orientation labels (Wand/Spiegel/Eingang/Fenster or whatever they've been renamed to,
@@ -695,15 +698,15 @@
     ctx.font = '700 ' + Math.round(Math.min(sw,sh)*0.024) + 'px "JetBrains Mono", monospace';
     if(roomLabels.top){
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(roomLabels.top.toUpperCase(), sx0 + sw/2, roomInset);
+      ctx.fillText(roomLabels.top.toUpperCase(), gx0 + side/2, gy0 + roomInset);
     }
     if(roomLabels.bottom){
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText(roomLabels.bottom.toUpperCase(), sx0 + sw/2, sh - roomInset);
+      ctx.fillText(roomLabels.bottom.toUpperCase(), gx0 + side/2, gy0 + side - roomInset);
     }
     if(roomLabels.left){
       ctx.save();
-      ctx.translate(sx0 + roomInset, sh/2);
+      ctx.translate(gx0 + roomInset, gy0 + side/2);
       ctx.rotate(-Math.PI/2);
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillText(roomLabels.left.toUpperCase(), 0, 0);
@@ -711,7 +714,7 @@
     }
     if(roomLabels.right){
       ctx.save();
-      ctx.translate(sx0 + sw - roomInset, sh/2);
+      ctx.translate(gx0 + side - roomInset, gy0 + side/2);
       ctx.rotate(Math.PI/2);
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       ctx.fillText(roomLabels.right.toUpperCase(), 0, 0);
@@ -771,10 +774,17 @@
       drawGhosts(ghosts.next, null, 0.32);
     }
 
+    var drawList = [];
     state.dancers.forEach(function(d){
-      var pos = posMap[d.id];
+      drawList.push({d: d, k: d.id, follow: false});
+      if(posMap[followKey(d.id)]) drawList.push({d: d, k: followKey(d.id), follow: true});
+    });
+    drawList.forEach(function(item){
+      var d = item.d;
+      var pos = posMap[item.k];
       if(!pos) return;
       if(focusIds && focusIds.indexOf(d.id) === -1) return;
+      var splitRole = item.follow ? ' · F' : (posMap[followKey(d.id)] ? ' · L' : '');
       var cx = gx(pos.x);
       var cy = gy(pos.y);
       var rot = pos.rot || 0;
@@ -802,7 +812,9 @@
       ctx.restore();
       ctx.lineWidth = 2;
       ctx.strokeStyle = 'rgba(255,255,255,.85)';
+      if(item.follow) ctx.setLineDash([4,3]);
       ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
 
       ctx.fillStyle = '#fff';
       ctx.font = '700 ' + Math.round(radius*0.72) + 'px "Manrope",sans-serif';
@@ -813,7 +825,7 @@
       ctx.font = '600 13px "Manrope",sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,.92)';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(d.name, cx, cy - radius - 16);
+      ctx.fillText(d.name + splitRole, cx, cy - radius - 16);
     });
 
     if(hasPanel) drawVideoInfoPanel(ctx, panelW, H, panelCursor);

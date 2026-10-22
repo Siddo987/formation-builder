@@ -16,7 +16,7 @@
       if(idx !== -1) pairSelection.splice(idx, 1); else pairSelection.push(dancerId);
     }else{
       var pair = findPairForDancer(dancerId);
-      pairSelection = pair ? pair.memberIds.slice() : [dancerId];
+      pairSelection = (pair && !isPairSplitHere(pair)) ? pair.memberIds.slice() : [dancerId];
     }
     selectedDancerId = dancerId;
     ensureMarkers();
@@ -45,7 +45,10 @@
     updatePairRotateUI();
   }
 
+  var rosterSplitSignature = '';
+
   function renderRoster(){
+    rosterSplitSignature = splitSignature();
     rosterListEl.innerHTML = '';
     rosterCoordInputs = {};
     rosterPairMidpointInputs = {};
@@ -79,7 +82,8 @@
   // between the two partners) instead of showing both full dancer rows.
   function buildPairGroup(pair, a, b, pos){
     var group = document.createElement('div');
-    group.className = 'pair-group';
+    var split = isPairSplitHere(pair);
+    group.className = 'pair-group' + (split ? ' is-split' : '');
 
     var header = document.createElement('div');
     header.className = 'pair-group-header';
@@ -87,7 +91,7 @@
     var collapseBtn = document.createElement('button');
     collapseBtn.type = 'button';
     collapseBtn.className = 'pair-group-collapse';
-    collapseBtn.textContent = pair.collapsed ? '▸' : '▾';
+    collapseBtn.appendChild(svgIcon(pair.collapsed ? 'chevron-right' : 'chevron-down', 14));
     collapseBtn.title = pair.collapsed ? 'Paar ausklappen' : 'Paar einklappen';
     collapseBtn.setAttribute('aria-label', (pair.collapsed ? 'Paar ausklappen: ' : 'Paar einklappen: ') + a.name + ' & ' + b.name);
     collapseBtn.addEventListener('click', function(){
@@ -112,13 +116,24 @@
     unpairBtn.setAttribute('aria-label', 'Paarung von ' + a.name + ' und ' + b.name + ' aufheben');
     unpairBtn.addEventListener('click', function(){ dissolvePair(pair.id); });
 
+    var splitBtn = document.createElement('button');
+    splitBtn.type = 'button';
+    splitBtn.className = 'pair-group-split' + (split ? ' active' : '');
+    splitBtn.textContent = split ? 'koppeln' : 'lösen';
+    splitBtn.title = split
+      ? 'Paar in diesem Bild wieder koppeln'
+      : 'Lead und Follow nur in diesem Bild unabhängig bewegen';
+    splitBtn.setAttribute('aria-pressed', split ? 'true' : 'false');
+    splitBtn.addEventListener('click', function(){ togglePairSplit(pair.id); });
+
     header.appendChild(collapseBtn);
     header.appendChild(nameInput);
+    header.appendChild(splitBtn);
     header.appendChild(unpairBtn);
     header.addEventListener('click', function(e){ handleRosterPairSelectClick(e, pair); });
     group.appendChild(header);
 
-    if(pair.collapsed){
+    if(pair.collapsed && !split){
       group.appendChild(buildPairMidpointRow(pair, a, b));
     }else{
       group.appendChild(buildDancerRow(a, pos, 'lead'));
@@ -196,7 +211,7 @@
       remove.className = 'remove-btn';
       remove.type = 'button';
       remove.setAttribute('aria-label', d.name + ' entfernen');
-      remove.textContent = '✕';
+      remove.appendChild(svgIcon('x', 14));
       armDeleteButton(remove, function(){ removeDancer(d.id); });
 
       main.appendChild(swatch);
@@ -206,6 +221,24 @@
         roleTag.className = 'role-tag';
         roleTag.textContent = roleLabel(role);
         main.appendChild(roleTag);
+      }
+      var coupleSplit = !role && isCoupleSplitIn(currentFormation(), d.id);
+      if(!role && !editingBetween){
+        var splitBtn = document.createElement('button');
+        splitBtn.type = 'button';
+        splitBtn.className = 'split-btn' + (coupleSplit ? ' active' : '');
+        if(coupleSplit){ splitBtn.textContent = 'Zusammen'; }
+        else {
+          // „L | F" mit echtem Trennstrich — der Text-Strich sieht in der Schrift wie ein I aus
+          splitBtn.setAttribute('aria-label', 'L | F');
+          splitBtn.append('L', Object.assign(document.createElement('span'), { className: 'split-sep' }), 'F');
+        }
+        splitBtn.title = coupleSplit
+          ? 'Lead & Follow in diesem Bild wieder zu einem Punkt zusammenführen'
+          : 'Paar nur in diesem Bild in Lead & Follow aufteilen';
+        splitBtn.setAttribute('aria-pressed', coupleSplit ? 'true' : 'false');
+        splitBtn.addEventListener('click', function(e){ e.stopPropagation(); toggleCoupleSplit(d.id); });
+        main.appendChild(splitBtn);
       }
       main.appendChild(remove);
 
@@ -282,9 +315,60 @@
       rosterCoordInputs[d.id] = {x:xInput, y:yInput, rot:rotInput};
 
       row.appendChild(main);
+      if(coupleSplit){
+        row.classList.add('is-split');
+        var leadTag = document.createElement('span');
+        leadTag.className = 'split-sub-label';
+        leadTag.textContent = 'Lead';
+        row.appendChild(leadTag);
+      }
       row.appendChild(coords);
+      if(coupleSplit) row.appendChild(buildFollowCoords(d, pos));
       rosterRowEls[d.id] = row;
       return row;
+  }
+
+  // X/Y/° for the Follow half of a couple split in this Bild (pos key <id>~f).
+  function buildFollowCoords(d, pos){
+    var fk = followKey(d.id);
+    var wrap = document.createElement('div');
+    wrap.className = 'dancer-row-follow';
+    var tag = document.createElement('span');
+    tag.className = 'split-sub-label';
+    tag.textContent = 'Follow';
+    wrap.appendChild(tag);
+    var coords = document.createElement('div');
+    coords.className = 'dancer-row-coords';
+    var p = pos[fk] || {x:0,y:0,rot:0};
+    function mk(lbl, val, min, max, step, aria){
+      var l = document.createElement('span');
+      l.className = 'coord-label';
+      l.textContent = lbl;
+      var i = document.createElement('input');
+      i.type = 'number';
+      i.className = 'coord-input';
+      i.min = min; i.max = max; i.step = step;
+      i.value = roundNum(val);
+      i.setAttribute('aria-label', aria);
+      return {l: l, i: i};
+    }
+    var x = mk('X', p.x, GRID_MIN, GRID_MAX, '0.5', 'X-Position Follow von ' + d.name);
+    var y = mk('Y', p.y, GRID_MIN, GRID_MAX, '0.5', 'Y-Position Follow von ' + d.name);
+    var r = mk('°', p.rot||0, 0, 359, '5', 'Drehung Follow von ' + d.name);
+    x.i.addEventListener('input', function(){
+      var cur = currentFormation().pos[fk]; if(!cur) return;
+      setDancerPos(fk, parseFloat(x.i.value)||0, cur.y, true); saveStateDebounced();
+    });
+    y.i.addEventListener('input', function(){
+      var cur = currentFormation().pos[fk]; if(!cur) return;
+      setDancerPos(fk, cur.x, parseFloat(y.i.value)||0, true); saveStateDebounced();
+    });
+    r.i.addEventListener('input', function(){ setDancerRot(fk, parseFloat(r.i.value)||0); });
+    [x.l, y.l, r.l, x.i, y.i, r.i].forEach(function(n){ coords.appendChild(n); });
+    rosterCoordInputs[fk] = {x: x.i, y: y.i, rot: r.i};
+    wrap.appendChild(coords);
+    wrap.addEventListener('click', function(e){ handleRosterSelectClick(e, fk); });
+    return wrap;
   }
 
   function addDancer(){
@@ -301,8 +385,12 @@
 
   function removeDancer(id){
     state.dancers = state.dancers.filter(function(d){ return d.id !== id; });
-    state.formations.forEach(function(f){ delete f.pos[id]; });
+    state.formations.forEach(function(f){ delete f.pos[id]; delete f.pos[followKey(id)]; });
+    var gonePairIds = state.pairs.filter(function(p){ return p.memberIds.indexOf(id) !== -1; }).map(function(p){ return p.id; });
     state.pairs = state.pairs.filter(function(p){ return p.memberIds.indexOf(id) === -1; });
+    state.formations.forEach(function(f){
+      if(Array.isArray(f.splitPairs)) f.splitPairs = f.splitPairs.filter(function(pid){ return gonePairIds.indexOf(pid) === -1; });
+    });
     if(selectedDancerId === id) selectedDancerId = null;
     var pairIdx = pairSelection.indexOf(id);
     if(pairIdx !== -1){ pairSelection.splice(pairIdx, 1); updatePairRotateUI(); }
@@ -320,6 +408,11 @@
     if(el){
       el.querySelector('.label').textContent = name;
       el.querySelector('.initials').textContent = initials(name || '?');
+    }
+    var fel = stageMarkers[followKey(id)];
+    if(fel){
+      fel.querySelector('.label').textContent = name + ' · Follow';
+      fel.querySelector('.initials').textContent = initials(name || '?');
     }
     if(pairSelection.indexOf(id) !== -1) updatePairRotateUI();
     saveState();

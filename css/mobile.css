@@ -41,6 +41,8 @@
     .import-error{white-space:normal; flex:none; max-width:14rem;}
 
     .layout{gap:.9rem;}
+    .stage-area{--stage-size:100%;}
+    .stage{border-radius:14px;}
 
     /* Vorlage-Auswahl and "Achsen für dieses Bild" sit absolutely left/right of the centered
        top-edge caption on desktop — on a narrow screen all three overlap. Stack them instead. */
@@ -48,7 +50,7 @@
     .stage-caption-row .stage-caption{order:-1; flex:1 1 100%;}
     .layout-select-wrap,.axes-bild-toggle{position:static; transform:none;}
     .layout-select-wrap{flex-wrap:wrap;}
-    .room-label-left{left:14px;}
+    .room-label-left{left:21px;}
     .room-label-right{right:14px;}
     /* Mouse/keyboard instructions — meaningless on a touch screen and just pushes the roster down. */
     .stage-area > .hint{display:none;}
@@ -56,10 +58,13 @@
     .pair-rotate-hint{display:none;}
 
     .playbar{gap:.6rem .9rem; padding:.6rem .75rem;}
-    .playinfo{min-width:0; flex:1 1 0;}
+    /* Row 1: transport + Bild name (taking the whole rest of the row so the name isn't cut to "1…"),
+       row 2: progress + tempo. */
+    .playinfo{min-width:0; flex:1 1 calc(100% - 11rem);}
+    .playinfo .readout{white-space:nowrap;}
     .formation-name-live{font-size:.84rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-    .progress-track{order:5; flex:1 1 100%;}
-    .tempo-control{order:4;}
+    .progress-track{order:5; flex:1 1 0;}
+    .tempo-control{order:6;}
     input[type="range"]{width:84px;}
 
     .film-card{width:104px;}

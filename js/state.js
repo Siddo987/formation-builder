@@ -71,7 +71,32 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       var pb = b[dd.id] || {x:0,y:0,rot:0};
       interp[dd.id] = { x: pa.x + (pb.x-pa.x)*e, y: pa.y + (pb.y-pa.y)*e, rot: lerpAngle(pa.rot||0, pb.rot||0, e) };
     });
+    // Split couples: the Follow travels straight (no betweens) from its own spot — or out of the
+    // couple's dot if it wasn't split before — to its next spot, or back into the dot.
+    var eAll = easeInOutCubic(overallT >= 1 ? 1 : Math.max(0, overallT));
+    state.dancers.forEach(function(dd){
+      var k = followKey(dd.id);
+      if(!fromF.pos[k] && !toF.pos[k]) return;
+      var pa = fromF.pos[k] || fromF.pos[dd.id] || {x:0,y:0,rot:0};
+      var pb = toF.pos[k] || toF.pos[dd.id] || {x:0,y:0,rot:0};
+      interp[k] = { x: pa.x + (pb.x-pa.x)*eAll, y: pa.y + (pb.y-pa.y)*eAll, rot: lerpAngle(pa.rot||0, pb.rot||0, eAll) };
+    });
     return interp;
+  }
+  // "Punkt = Paar aufspalten": every dot is a couple by default. In single Bilder it can be split
+  // into Lead (the dot's own pos key) and Follow, stored in the same Bild's pos map under
+  // `<dancerId>~f`. Only real Bilder carry follow keys (sanitizeBetweens drops them), and every
+  // serializer (.stg/.auf/share/Verlauf) already round-trips arbitrary pos keys.
+  var FOLLOW_SUFFIX = '~f';
+  function followKey(did){ return did + FOLLOW_SUFFIX; }
+  function isFollowKey(id){ return typeof id === 'string' && id.slice(-FOLLOW_SUFFIX.length) === FOLLOW_SUFFIX; }
+  function baseDancerId(id){ return isFollowKey(id) ? id.slice(0, -FOLLOW_SUFFIX.length) : id; }
+  function isCoupleSplitIn(f, did){ return !!(f && f.pos && f.pos[followKey(did)]); }
+  function markerDisplayName(id){
+    var base = baseDancerId(id);
+    var d = state.dancers.find(function(dd){ return dd.id === base; });
+    var n = d ? d.name : '?';
+    return isFollowKey(id) ? n + ' (Follow)' : n;
   }
   function easeInOutCubic(t){ return t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
   function paletteColor(i){
@@ -102,6 +127,41 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         timer = setTimeout(disarm, 2500);
       }
     });
+  }
+
+  // Shared line icons (same 24-unit grid and 2px round stroke as the topbar SVGs in index.html),
+  // so icon buttons built in JS look identical to the static ones instead of relying on text
+  // glyphs like ✕/+/▶ whose size and baseline differ per font.
+  var ICON_PATHS = {
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+    play: '<path d="M7 4.5v15l12.5-7.5Z" fill="currentColor"/>',
+    'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+    'chevron-down': '<path d="m6 9 6 6 6-6"/>'
+  };
+  function svgIcon(name, size, strokeWidth){
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'ico');
+    svg.setAttribute('width', size || 16);
+    svg.setAttribute('height', size || 16);
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', strokeWidth || 2);
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    svg.innerHTML = ICON_PATHS[name];
+    return svg;
+  }
+  // Icon followed by a text label, for buttons like "▶ Ab hier".
+  function setIconLabel(btn, name, size, label){
+    btn.textContent = '';
+    btn.appendChild(svgIcon(name, size));
+    var span = document.createElement('span');
+    span.textContent = label;
+    btn.appendChild(span);
   }
 
   function initials(name){
@@ -229,6 +289,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         }
         // migration: older saves predate Zwischenpositionen entirely — see interpolateThroughBetweens()
         f.betweens = sanitizeBetweens(f.betweens, parsed.dancers);
+        // migration: older saves predate temporarily split pairs ("Paar lösen") entirely
+        f.splitPairs = sanitizeSplitPairs(f.splitPairs);
       });
       return parsed;
     }catch(e){ return defaultState(); }
@@ -374,6 +436,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var pairRotateBtn = document.getElementById('pairRotateBtn');
   var pairSaveBtn = document.getElementById('pairSaveBtn');
   var pairSameRoleBtn = document.getElementById('pairSameRoleBtn');
+  var pairSplitBtn = document.getElementById('pairSplitBtn');
   var pairRotateClearBtn = document.getElementById('pairRotateClearBtn');
   var rosterListEl = document.getElementById('rosterList');
   var dancerCountEl = document.getElementById('dancerCount');
@@ -440,6 +503,38 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       editingBetween = null; // stale pointer (Bild/between deleted from under it) — fall through
     }
     return state.formations[state.activeIndex];
+  }
+
+  // "Paar lösen": a saved pair can be uncoupled for single Bilder only — there, Lead and Follow are
+  // selected/dragged independently while staying a pair everywhere else. Stored as the pair ids in
+  // the *real* Bild's `splitPairs` (a Zwischenposition being edited uses its anchor Bild's list).
+  function sanitizeSplitPairs(arr){
+    if(!Array.isArray(arr)) return [];
+    var seen = {};
+    return arr.filter(function(id){
+      if(typeof id !== 'string' || !id || seen[id]) return false;
+      seen[id] = true;
+      return true;
+    });
+  }
+
+  function splitHostFormation(){
+    var idx = editingBetween ? editingBetween.fIdx : state.activeIndex;
+    return state.formations[idx] || state.formations[state.activeIndex];
+  }
+
+  function isPairSplitHere(pair){
+    if(!pair) return false;
+    var host = splitHostFormation();
+    return !!(host && Array.isArray(host.splitPairs) && host.splitPairs.indexOf(pair.id) !== -1);
+  }
+
+  function splitSignature(){
+    var host = splitHostFormation();
+    var base = (host && Array.isArray(host.splitPairs)) ? host.splitPairs.slice().sort().join(',') : '';
+    var cf = currentFormation();
+    var couples = state.dancers.filter(function(d){ return isCoupleSplitIn(cf, d.id); }).map(function(d){ return d.id; }).join(',');
+    return base + '|' + couples;
   }
 
   function durations(){

@@ -37,28 +37,43 @@
 
   /* ---------- stage markers ---------- */
 
+  function createMarkerEl(id, isFollow){
+    var el = document.createElement('div');
+    el.className = isFollow ? 'dancer follow' : 'dancer';
+    var label = document.createElement('span');
+    label.className = 'label';
+    el.appendChild(label);
+    var textNode = document.createElement('span');
+    textNode.className = 'initials';
+    el.appendChild(textNode);
+    var rotInd = document.createElement('span');
+    rotInd.className = 'rot-indicator';
+    el.appendChild(rotInd);
+    var badge = document.createElement('span');
+    badge.className = 'role-badge';
+    badge.textContent = isFollow ? 'F' : 'L';
+    el.appendChild(badge);
+    if(isFollow) el.hidden = true;
+    stageEl.appendChild(el);
+    attachDancerEvents(el, id);
+    stageMarkers[id] = el;
+    return el;
+  }
+
   function ensureMarkers(){
     var seen = {};
     state.dancers.forEach(function(d){
       seen[d.id] = true;
       var el = stageMarkers[d.id];
-      if(!el){
-        el = document.createElement('div');
-        el.className = 'dancer';
-        el.style.background = d.color;
-        var label = document.createElement('span');
-        label.className = 'label';
-        el.appendChild(label);
-        var textNode = document.createElement('span');
-        textNode.className = 'initials';
-        el.appendChild(textNode);
-        var rotInd = document.createElement('span');
-        rotInd.className = 'rot-indicator';
-        el.appendChild(rotInd);
-        stageEl.appendChild(el);
-        attachDancerEvents(el, d.id);
-        stageMarkers[d.id] = el;
-      }
+      if(!el) el = createMarkerEl(d.id, false);
+      var fk = followKey(d.id);
+      seen[fk] = true;
+      var fel = stageMarkers[fk] || createMarkerEl(fk, true);
+      fel.querySelector('.initials').textContent = initials(d.name);
+      fel.querySelector('.label').textContent = d.name + ' · Follow';
+      fel.style.background = d.color;
+      fel.classList.toggle('selected', selectedDancerId === fk);
+      fel.classList.toggle('pair-selected', pairSelection.length >= 2 && pairSelection.indexOf(fk) !== -1);
       el.querySelector('.initials').textContent = initials(d.name);
       el.querySelector('.label').textContent = d.name;
       el.style.background = d.color;
@@ -98,14 +113,24 @@
   }
 
   function positionMarkers(posMap){
-    state.dancers.forEach(function(d){
-      var el = stageMarkers[d.id];
-      var pos = posMap[d.id];
-      if(!el || !pos) return;
+    function place(el, pos){
       el.style.left = gridToPercent(pos.x) + '%';
       el.style.top = gridToPercent(pos.y) + '%';
       var ind = el.querySelector('.rot-indicator');
       if(ind) ind.style.transform = 'rotate(' + (pos.rot||0) + 'deg)';
+    }
+    state.dancers.forEach(function(d){
+      var el = stageMarkers[d.id];
+      var pos = posMap[d.id];
+      var fpos = posMap[followKey(d.id)];
+      var fel = stageMarkers[followKey(d.id)];
+      if(el) el.classList.toggle('is-split', !!fpos);
+      if(fel){
+        fel.hidden = !fpos;
+        if(fpos) place(fel, fpos);
+      }
+      if(!el || !pos) return;
+      place(el, pos);
     });
     updatePairMidpointMarker(posMap);
     // Kept live during playback too now — the gray/faint ghosts are just the neighbouring Bilder's
@@ -229,14 +254,16 @@
     function addDots(posMap, extraClass, useDancerColor){
       if(!posMap) return;
       state.dancers.forEach(function(d){
-        var p = posMap[d.id];
-        if(!p) return;
-        var dot = document.createElement('span');
-        dot.className = 'onion-dot ' + extraClass;
-        dot.style.left = gridToPercent(p.x) + '%';
-        dot.style.top = gridToPercent(p.y) + '%';
-        if(useDancerColor) dot.style.background = d.color;
-        layer.appendChild(dot);
+        [d.id, followKey(d.id)].forEach(function(k){
+          var p = posMap[k];
+          if(!p) return;
+          var dot = document.createElement('span');
+          dot.className = 'onion-dot ' + extraClass;
+          dot.style.left = gridToPercent(p.x) + '%';
+          dot.style.top = gridToPercent(p.y) + '%';
+          if(useDancerColor) dot.style.background = d.color;
+          layer.appendChild(dot);
+        });
       });
     }
     var prevIdx = playing ? state.activeIndex : state.activeIndex - 1;
@@ -653,8 +680,9 @@
         // the clicked dancer; pairing two unpaired dancers then took an extra, confusing Ctrl-click
         // to even reach length 2, and could end up pairing the wrong two if a stray plain click
         // landed in between).
+        // …unless that pair is split in this Bild ("Paar lösen"): then only the clicked partner.
         var pair = findPairForDancer(dancerId);
-        pairSelection = pair ? pair.memberIds.slice() : [dancerId];
+        pairSelection = (pair && !isPairSplitHere(pair)) ? pair.memberIds.slice() : [dancerId];
       }
       try{ el.setPointerCapture(e.pointerId); }catch(err){}
       selectedDancerId = dancerId;
@@ -706,7 +734,16 @@
       el.addEventListener('pointermove', onMove);
       el.addEventListener('pointerup', onUp);
     });
+    // Double-click / "T" splits a couple into Lead & Follow for this Bild (or merges it back).
+    el.addEventListener('dblclick', function(e){
+      e.preventDefault();
+      if(canCoupleSplit(dancerId)) toggleCoupleSplit(dancerId);
+    });
     el.addEventListener('keydown', function(e){
+      if((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey){
+        if(canCoupleSplit(dancerId)){ e.preventDefault(); toggleCoupleSplit(dancerId); }
+        return;
+      }
       var pos = currentFormation().pos[dancerId];
       if(!pos) return;
       var step = e.shiftKey ? 0.5 : 1;
@@ -743,14 +780,52 @@
 
   function updatePairRotateUI(){
     updatePairMidpointMarker(currentFormation().pos);
+    // "Paar lösen/koppeln" is offered for exactly one saved pair, or one partner of a split pair.
+    var splitPair = null;
+    if(pairSelection.length === 2) splitPair = findPairByMembers(pairSelection);
+    else if(pairSelection.length === 1){
+      var single = findPairForDancer(pairSelection[0]);
+      if(single && isPairSplitHere(single)) splitPair = single;
+    }
+    if(splitPair){
+      var isSplit = isPairSplitHere(splitPair);
+      pairSplitBtn.hidden = false;
+      delete pairSplitBtn.dataset.couple;
+      pairSplitBtn.dataset.pairId = splitPair.id;
+      pairSplitBtn.textContent = isSplit ? 'Paar wieder koppeln' : 'Paar lösen (nur dieses Bild)';
+      pairSplitBtn.classList.toggle('active', isSplit);
+    }else{
+      pairSplitBtn.hidden = true;
+    }
+    pairRotateEl.classList.toggle('single', pairSelection.length < 2);
     if(pairSelection.length < 2){
-      pairRotateEl.hidden = true;
+      if(splitPair){
+        var me = state.dancers.find(function(dd){ return dd.id === pairSelection[0]; });
+        pairRotateLabelEl.textContent = (me ? me.name : '?') + ' · ' + roleLabel(dancerRole(pairSelection[0]), false) + ' (Paar in diesem Bild gelöst)';
+        pairSaveBtn.hidden = true;
+        pairSameRoleBtn.hidden = true;
+        pairRotateEl.hidden = false;
+      }else if(pairSelection.length === 1 && canCoupleSplit(pairSelection[0])){
+        var sid = pairSelection[0], base = baseDancerId(sid);
+        var coupleSplit = isCoupleSplitIn(currentFormation(), base);
+        pairSplitBtn.hidden = false;
+        delete pairSplitBtn.dataset.pairId;
+        pairSplitBtn.dataset.couple = base;
+        pairSplitBtn.textContent = coupleSplit ? 'Lead & Follow zusammenführen' : 'In Lead & Follow aufteilen';
+        pairSplitBtn.title = coupleSplit
+          ? 'Follow geht zurück in den Punkt des Paares (nur in diesem Bild).'
+          : 'Teilt das Paar nur in diesem Bild in zwei Punkte, die du einzeln ziehen kannst. Auch per Doppelklick oder Taste T.';
+        pairSplitBtn.classList.toggle('active', coupleSplit);
+        pairRotateLabelEl.textContent = markerDisplayName(base) + (coupleSplit ? (isFollowKey(sid) ? ' · Follow' : ' · Lead') : '');
+        pairSaveBtn.hidden = true;
+        pairSameRoleBtn.hidden = true;
+        pairRotateEl.hidden = false;
+      }else{
+        pairRotateEl.hidden = true;
+      }
       return;
     }
-    var names = pairSelection.map(function(id){
-      var d = state.dancers.find(function(dd){ return dd.id === id; });
-      return d ? d.name : '?';
-    });
+    var names = pairSelection.map(markerDisplayName);
     if(pairSelection.length === 2){
       var alreadySaved = !!findPairByMembers(pairSelection);
       pairRotateLabelEl.textContent = 'Paar: ' + names[0] + ' & ' + names[1] + (alreadySaved ? ' (gespeichert)' : '');
@@ -844,6 +919,9 @@
 
   function dissolvePair(pairId){
     state.pairs = state.pairs.filter(function(p){ return p.id !== pairId; });
+    state.formations.forEach(function(f){
+      if(Array.isArray(f.splitPairs)) f.splitPairs = f.splitPairs.filter(function(id){ return id !== pairId; });
+    });
     saveState();
     renderRoster();
     updatePairRotateUI();
@@ -902,6 +980,11 @@
     if(pairSelection.length !== 2) return;
     upsertPair(pairSelection);
   });
+  pairSplitBtn.addEventListener('click', function(){
+    if(pairSplitBtn.dataset.couple){ toggleCoupleSplit(pairSplitBtn.dataset.couple); return; }
+    var pairId = pairSplitBtn.dataset.pairId;
+    if(pairId) togglePairSplit(pairId);
+  });
   pairSameRoleBtn.addEventListener('click', function(){
     var role = pairSameRoleBtn.dataset.role;
     if(!role) return;
@@ -958,10 +1041,70 @@
     }
   }
 
+  // Toggles "Paar lösen" for the current Bild only (see isPairSplitHere in state.js). Re-coupling
+  // keeps the partners wherever they were moved to — it only links their dragging again.
+  function togglePairSplit(pairId){
+    var host = splitHostFormation();
+    if(!host) return;
+    if(!Array.isArray(host.splitPairs)) host.splitPairs = [];
+    var i = host.splitPairs.indexOf(pairId);
+    if(i === -1) host.splitPairs.push(pairId); else host.splitPairs.splice(i, 1);
+    var pair = state.pairs.find(function(p){ return p.id === pairId; });
+    if(i !== -1 && pair && pairSelection.length === 1 && pair.memberIds.indexOf(pairSelection[0]) !== -1){
+      pairSelection = pair.memberIds.slice(); // re-coupled: select the whole pair again
+    }
+    saveState();
+    renderRoster();
+    ensureMarkers();
+    updatePairRotateUI();
+  }
+
+  // A couple dot (no saved pair) can be split into Lead & Follow — in real Bilder only, not while
+  // a Zwischenposition is being edited.
+  function canCoupleSplit(id){
+    var base = baseDancerId(id);
+    if(editingBetween || state.shareReadOnly) return false;
+    if(!state.dancers.some(function(d){ return d.id === base; })) return false;
+    return !findPairForDancer(base);
+  }
+
+  function toggleCoupleSplit(id){
+    if(!canCoupleSplit(id)) return;
+    var did = baseDancerId(id);
+    var f = state.formations[state.activeIndex];
+    if(!f || !f.pos[did]) return;
+    var fk = followKey(did);
+    if(f.pos[fk]){
+      delete f.pos[fk];
+      pairSelection = [did];
+      selectedDancerId = did;
+    }else{
+      var p = f.pos[did];
+      var r = (p.rot||0) * Math.PI/180;
+      var ox = Math.round(Math.cos(r)), oy = Math.round(Math.sin(r));
+      if(!ox && !oy) ox = 1;
+      var nx = p.x + ox, ny = p.y + oy;
+      if(clampGrid(nx) !== nx || clampGrid(ny) !== ny){ nx = p.x - ox; ny = p.y - oy; }
+      f.pos[fk] = {x: clampGrid(nx), y: clampGrid(ny), rot: p.rot||0};
+      pairSelection = [fk];
+      selectedDancerId = fk;
+    }
+    saveState();
+    ensureMarkers();
+    positionMarkers(f.pos);
+    renderRoster();
+    renderFilmstrip();
+    updatePairRotateUI();
+  }
+
   function refreshRosterCoords(){
+    // Switching Bilder can change which pairs are split — the roster layout depends on that.
+    if(splitSignature() !== rosterSplitSignature){ renderRoster(); return; }
     var pos = currentFormation().pos;
     state.dancers.forEach(function(d){
-      var p = pos[d.id];
-      if(p) updateRosterCoords(d.id, p.x, p.y, p.rot);
+      [d.id, followKey(d.id)].forEach(function(k){
+        var p = pos[k];
+        if(p) updateRosterCoords(k, p.x, p.y, p.rot);
+      });
     });
   }

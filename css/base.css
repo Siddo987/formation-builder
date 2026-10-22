@@ -14,6 +14,7 @@
   :focus-visible{outline:2.5px solid var(--gold);outline-offset:2px;}
 
   .app{
+    container-type:inline-size; /* lets .layout size the square stage from the app width (cqw) */
     max-width:1180px;
     margin:0 auto;
     padding:clamp(1.25rem,3vw,2.75rem) clamp(1.1rem,3vw,2rem) 3rem;
@@ -54,8 +55,9 @@
   .brand .tagline{
     margin:.35rem 0 0;
     color:var(--ink-soft);
-    font-size:.92rem;
+    font-size:.9rem;
     font-weight:500;
+    letter-spacing:.01em;
   }
   .topbar-actions{
     display:flex;
@@ -103,10 +105,12 @@
     background:var(--panel);
     font-weight:600;
     font-size:.8rem;
-    transition:border-color .12s ease,background .12s ease,color .12s ease;
+    box-shadow:0 1px 2px rgba(28,22,38,.06);
+    transition:border-color .12s ease,background .12s ease,color .12s ease,transform .08s ease;
     white-space:nowrap;
   }
   .btn-ghost:hover{border-color:var(--gold);background:var(--panel-2);}
+  .btn-ghost:active:not(:disabled){transform:translateY(1px);}
   .btn-ghost.danger:hover{border-color:var(--curtain);color:var(--curtain);background:var(--curtain-wash);}
   .btn-ghost svg{flex:none;}
   .import-error{
@@ -117,18 +121,25 @@
   }
 
   /* ---- layout grid ---- */
+  /* --stage-size: the square stage is as big as the viewport height allows (so stage + Eingang
+     line fit below the topbar without scrolling), but always leaves the roster at least 272px. The
+     stage column is exactly that wide and sits flush left under the topbar; the roster takes the
+     rest of the row and lays its dancers out in as many columns as fit. */
   .layout{
+    --stage-size:min(100cqw - 272px - 1.75rem, max(22rem, 100svh - 19rem));
     display:grid;
-    grid-template-columns:minmax(0,1fr) 272px;
+    grid-template-columns:var(--stage-size) minmax(272px,1fr);
     grid-template-areas:
       "stage roster"
       "playbar playbar"
       "filmstrip filmstrip";
-    gap:1.4rem 1.5rem;
+    gap:1.5rem 1.75rem;
+    align-items:start;
   }
   @media (max-width:840px){
     .layout{
-      grid-template-columns:1fr;
+      --stage-size:min(100cqw, max(20rem, 100svh - 14rem));
+      grid-template-columns:minmax(0,1fr);
       grid-template-areas:"stage" "roster" "playbar" "filmstrip";
     }
   }

@@ -84,7 +84,7 @@
     // startPos freezes exactly where the dancers stood right before this Figur was applied — the
     // Bild's own fixed "came from here" reference (see renderOnionSkin()), independent of whatever
     // Bild ends up sitting before this one later (reordering, deletes, further edits to srcPos).
-    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: newPos, showAxes: currentFormation().showAxes !== false, localAxes: copyLocalAxes(currentFormation()), category: '', startPos: snapshotPos(srcPos) };
+    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: newPos, showAxes: currentFormation().showAxes !== false, localAxes: copyLocalAxes(currentFormation()), category: '', startPos: snapshotPos(srcPos), splitPairs: [] };
     state.formations.push(f);
     state.activeIndex = state.formations.length - 1;
     saveState();
@@ -156,7 +156,7 @@
       var del = document.createElement('button');
       del.type = 'button';
       del.className = 'figure-delete';
-      del.textContent = '✕';
+      del.appendChild(svgIcon('x', 16));
       del.setAttribute('aria-label', 'Figur "' + fig.name + '" löschen');
       armDeleteButton(del, opts.onDelete);
       row.appendChild(del);
@@ -305,7 +305,7 @@
       del.type = 'button';
       del.className = 'film-between-chip-remove';
       del.setAttribute('aria-label', 'Zwischenposition ' + (bIdx + 1) + ' entfernen');
-      del.textContent = '✕';
+      del.appendChild(svgIcon('x', 9, 3));
       armDeleteButton(del, function(){ removeBetween(idx, bIdx); });
 
       chipWrap.appendChild(chip);
@@ -316,7 +316,7 @@
     var addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.className = 'film-between-add';
-    addBtn.textContent = '+';
+    addBtn.appendChild(svgIcon('plus', 12));
     addBtn.title = 'Zwischenposition hinzufügen — eine zusätzliche Pose auf dem Weg zu „' + (next ? next.name : '?') + '“, ohne eigenes Bild';
     addBtn.addEventListener('click', function(){ addBetween(idx); });
 
@@ -470,6 +470,8 @@
   }
 
   function renderFilmstrip(){
+    // Keep the list where it was: clearing the track would otherwise jump it back to Bild 1.
+    var keepTop = filmTrackEl.scrollTop, keepLeft = filmTrackEl.scrollLeft;
     filmTrackEl.innerHTML = '';
     state.formations.forEach(function(f, idx){
       var card = document.createElement('div');
@@ -492,6 +494,7 @@
       categoryInput.className = 'film-category-input';
       categoryInput.placeholder = '+ Abschnitt';
       categoryInput.maxLength = 40;
+      categoryInput.spellcheck = false;
       categoryInput.value = f.category || '';
       categoryInput.setAttribute('aria-label', 'Abschnitt ab Bild "' + f.name + '" (leer = gehört noch zum vorherigen Abschnitt)');
       categoryInput.addEventListener('input', function(){
@@ -507,34 +510,37 @@
       var indexEl = document.createElement('span');
       indexEl.className = 'film-index';
       indexEl.textContent = String(idx+1).padStart(2,'0');
+      categoryWrap.insertBefore(indexEl, categoryWrap.firstChild);
 
       var removeEl = document.createElement('button');
       removeEl.className = 'film-remove';
       removeEl.type = 'button';
-      removeEl.textContent = '✕';
+      removeEl.appendChild(svgIcon('x', 12, 2.5));
       removeEl.setAttribute('aria-label', 'Bild "' + f.name + '" löschen');
       armDeleteButton(removeEl, function(){ deleteFormation(f.id); });
 
       var preview = document.createElement('div');
       preview.className = 'film-preview';
-      preview.appendChild(indexEl);
       preview.appendChild(removeEl);
       state.dancers.forEach(function(d){
-        var pos = f.pos[d.id];
-        if(!pos) return;
-        var dot = document.createElement('span');
-        dot.className = 'film-dot';
-        dot.style.left = gridToPercent(pos.x) + '%';
-        dot.style.top = gridToPercent(pos.y) + '%';
-        dot.style.background = d.color;
-        dot.dataset.dancer = d.id;
-        preview.appendChild(dot);
+        [d.id, followKey(d.id)].forEach(function(k){
+          var pos = f.pos[k];
+          if(!pos) return;
+          var dot = document.createElement('span');
+          dot.className = k === d.id ? 'film-dot' : 'film-dot film-dot-follow';
+          dot.style.left = gridToPercent(pos.x) + '%';
+          dot.style.top = gridToPercent(pos.y) + '%';
+          dot.style.background = d.color;
+          dot.dataset.dancer = k;
+          preview.appendChild(dot);
+        });
       });
       preview.addEventListener('click', function(){ selectFormation(idx); });
 
       var nameInput = document.createElement('textarea');
       nameInput.className = 'fname';
       nameInput.rows = 1;
+      nameInput.spellcheck = false;
       nameInput.value = f.name;
       nameInput.setAttribute('aria-label', 'Name des Bildes (mehrere Zeilen möglich, z. B. für mehrere Figuren)');
       nameInput.addEventListener('input', function(){ f.name = nameInput.value; autosizeFnameInput(nameInput); saveState(); if(idx===state.activeIndex) activeNameEl.textContent = f.name; });
@@ -568,7 +574,9 @@
         var dragEl = filmTrackEl.querySelector('.film-card.dragging');
         if(!dragEl || dragEl === card) return;
         var rect = card.getBoundingClientRect();
-        var before = (e.clientX - rect.left) < rect.width / 2;
+        // The Bilder list runs top-to-bottom on desktop and left-to-right on phones.
+      var vertical = getComputedStyle(filmTrackEl).flexDirection === 'column';
+      var before = vertical ? (e.clientY - rect.top) < rect.height / 2 : (e.clientX - rect.left) < rect.width / 2;
         filmTrackEl.insertBefore(dragEl, before ? card : card.nextSibling);
       });
       card.addEventListener('drop', function(e){ e.preventDefault(); });
@@ -586,13 +594,14 @@
     var addCard = document.createElement('button');
     addCard.className = 'film-add';
     addCard.type = 'button';
-    addCard.textContent = '+';
+    addCard.appendChild(svgIcon('plus', 18));
     addCard.setAttribute('aria-label', 'Neues Bild hinzufügen');
     addCard.setAttribute('aria-haspopup', 'dialog');
     addCard.addEventListener('click', openAddBildModal);
 
     addWrap.appendChild(addCard);
     filmTrackEl.appendChild(addWrap);
+    filmTrackEl.scrollTop = keepTop; filmTrackEl.scrollLeft = keepLeft;
     renumberFilmCategories();
     // Reordering/adding/deleting Bilder can leave the song time markers out of Bild order — keep the
     // toolbar Marker button's warning dot in sync (js/marker.js, loaded after this file).
@@ -654,7 +663,7 @@
     // startPos freezes the position this new Bild starts from (identical to `copy` right now, but
     // kept as an independent object — see snapshotPos — so later dragging dancers within this new
     // Bild, or editing the Bild before it, never changes what this Bild remembers as its own start).
-    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: copy, showAxes: src.showAxes !== false, localAxes: copyLocalAxes(src), category: '', startPos: snapshotPos(src.pos) };
+    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: copy, showAxes: src.showAxes !== false, localAxes: copyLocalAxes(src), category: '', startPos: snapshotPos(src.pos), splitPairs: [] };
     state.formations.push(f);
     state.activeIndex = state.formations.length - 1;
     saveState();
