@@ -93,7 +93,6 @@
     refreshRosterCoords();
     updatePlaybarInfo();
     updatePlayButton();
-    renderAxes();
     resetLayoutGhost();
   }
 
@@ -369,7 +368,6 @@
     positionMarkers(currentFormation().pos);
     refreshRosterCoords();
     updatePlaybarInfo();
-    renderAxes();
     resetLayoutGhost();
     updateBetweenEditBanner();
     saveState();
@@ -382,7 +380,6 @@
     positionMarkers(currentFormation().pos);
     refreshRosterCoords();
     updatePlaybarInfo();
-    renderAxes();
     resetLayoutGhost();
     updateBetweenEditBanner();
   }
@@ -672,7 +669,6 @@
     refreshRosterCoords();
     updatePlaybarInfo();
     updatePlayButton();
-    renderAxes();
     resetLayoutGhost();
   }
 
@@ -687,7 +683,7 @@
     else if(idx < state.activeIndex) state.activeIndex -= 1;
     saveState();
     renderFilmstrip();
-    if(wasActive){ positionMarkers(currentFormation().pos); refreshRosterCoords(); renderAxes(); resetLayoutGhost(); }
+    if(wasActive){ positionMarkers(currentFormation().pos); refreshRosterCoords(); resetLayoutGhost(); }
     updatePlaybarInfo();
     updatePlayButton();
   }
@@ -701,7 +697,6 @@
     positionMarkers(currentFormation().pos);
     refreshRosterCoords();
     updatePlaybarInfo();
-    renderAxes();
     resetLayoutGhost();
   }
 

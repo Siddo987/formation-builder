@@ -222,7 +222,6 @@
     buildOnionSkinLayer();
     buildPairMidpointMarker();
     buildGridOverlay();
-    buildAxesOverlay();
     buildLayoutGhostLayer();
   }
 
@@ -316,63 +315,6 @@
       img.removeAttribute('src');
       img.hidden = true;
     }
-  }
-
-  function buildAxesOverlay(){
-    var svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('class', 'axes-overlay');
-    svg.setAttribute('id', 'axesOverlay');
-    svg.setAttribute('viewBox', '0 0 100 100');
-    svg.setAttribute('preserveAspectRatio', 'none');
-    stageEl.appendChild(svg);
-    var labelLayer = document.createElement('div');
-    labelLayer.className = 'axes-label-layer';
-    labelLayer.id = 'axesLabelLayer';
-    stageEl.appendChild(labelLayer);
-    renderAxes();
-  }
-
-  // Draws the global axes (state.axes — available on every Bild) plus this Bild's own local-only
-  // axes (currentFormation().localAxes), sharing one visibility toggle: "Achsen für dieses Bild"
-  // hides/shows both kinds together. Local axes get a distinct dash pattern (see .axis-line-local)
-  // so the two are visually distinguishable on the stage.
-  function renderAxes(){
-    var svg = document.getElementById('axesOverlay');
-    var labelLayer = document.getElementById('axesLabelLayer');
-    var toggleWrap = document.getElementById('axesBildToggleWrap');
-    var toggle = document.getElementById('axesBildToggle');
-    var localAxes = currentFormation().localAxes || [];
-    var formationShowsAxes = currentFormation().showAxes !== false;
-    if(toggleWrap && toggle){
-      toggleWrap.hidden = state.axes.length === 0 && localAxes.length === 0;
-      toggle.checked = formationShowsAxes;
-    }
-    if(!svg || !labelLayer) return;
-    svg.innerHTML = '';
-    labelLayer.innerHTML = '';
-    var show = formationShowsAxes && (state.axes.length || localAxes.length);
-    svg.style.display = show ? '' : 'none';
-    labelLayer.style.display = show ? '' : 'none';
-    if(!show) return;
-    function drawAxis(ax, extraClass){
-      var x1 = gridToPercent(clampGrid(ax.x1)), y1 = gridToPercent(clampGrid(ax.y1));
-      var x2 = gridToPercent(clampGrid(ax.x2)), y2 = gridToPercent(clampGrid(ax.y2));
-      var line = document.createElementNS(SVG_NS, 'line');
-      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-      line.setAttribute('class', 'axis-line' + (extraClass ? ' ' + extraClass : ''));
-      svg.appendChild(line);
-      if(ax.label){
-        var lbl = document.createElement('span');
-        lbl.className = 'axis-label';
-        lbl.style.left = ((x1+x2)/2) + '%';
-        lbl.style.top = ((y1+y2)/2) + '%';
-        lbl.textContent = ax.label;
-        labelLayer.appendChild(lbl);
-      }
-    }
-    state.axes.forEach(function(ax){ drawAxis(ax); });
-    localAxes.forEach(function(ax){ drawAxis(ax, 'axis-line-local'); });
   }
 
   /* ---------- layout templates ("Vorlagen"): admin-presettable target *shapes* — a Vorlage's
@@ -582,7 +524,7 @@
     });
   }
 
-  // Called wherever the active Bild actually changes (never from e.g. the axes-visibility toggle,
+  // Called wherever the active Bild actually changes (never from e.g. a mere re-render,
   // which also touches the stage but isn't a Bild switch) — a chosen Vorlage, and any placement
   // applied to it, is a reference for the Bild you were just positioning, not something that
   // should silently carry over. Doubles as the one shared "Bild switch happened" hook already

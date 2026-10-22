@@ -56,19 +56,6 @@
 .logo-preview-wrap img{max-height:110px;max-width:100%;}
 .toggle-label{display:flex;align-items:center;gap:.5rem;font-size:.84rem;font-weight:600;cursor:pointer;}
 .toggle-label input{width:16px;height:16px;margin:0;}
-.axes-list{display:flex;flex-direction:column;gap:.4rem;}
-.axis-row{display:flex;align-items:center;gap:.45rem;padding:.4rem .5rem;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;}
-.modal .axis-label-input{flex:1 1 0;min-width:4.5rem;height:28px;font-size:.8rem;}
-.axis-coords{display:flex;align-items:center;gap:.25rem;flex:none;font-family:var(--font-mono);font-size:.68rem;color:var(--ink-3);}
-.axis-coords .coord-input{width:40px;}
-.axis-row .coord-label{margin-left:.2rem;}
-.axis-row .remove-btn{margin-left:auto;}
-/* Schmal: Bezeichnung oben, Koordinaten + Entfernen darunter */
-@media (max-width:520px){
-  .axis-row{flex-wrap:wrap;}
-  .modal .axis-label-input{flex-basis:100%;}
-  .axis-row .coord-label:first-child{margin-left:0;}
-}
 
 /* Dateiname */
 .filename-field{

@@ -79,7 +79,7 @@ if ('serviceWorker' in navigator) {
           <div class="export-menu" id="exportMenu" hidden>
             <button type="button" class="export-menu-item" id="exportStgBtn">
               <strong>.stg</strong>
-              <span>Alles – Lied, Logo, Bilder, Achsen, Paare</span>
+              <span>Alles – Lied, Logo, Bilder, Paare</span>
             </button>
             <button type="button" class="export-menu-item" id="exportAufBtn">
               <strong>.auf</strong>
@@ -149,7 +149,6 @@ if ('serviceWorker' in navigator) {
             <button class="btn-ghost" id="betweenEditDoneBtn" type="button">Fertig</button>
           </div>
           <span class="stage-toolbar-spacer"></span>
-          <label class="axes-bild-toggle float-pill" id="axesBildToggleWrap" hidden><input type="checkbox" id="axesBildToggle"> Achsen für dieses Bild</label>
           <button class="float-pill roster-toggle" id="rosterToggleBtn" type="button" aria-controls="rosterDrawer" aria-expanded="false" title="Tänzerliste ein-/ausblenden">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>
             <span class="roster-toggle-lbl">Tänzer</span> <span class="count" id="rosterToggleCount">0</span>
@@ -265,19 +264,6 @@ if ('serviceWorker' in navigator) {
         <p class="settings-hint" id="songName" hidden></p>
       </section>
 
-      <section class="settings-section">
-        <h3>Achsen — für alle Bilder</h3>
-        <p class="settings-hint">Hilfslinien auf der Bühne, z. B. Mittellinie oder Diagonale — in jedem Bild verfügbar. Ob Achsen (diese wie auch die Bild-eigenen unten) überhaupt zu sehen sind, wird pro Bild oberhalb der Bühne festgelegt.</p>
-        <div class="axes-list" id="axesList"></div>
-        <button class="btn-add" id="addAxisBtn" type="button"><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Achse hinzufügen</span></button>
-      </section>
-
-      <section class="settings-section">
-        <h3 id="localAxesTitle">Achsen — nur für dieses Bild</h3>
-        <p class="settings-hint">Zusätzliche Hilfslinien, die es nur bei diesem einen Bild gibt.</p>
-        <div class="axes-list" id="localAxesList"></div>
-        <button class="btn-add" id="addLocalAxisBtn" type="button"><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Achse (nur dieses Bild)</span></button>
-      </section>
     </div>
   </div>
 </div>
@@ -405,7 +391,7 @@ if ('serviceWorker' in navigator) {
       <button class="modal-close" id="resetCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
     <div class="modal-body">
-      <p class="settings-hint">Das löscht <strong>alle</strong> Tänzer, Bilder, Achsen, das Logo und das Lied dieses Projekts und ersetzt sie durch ein leeres Beispielprojekt.</p>
+      <p class="settings-hint">Das löscht <strong>alle</strong> Tänzer, Bilder, das Logo und das Lied dieses Projekts und ersetzt sie durch ein leeres Beispielprojekt.</p>
       <p class="settings-hint">Ein zurückgesetztes Projekt zählt als neu — der Verlauf (Rückgängig/Wiederherstellen) beginnt dann bei null und kann nicht mehr zum alten Stand zurück. Ein zuvor per Link geteiltes Projekt bleibt für alle, die den Link haben, unverändert erhalten — nur diese Ansicht hier wird zurückgesetzt.</p>
       <label class="toggle-label"><input type="checkbox" id="resetConfirmCheckbox"> Mir ist klar, dass das nicht rückgängig gemacht werden kann.</label>
       <div class="filename-actions">

@@ -1,9 +1,8 @@
 "use strict";
 
-/* ---------- settings panel: project name, logo, song, axes ---------- */
+/* ---------- settings panel: project name, logo, song ---------- */
 
   function openSettings(){
-    renderAxesList();
     updateLogoSettingsUI();
     updateSongSettingsUI();
     settingsBackdrop.hidden = false;

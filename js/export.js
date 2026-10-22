@@ -641,7 +641,7 @@
   // as always. panelCursor (optional): the continuous Bild "cursor" driving drawVideoInfoPanel's
   // left panel (see its own comment) and reserving space for it — omitted (e.g. by any future
   // static single-Bild render) draws the stage across the full canvas with no panel.
-  function renderCanvasFrame(ctx, W, H, posMap, logoImg, showAxes, localAxes, focusIds, ghosts, panelCursor){
+  function renderCanvasFrame(ctx, W, H, posMap, logoImg, focusIds, ghosts, panelCursor){
     ctx.clearRect(0, 0, W, H);
 
     var hasPanel = panelCursor !== undefined && panelCursor !== null;
@@ -721,33 +721,6 @@
       ctx.restore();
     }
     ctx.restore();
-
-    function drawAxisSet(list, color, dash){
-      if(!list || !list.length) return;
-      ctx.save();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.setLineDash(dash);
-      list.forEach(function(ax){
-        var x1 = gx(clampGrid(ax.x1)), y1 = gy(clampGrid(ax.y1));
-        var x2 = gx(clampGrid(ax.x2)), y2 = gy(clampGrid(ax.y2));
-        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-        if(ax.label){
-          ctx.save();
-          ctx.setLineDash([]);
-          ctx.font = '600 13px "Manrope",sans-serif';
-          ctx.fillStyle = 'rgba(255,255,255,.65)';
-          ctx.textAlign = 'center';
-          ctx.fillText(ax.label, (x1+x2)/2, (y1+y2)/2 - 8);
-          ctx.restore();
-        }
-      });
-      ctx.restore();
-    }
-    if(showAxes){
-      drawAxisSet(state.axes, 'rgba(217,154,52,.6)', [8,6]);
-      drawAxisSet(localAxes, '#4fa3a0', [3,7]); // matches --pair / .axis-line-local on the live stage
-    }
 
     var radius = Math.max(14, Math.min(sw,sh)*0.024);
 
@@ -1030,11 +1003,9 @@
       if(segStart === null) segStart = now;
       var seg = segments[segIdx];
       var elapsedInSeg = now - segStart;
-      var posMap, segShowAxes, segLocalAxes, segCursor;
+      var posMap, segCursor;
       if(seg.type === 'hold'){
         posMap = state.formations[seg.idx].pos;
-        segShowAxes = state.formations[seg.idx].showAxes !== false;
-        segLocalAxes = state.formations[seg.idx].localAxes;
         segCursor = seg.idx; // static — the info-panel stack only moves during an actual move segment
       }else{
         var t = Math.min(1, elapsedInSeg/seg.dur);
@@ -1042,16 +1013,13 @@
         // playback (see interpolateThroughBetweens in state.js) — so a video export shows exactly
         // the poses the editor does, not a single straight interpolation that skips them.
         posMap = interpolateThroughBetweens(seg.from, seg.to, t);
-        // reveal the destination Bild's axes setting (global and local) as it's approached during the transition
-        segShowAxes = state.formations[seg.to].showAxes !== false;
-        segLocalAxes = state.formations[seg.to].localAxes;
         // The info-panel's own continuous cursor (see drawVideoInfoPanel) — glides from seg.from to
         // seg.to across the *whole* segment, independent of however many Zwischenpositionen-legs
         // posMap above just chained through, so the panel scrolls smoothly through exactly one Bild
         // per move regardless of how it's spatially subdivided.
         segCursor = seg.from + easeMove(t);
       }
-      renderCanvasFrame(ctx, W, H, posMap, logoImg, segShowAxes, segLocalAxes, focusIds, ghostsFor(seg), segCursor);
+      renderCanvasFrame(ctx, W, H, posMap, logoImg, focusIds, ghostsFor(seg), segCursor);
       // In manual-capture mode (see runVideoRecording), the stream never emits a frame on its own —
       // this is the one and only signal that a new frame is ready, which is exactly what keeps
       // recording accurate while backgrounded: however slowly setTimeout ends up firing, each call
@@ -1071,7 +1039,7 @@
         segStart = now;
         if(segIdx >= segments.length){
           var lastSeg = segments[segments.length-1];
-          renderCanvasFrame(ctx, W, H, state.formations[lastSeg.idx].pos, logoImg, state.formations[lastSeg.idx].showAxes !== false, state.formations[lastSeg.idx].localAxes, focusIds, ghostsFor(lastSeg), lastSeg.idx);
+          renderCanvasFrame(ctx, W, H, state.formations[lastSeg.idx].pos, logoImg, focusIds, ghostsFor(lastSeg), lastSeg.idx);
           if(manualCaptureTrack) manualCaptureTrack.requestFrame();
           videoProgressFill.style.width = '100%';
           videoProgressFill.classList.add('indeterminate');
@@ -1115,7 +1083,6 @@
     document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
     applySongSource();
     if(!settingsBackdrop.hidden){
-      renderAxesList();
       updateLogoSettingsUI();
       updateSongSettingsUI();
     }

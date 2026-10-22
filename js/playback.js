@@ -71,7 +71,6 @@
         positionMarkers(currentFormation().pos);
         refreshRosterCoords();
         updatePlaybarInfo();
-        renderAxes();
         resetLayoutGhost();
         saveState();
       }
@@ -143,9 +142,7 @@
       renderFilmstripActiveOnly();
       refreshRosterCoords();
       updatePlaybarInfo();
-      renderAxes();
       resetLayoutGhost();
-      if(!settingsBackdrop.hidden) renderAxesList(); // Settings can stay open mid-playback; keep its per-Bild axes list in sync
     }
     if(isFinite(totalDur) && totalDur > 0) updateProgress(Math.min(100, (ct/totalDur)*100));
     if(playing && syncActive) rafId = requestAnimationFrame(syncTick);
@@ -170,9 +167,7 @@
       renderFilmstripActiveOnly();
       refreshRosterCoords();
       updatePlaybarInfo();
-      renderAxes();
       resetLayoutGhost();
-      if(!settingsBackdrop.hidden) renderAxesList();
       var next = toIdx + 1;
       if(next >= state.formations.length){
         playing = false;
