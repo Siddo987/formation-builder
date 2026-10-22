@@ -883,17 +883,20 @@
     });
   }
 
-  function buildSyncSegments(pts, totalDur){
+  // Marker times are positions in the original song; at songRate() ≠ 1 the song (and so each
+  // segment) takes 1/rate as long in real time.
+  function buildSyncSegments(pts, totalDur, rate){
+    var msPerSongSec = 1000/rate;
     var segments = [];
     if(pts[0].time > 0.02){
-      segments.push({type:'hold', idx: pts[0].idx, dur: pts[0].time*1000});
+      segments.push({type:'hold', idx: pts[0].idx, dur: pts[0].time*msPerSongSec});
     }
     for(var i=0; i<pts.length-1; i++){
       var span = Math.max(0, pts[i+1].time - pts[i].time);
-      segments.push({type:'move', from: pts[i].idx, to: pts[i+1].idx, dur: Math.max(200, span*1000)});
+      segments.push({type:'move', from: pts[i].idx, to: pts[i+1].idx, dur: Math.max(200, span*msPerSongSec)});
     }
     var last = pts[pts.length-1];
-    var tailDur = Math.max(300, (totalDur - last.time)*1000);
+    var tailDur = Math.max(300, (totalDur - last.time)*msPerSongSec);
     segments.push({type:'hold', idx: last.idx, dur: tailDur});
     return segments;
   }
@@ -931,6 +934,7 @@
     var ctx = canvas.getContext('2d');
 
     var exportAudioEl = (state.song && state.song.url) ? new Audio(state.song.url) : null;
+    if(exportAudioEl) applySongRate(exportAudioEl);
     var pts = syncWaypoints();
     var useSync = exportAudioEl && pts.length >= 2;
     var durationPromise = useSync ? getAudioDuration(exportAudioEl) : Promise.resolve(0);
@@ -939,7 +943,7 @@
       var d = durations();
       var segments;
       if(useSync && songDuration > 0){
-        segments = buildSyncSegments(pts, songDuration);
+        segments = buildSyncSegments(pts, songDuration, songRate());
       }else if(state.formations.length === 1){
         segments = [{type:'hold', idx:0, dur: Math.max(d.hold, 2000)}];
       }else{
@@ -1106,7 +1110,7 @@
     updatePlaybarInfo();
     updatePlayButton();
     tempoSlider.value = state.tempo;
-    updateTempoReadout();
+    applyTempo();
     projectNameInput.value = state.projectName || '';
     document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
     applySongSource();

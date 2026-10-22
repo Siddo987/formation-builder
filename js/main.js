@@ -121,6 +121,7 @@
       songAudioEl.removeAttribute('src');
       songAudioEl.pause();
     }
+    applyTempo(); // the readout switches between Bilder/s and the song's speed
   }
 
   document.getElementById('songUploadBtn').addEventListener('click', function(){ document.getElementById('songInput').click(); });
@@ -154,7 +155,7 @@
   nextBtn.addEventListener('click', function(){ selectFormation(Math.min(state.formations.length-1, state.activeIndex+1)); });
   tempoSlider.addEventListener('input', function(){
     state.tempo = +tempoSlider.value;
-    updateTempoReadout();
+    applyTempo();
     saveState();
   });
 
@@ -169,7 +170,6 @@
   updatePlaybarInfo();
   updatePlayButton();
   tempoSlider.value = state.tempo;
-  updateTempoReadout();
   projectNameInput.value = state.projectName || '';
   document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
   applySongSource();

@@ -17,12 +17,30 @@
 
   function updateProgress(pct){ progressFillEl.style.width = pct + '%'; }
 
-  // Shows a rate ("Bilder pro Sekunde"), not a raw duration — a duration shrinks as you push the
-  // slider up, which reads as the control running backwards even though the underlying speed is
-  // correct. A rate grows with the slider instead, matching what "Tempo" implies.
-  function updateTempoReadout(){
-    var d = durations();
-    tempoReadoutEl.textContent = (1000/d.move).toFixed(1) + '/s';
+  // With a song loaded, the Tempo slider also sets how fast the song itself plays: 0,5× to 2,0× of
+  // the original, 1,0× in the middle. Sync playback follows the song's clock, so the stage speeds
+  // up with it. Piecewise linear so the readout lands on round values (75 → 1,50×).
+  function songRate(){
+    var t = state.tempo;
+    return t <= 50 ? 0.5 + t/100 : 1 + (t-50)/50;
+  }
+  function applySongRate(audioEl){
+    audioEl.defaultPlaybackRate = songRate(); // every new src resets playbackRate to this
+    audioEl.playbackRate = songRate();
+  }
+
+  // Without a song, shows a rate ("Bilder pro Sekunde"), not a raw duration — a duration shrinks as
+  // you push the slider up, which reads as the control running backwards even though the underlying
+  // speed is correct. A rate grows with the slider instead, matching what "Tempo" implies.
+  function applyTempo(){
+    applySongRate(songAudioEl);
+    if(state.song && state.song.url){
+      tempoReadoutEl.textContent = songRate().toFixed(2).replace('.', ',') + '×';
+      tempoSlider.title = 'Geschwindigkeit des Lieds (0,5× bis 2,0× vom Original)';
+    }else{
+      tempoReadoutEl.textContent = (1000/durations().move).toFixed(1) + '/s';
+      tempoSlider.title = '';
+    }
   }
 
   // Song position playback should begin at, given the currently selected Bild: its own time marker
