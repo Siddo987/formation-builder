@@ -596,10 +596,10 @@ if ('serviceWorker' in navigator) {
         </div>
         <p class="settings-hint" id="stepsEmptyHint" hidden>Noch keine Tänzer angelegt.</p>
         <p class="settings-hint">
-          Video zeigt nur die gewählte Person (bei einem Paar beide Partner). PDF zeigt zusätzlich
-          pro Bild eine große, gut lesbare Koordinatenangabe zum Ausdrucken — bei einem einzelnen
-          Tänzer mit gespeichertem Partner wird dessen Position klein als Referenz mit angezeigt;
-          bei einem Paar wird für jeden Partner ein eigenes Blatt erzeugt.
+          Video zeigt nur das gewählte Paar. PDF zeigt zusätzlich pro Bild eine große, gut lesbare
+          Koordinatenangabe zum Ausdrucken. Ist das Paar in einem Bild in Lead &amp; Follow geteilt,
+          gibt es je ein Blatt für Lead und Follow — die Position des anderen steht klein als
+          Referenz mit dabei.
         </p>
         <div class="filename-actions">
           <button class="btn-ghost" id="stepsVideoBtn" type="button">Als Video exportieren</button>
@@ -608,7 +608,7 @@ if ('serviceWorker' in navigator) {
       </section>
       <section class="settings-section">
         <h3>Alle auf einmal</h3>
-        <p class="settings-hint">Ein einziges PDF mit den Blättern aller Tänzer/Paare — erst alle Blätter von Paar 1, dann Paar 2 usw., zuletzt alle Tänzer ohne gespeicherten Partner.</p>
+        <p class="settings-hint">Ein einziges PDF mit den Blättern aller Paare — erst alle Blätter von Paar 1, dann Paar 2 usw. (geteilte Paare mit je einem Blatt für Lead und Follow).</p>
         <button class="btn-ghost" id="stepsAllPdfBtn" type="button">Alle als PDF (ein Dokument)</button>
       </section>
     </div>

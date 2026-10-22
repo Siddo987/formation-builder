@@ -47,9 +47,25 @@
   stepsCloseBtn.addEventListener('click', closeStepsModal);
   stepsBackdrop.addEventListener('click', function(e){ if(e.target === stepsBackdrop) closeStepsModal(); });
 
-  // Resolves the current dropdown value into one or two "sheets" to produce — a lone dancer
-  // (with their saved partner, if any, along for reference) or, for a pair, one sheet per partner
-  // so "für jedes Paar und auch jeden Tänzer einzeln" always comes down to an individual view.
+  // A couple that's split into Lead & Follow in at least one Bild gets one sheet per role: the
+  // Follow's sheet follows the Follow's own spot wherever the couple is split (and the couple's dot
+  // everywhere else), with the other role's spot alongside for reference.
+  function sheetsForDancer(d, partner){
+    var split = state.formations.some(function(f){ return isCoupleSplitIn(f, d.id); });
+    if(!split) return [{primary: d, secondary: partner, role: null}];
+    return [{primary: d, secondary: partner, role: 'lead'}, {primary: d, secondary: partner, role: 'follow'}];
+  }
+  var ROLE_LABELS = {lead: 'Lead', follow: 'Follow'};
+
+  function sheetsLabel(sheets){
+    var names = [];
+    sheets.forEach(function(sh){ if(names.indexOf(sh.primary.name) === -1) names.push(sh.primary.name); });
+    return names.join(' & ');
+  }
+
+  // Resolves the current dropdown value into the "sheets" to produce — a lone dancer (with their
+  // saved partner, if any, along for reference) or, for a pair, one sheet per partner so "für
+  // jedes Paar und auch jeden Tänzer einzeln" always comes down to an individual view.
   function getStepsSheets(){
     var val = stepsWhoSelect.value;
     if(!val) return [];
@@ -63,14 +79,14 @@
         var partnerId = pair.memberIds[0] === d.id ? pair.memberIds[1] : pair.memberIds[0];
         partner = state.dancers.find(function(dd){ return dd.id === partnerId; }) || null;
       }
-      return [{primary: d, secondary: partner}];
+      return sheetsForDancer(d, partner);
     }
     var pair2 = state.pairs.find(function(p){ return p.id === id; });
     if(!pair2) return [];
     var a = state.dancers.find(function(d){ return d.id === pair2.memberIds[0]; });
     var b = state.dancers.find(function(d){ return d.id === pair2.memberIds[1]; });
     if(!a || !b) return [];
-    return [{primary: a, secondary: b}, {primary: b, secondary: a}];
+    return sheetsForDancer(a, b).concat(sheetsForDancer(b, a));
   }
 
   function fmtSigned(v){
@@ -89,7 +105,7 @@
     var ids = {};
     sheets.forEach(function(sh){ ids[sh.primary.id] = true; if(sh.secondary) ids[sh.secondary.id] = true; });
     var focusIds = Object.keys(ids);
-    var label = sheets.length === 2 ? (sheets[0].primary.name + ' & ' + sheets[1].primary.name) : sheets[0].primary.name;
+    var label = sheetsLabel(sheets);
     closeStepsModal();
     askFilename(bestVideoMime().ext, filenameBase() + '-' + label.replace(/[^\w-]+/g,'_'), function(filename, opts){
       startVideoExport(filename, focusIds, opts && opts.includeGhosts);
@@ -103,7 +119,9 @@
   // idea as the "heller Ring = graue Zusatzposition" convention the source choreography PDF this
   // app grew out of already used, just with a number instead of a bare ring since there can be more
   // than one.
-  function buildStepDiagram(primaryPos, secondaryPos, betweenPositions){
+  // rolePos: the couple's other role (Lead or Follow) where it's split in this Bild — then both
+  // dots are drawn smaller, the Follow dashed, same as on the stage.
+  function buildStepDiagram(primaryPos, secondaryPos, betweenPositions, rolePos, primaryIsFollow){
     var diagram = document.createElement('div');
     diagram.className = 'step-diagram';
     var labels = state.roomLabels || {};
@@ -136,21 +154,29 @@
     // Between-dots first so the main/partner dots (added after, further down) paint on top of them
     // where positions happen to overlap.
     (betweenPositions || []).forEach(function(bp, i){ addDot(bp, 'step-dot-between', String(i+1)); });
+    addDot(rolePos, 'step-dot-role step-dot-split' + (primaryIsFollow ? '' : ' step-dot-follow'));
     addDot(secondaryPos, 'step-dot-secondary');
-    addDot(primaryPos, 'step-dot-primary');
+    addDot(primaryPos, 'step-dot-primary' + (rolePos ? ' step-dot-split' : '') + (primaryIsFollow ? ' step-dot-follow' : ''));
     diagram.appendChild(room);
     return diagram;
   }
 
-  function buildStepCard(formationIdx, formation, primary, secondary){
+  function buildStepCard(formationIdx, formation, primary, secondary, role){
     var card = document.createElement('div');
     card.className = 'step-card';
-    var primaryPos = formation.pos[primary.id];
+    var fk = followKey(primary.id);
+    var split = !!formation.pos[fk];
+    var ownIsFollow = role === 'follow' && split;
+    var primaryPos = formation.pos[ownIsFollow ? fk : primary.id];
+    var rolePos = split ? formation.pos[ownIsFollow ? primary.id : fk] : null;
     var secondaryPos = secondary ? formation.pos[secondary.id] : null;
     var betweens = Array.isArray(formation.betweens) ? formation.betweens : [];
+    // Zwischenpositionen only shape the couple's own dot; a Follow split here or in the next Bild
+    // walks straight (see interpolateThroughBetweens), so the Follow's sheet leaves them out.
+    if(role === 'follow' && (split || isCoupleSplitIn(state.formations[formationIdx+1], primary.id))) betweens = [];
     var betweenPositions = betweens.map(function(b){ return b.pos[primary.id]; });
 
-    card.appendChild(buildStepDiagram(primaryPos, secondaryPos, betweenPositions));
+    card.appendChild(buildStepDiagram(primaryPos, secondaryPos, betweenPositions, rolePos, ownIsFollow));
 
     var info = document.createElement('div');
     info.className = 'step-info';
@@ -182,6 +208,15 @@
       line.textContent = 'grau x ' + fmtSigned(bp.x) + ' y ' + fmtSigned(bp.y) + ' · ' + (b.name ? b.name : ('Zwischenposition ' + (i+1)));
       info.appendChild(line);
     });
+
+    if(role){
+      var roleLine = document.createElement('p');
+      roleLine.className = 'step-secondary';
+      roleLine.textContent = rolePos
+        ? (ownIsFollow ? 'Lead' : 'Follow') + ': x ' + fmtSigned(rolePos.x) + ' y ' + fmtSigned(rolePos.y)
+        : 'Lead & Follow zusammen';
+      info.appendChild(roleLine);
+    }
 
     if(secondary && secondaryPos){
       var sec = document.createElement('p');
@@ -218,12 +253,11 @@
       var b = state.dancers.find(function(d){ return d.id === pair.memberIds[1]; });
       if(!a || !b) return;
       pairedIds[a.id] = true; pairedIds[b.id] = true;
-      sheets.push({primary: a, secondary: b});
-      sheets.push({primary: b, secondary: a});
+      sheets.push.apply(sheets, sheetsForDancer(a, b).concat(sheetsForDancer(b, a)));
     });
     state.dancers.forEach(function(d){
       if(pairedIds[d.id]) return;
-      sheets.push({primary: d, secondary: null});
+      sheets.push.apply(sheets, sheetsForDancer(d, null));
     });
     return sheets;
   }
@@ -234,6 +268,7 @@
       var title = document.createElement('h2');
       title.className = 'step-sheet-title';
       title.textContent = (state.projectName || 'Aufstellung') + ' — ' + sheet.primary.name +
+        (sheet.role ? ' (' + ROLE_LABELS[sheet.role] + ')' : '') +
         (sheet.secondary ? ' (Partner: ' + sheet.secondary.name + ')' : '');
       stepsPrintArea.appendChild(title);
       var lastCategory = null;
@@ -243,7 +278,7 @@
           stepsPrintArea.appendChild(buildStepSectionHeader(cat));
           lastCategory = cat;
         }
-        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary));
+        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.role));
       });
     });
   }
@@ -271,8 +306,7 @@
   stepsPdfBtn.addEventListener('click', function(){
     var sheets = getStepsSheets();
     if(!sheets.length || !state.formations.length) return;
-    var who = sheets.length === 2 ? (sheets[0].primary.name + ' & ' + sheets[1].primary.name) : sheets[0].primary.name;
-    printStepsSheets(sheets, who);
+    printStepsSheets(sheets, sheetsLabel(sheets));
   });
 
   if(stepsAllPdfBtn){

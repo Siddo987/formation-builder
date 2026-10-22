@@ -232,6 +232,10 @@
   .step-dot{position:absolute; width:18px; height:18px; border-radius:50%; transform:translate(-50%,-50%);}
   .step-dot-primary{background:#d99a34; border:2px solid #fff; box-shadow:0 0 0 1px #d99a34;}
   .step-dot-secondary{background:#fff; border:2px solid #bbb;}
+  /* Paar in diesem Bild in Lead & Follow geteilt: beide Punkte kleiner, Follow gestrichelt */
+  .step-dot-split{width:14px; height:14px;}
+  .step-dot-role{background:#fff; border:2px solid #d99a34;}
+  .step-dot-follow{border-style:dashed;}
   /* Zwischenpositionen (see interpolateThroughBetweens in state.js) — a numbered gray dot per pose,
      matching the source choreography PDF's own "heller Ring = graue Zusatzposition" convention but
      numbered, since there can be more than one on the way to the next Bild. */
