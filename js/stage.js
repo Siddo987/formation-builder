@@ -911,11 +911,28 @@
     ensureMarkers();
     updatePairRotateUI();
   });
-  pairRotateClearBtn.addEventListener('click', function(){
+  function clearSelection(){
     pairSelection = [];
+    selectedDancerId = null;
     ensureMarkers();
     updatePairRotateUI();
-  });
+  }
+  pairRotateClearBtn.addEventListener('click', clearSelection);
+  // Esc hebt die Auswahl auf – aber nur, wenn kein Dialog/Menü offen ist (die schließen dann
+  // zuerst) und nicht gerade in ein Feld getippt wird. Capture-Phase, damit der Zustand vor den
+  // Schließen-Handlern geprüft wird, sonst würde ein Esc Dialog und Auswahl zugleich wegnehmen.
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'Escape') return;
+    if(!pairSelection.length && selectedDancerId == null) return;
+    if(document.querySelector('.modal-backdrop:not([hidden])')) return;
+    if(document.body.classList.contains('menu-open')) return;
+    var em = document.getElementById('exportMenu');
+    if(em && !em.hidden) return;
+    var ae = document.activeElement;
+    if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
+    if(ae && ae.classList && ae.classList.contains('dancer')) ae.blur();
+    clearSelection();
+  }, true);
 
   function setDancerPos(dancerId, x, y, skipRosterUpdate){
     x = clampGrid(x); y = clampGrid(y);
