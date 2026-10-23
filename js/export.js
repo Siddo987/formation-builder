@@ -125,7 +125,7 @@
           });
           return {id: b.id, name: b.name || '', pos: bpos};
         });
-        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100, startPos: startPos, betweens: betweens, betweenPath: sanitizeBetweenPath(f.betweenPath), splitPairs: sanitizeSplitPairs(f.splitPairs)};
+        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100, startPos: startPos, betweens: betweens, betweenPath: sanitizeBetweenPath(f.betweenPath), speedCurve: sanitizeSpeedCurve(f.speedCurve), splitPairs: sanitizeSplitPairs(f.splitPairs)};
       }),
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
@@ -212,7 +212,7 @@
         startPos = {};
         Object.keys(pos).forEach(function(id){ startPos[id] = {x: pos[id].x, y: pos[id].y}; });
       }
-      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, header.dancers), betweenPath: sanitizeBetweenPath(f.betweenPath), splitPairs: sanitizeSplitPairs(f.splitPairs)};
+      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, header.dancers), betweenPath: sanitizeBetweenPath(f.betweenPath), speedCurve: sanitizeSpeedCurve(f.speedCurve), splitPairs: sanitizeSplitPairs(f.splitPairs)};
       if(typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) out.time = f.time;
       return out;
     });
@@ -1043,7 +1043,7 @@
         // seg.to across the *whole* segment, independent of however many Zwischenpositionen-legs
         // posMap above just chained through, so the panel scrolls smoothly through exactly one Bild
         // per move regardless of how it's spatially subdivided.
-        segCursor = seg.from + easeMove(t);
+        segCursor = seg.from + moveEase(seg.from, seg.to, t);
       }
       renderCanvasFrame(ctx, W, H, posMap, logoImg, focusIds, ghostsFor(seg), segCursor);
       // In manual-capture mode (see runVideoRecording), the stream never emits a frame on its own —

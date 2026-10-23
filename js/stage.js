@@ -938,7 +938,7 @@
     updatePairRotateUI();
   }
   pairRotateClearBtn.addEventListener('click', clearSelection);
-  // Esc hebt die Auswahl auf – aber nur, wenn kein Dialog/Menü offen ist (die schließen dann
+  // Esc hebt die Auswahl auf – aber nur, wenn kein Dialog/Menü/Popover offen ist (die schließen dann
   // zuerst) und nicht gerade in ein Feld getippt wird. Capture-Phase, damit der Zustand vor den
   // Schließen-Handlern geprüft wird, sonst würde ein Esc Dialog und Auswahl zugleich wegnehmen.
   document.addEventListener('keydown', function(e){
@@ -948,6 +948,7 @@
     if(document.body.classList.contains('menu-open')) return;
     var em = document.getElementById('exportMenu');
     if(em && !em.hidden) return;
+    if(document.querySelector('.speed-curve-popover')) return;
     var ae = document.activeElement;
     if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
     if(ae && ae.classList && ae.classList.contains('dancer')) ae.blur();

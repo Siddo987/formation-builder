@@ -49,6 +49,17 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // flowing curve through all of them (see smoothLeg below). Unknown/missing means 'corner', which is
   // how every move played before the setting existed.
   function sanitizeBetweenPath(v){ return v === 'smooth' ? 'smooth' : 'corner'; }
+  // Geschwindigkeitsverlauf (a per-Bild setting for the move *out of* this Bild, like betweens):
+  // SPEED_SAMPLES relative speeds at evenly spaced points from start to finish of the move, drawn in
+  // the graph popover (see formations.js). Only the shape counts — speedEase normalizes it, so the
+  // same curve fits any distance and any move duration. null = the standard easeMove profile.
+  var SPEED_SAMPLES = 5;
+  function sanitizeSpeedCurve(v){
+    if(!Array.isArray(v) || v.length !== SPEED_SAMPLES) return null;
+    var out = v.map(function(x){ return typeof x === 'number' && isFinite(x) ? Math.round(Math.max(0, Math.min(1, x))*100)/100 : NaN; });
+    if(out.some(isNaN) || Math.max.apply(null, out) < 0.01) return null;
+    return out;
+  }
   // A move between two Bilder normally interpolates in one straight leg (fromPos -> toPos). If the
   // *from* Bild has Zwischenpositionen — poses along the way that don't get their own Bild/filmstrip
   // card, added via the "+" between filmstrip cards (see formations.js) — the same move instead
@@ -66,7 +77,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     var mids = (toIdx === fromIdx + 1 && Array.isArray(fromF.betweens)) ? fromF.betweens.map(function(b){ return b.pos; }) : [];
     var waypoints = [fromF.pos].concat(mids, [toF.pos]);
     var legCount = waypoints.length - 1;
-    var eAll = easeMove(overallT >= 1 ? 1 : Math.max(0, overallT));
+    var eAll = moveEase(fromIdx, toIdx, overallT >= 1 ? 1 : Math.max(0, overallT));
     var scaled = Math.min(legCount - 1e-9, eAll * legCount);
     var legIdx = Math.min(legCount - 1, Math.floor(scaled));
     var e = overallT >= 1 ? 1 : (scaled - legIdx);
@@ -167,6 +178,31 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // Nearly constant speed: mostly linear, with just enough smoothstep mixed in that a move doesn't
   // start or end with a jolt (speed 0.8 at the ends, 1.1 in the middle — not the 0→3→0 of a cubic).
   function easeMove(t){ return 0.8*t + 0.2*t*t*(3 - 2*t); }
+  // easeMove's speed (0.8 + 1.2t(1-t)) at the SPEED_SAMPLES points, scaled to a peak of 1 — what
+  // the graph shows while a Bild still uses the standard profile.
+  var STANDARD_SPEED_CURVE = [0.73, 0.93, 1, 0.93, 0.73];
+  // Progress (0..1) after time fraction t for a drawn speed curve: the speed runs piecewise linearly
+  // between the samples, progress is its integral up to t divided by the whole integral — so the
+  // move still ends exactly on time and on the spot, however high or low the curve was drawn.
+  function speedEase(curve, t){
+    if(!curve) return easeMove(t);
+    if(t <= 0) return 0;
+    if(t >= 1) return 1;
+    var n = curve.length - 1, total = 0, done = 0;
+    for(var i = 0; i < n; i++){
+      var v0 = curve[i], v1 = curve[i+1], area = (v0 + v1) / 2, lo = i / n, hi = (i + 1) / n;
+      if(t >= hi) done += area;
+      else if(t > lo){ var u = (t - lo) * n; done += v0*u + (v1 - v0)*u*u/2; }
+      total += area;
+    }
+    return total > 0 ? done / total : t;
+  }
+  // The from-Bild's curve applies to the move into the very next Bild only — same rule as its
+  // betweens, since sync playback may interpolate across Bilder without a time marker of their own.
+  function moveEase(fromIdx, toIdx, t){
+    var f = state.formations[fromIdx];
+    return speedEase(toIdx === fromIdx + 1 && f ? sanitizeSpeedCurve(f.speedCurve) : null, t);
+  }
   function paletteColor(i){
     if(i < PALETTE.length) return PALETTE[i];
     var hue = (i*137.508) % 360;
@@ -207,7 +243,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     'chevron-right': '<path d="m9 18 6-6-6-6"/>',
     'chevron-down': '<path d="m6 9 6 6 6-6"/>',
     'path-corner': '<path d="M3 17 9 7l6 10 6-10"/>',
-    'path-smooth': '<path d="M3 17C5 10 7 7 9 7s4 10 6 10 4-3 6-10"/>'
+    'path-smooth': '<path d="M3 17C5 10 7 7 9 7s4 10 6 10 4-3 6-10"/>',
+    speed: '<path d="M3 20h18"/><path d="M3 16c4 0 5-10 9-10s5 10 9 10"/>'
   };
   function svgIcon(name, size, strokeWidth){
     var svg = document.createElementNS(SVG_NS, 'svg');
@@ -360,6 +397,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         // migration: older saves predate Zwischenpositionen entirely — see interpolateThroughBetweens()
         f.betweens = sanitizeBetweens(f.betweens, parsed.dancers);
         f.betweenPath = sanitizeBetweenPath(f.betweenPath);
+        // migration: older saves predate Geschwindigkeitsverläufe — see speedEase()
+        f.speedCurve = sanitizeSpeedCurve(f.speedCurve);
         // migration: older saves predate temporarily split pairs ("Paar lösen") entirely
         f.splitPairs = sanitizeSplitPairs(f.splitPairs);
       });

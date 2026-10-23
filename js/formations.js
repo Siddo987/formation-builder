@@ -292,7 +292,7 @@
 
   function buildBetweenConnector(f, idx){
     var wrap = document.createElement('div');
-    wrap.className = 'film-connector';
+    wrap.className = 'film-connector' + (sanitizeSpeedCurve(f.speedCurve) ? ' speed-set' : '');
     var next = state.formations[idx + 1];
 
     var chips = document.createElement('div');
@@ -332,7 +332,230 @@
     wrap.appendChild(chips);
     if((f.betweens || []).length) wrap.appendChild(buildBetweenPathToggle(f, next));
     wrap.appendChild(addBtn);
+    wrap.appendChild(buildSpeedCurveButton(f, next));
     return wrap;
+  }
+
+  // Opens the Geschwindigkeitsverlauf graph for the move out of this Bild (see speedEase in
+  // state.js). Like the "+", it only shows on hover while the move uses the standard profile;
+  // once a curve is drawn it stays visible, highlighted, so the gap shows that it's not standard.
+  function buildSpeedCurveButton(f, next){
+    var custom = !!sanitizeSpeedCurve(f.speedCurve);
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'film-between-speed' + (custom ? ' custom' : '');
+    btn.dataset.fid = f.id;
+    btn.setAttribute('aria-label', 'Geschwindigkeitsverlauf');
+    btn.setAttribute('aria-haspopup', 'dialog');
+    btn.appendChild(svgIcon('speed', 14));
+    btn.title = 'Geschwindigkeitsverlauf auf dem Weg zu „' + (next ? next.name : '?') + '“ — '
+      + (custom ? 'eigener Verlauf' : 'Standard') + ' (klicken zum Bearbeiten)';
+    btn.addEventListener('click', function(){
+      if(speedPopover && speedPopover.fid === f.id){ closeSpeedCurvePopover(); return; }
+      openSpeedCurvePopover(btn, f.id);
+    });
+    return btn;
+  }
+
+  /* ---------- Geschwindigkeitsverlauf: speed over the course of one move, drawn as a graph ----------
+     SPEED_SAMPLES handles from Start to Ziel; dragging sets the one nearest the pointer to its height
+     (and fills any skipped in between, so a sweep draws the whole curve). Edits go straight into the
+     Bild — looked up by id each time, so an undo while the popover is open can't strand it on a
+     stale object — and are saved once the pointer is released. */
+  var SPEED_PRESETS = [
+    {label: 'Standard', curve: null},
+    {label: 'Gleichmäßig', curve: [1, 1, 1, 1, 1]},
+    {label: 'Sanft', curve: [0.1, 0.7, 1, 0.7, 0.1]},
+    {label: 'Beschleunigen', curve: [0.1, 0.35, 0.6, 0.85, 1]},
+    {label: 'Abbremsen', curve: [1, 0.85, 0.6, 0.35, 0.1]}
+  ];
+  var speedPopover = null;
+  function closeSpeedCurvePopover(){
+    if(!speedPopover) return;
+    document.removeEventListener('pointerdown', speedPopover.onOutside, true);
+    document.removeEventListener('keydown', speedPopover.onKey);
+    speedPopover.el.remove();
+    speedPopover = null;
+  }
+  function openSpeedCurvePopover(anchorEl, fid){
+    closeSpeedCurvePopover();
+    function bild(){ return state.formations.find(function(ff){ return ff.id === fid; }); }
+    function nextBild(){ var i = state.formations.indexOf(bild()); return i >= 0 ? state.formations[i + 1] : null; }
+    if(!bild() || !nextBild()) return;
+
+    var W = 240, H = 120, PAD = 8, n = SPEED_SAMPLES;
+    var pop = document.createElement('div');
+    pop.className = 'speed-curve-popover';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', 'Geschwindigkeitsverlauf');
+
+    var head = document.createElement('div');
+    head.className = 'speed-curve-head';
+    var title = document.createElement('div');
+    title.className = 'speed-curve-title';
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'speed-curve-close';
+    closeBtn.setAttribute('aria-label', 'Schließen');
+    closeBtn.appendChild(svgIcon('x', 12));
+    closeBtn.addEventListener('click', closeSpeedCurvePopover);
+    head.appendChild(title);
+    head.appendChild(closeBtn);
+
+    var plot = document.createElement('div');
+    plot.className = 'speed-curve-plot';
+    var yLab = document.createElement('div');
+    yLab.className = 'speed-curve-ylab';
+    yLab.innerHTML = '<span>schnell</span><span>langsam</span>';
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'speed-curve-graph');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('tabindex', '0');
+    svg.setAttribute('aria-label', 'Geschwindigkeitsverlauf — Pfeiltasten links/rechts wählen einen Punkt, hoch/runter ändern das Tempo');
+    function svgEl(tag, cls){ var el = document.createElementNS(SVG_NS, tag); if(cls) el.setAttribute('class', cls); svg.appendChild(el); return el; }
+    for(var g = 1; g < n - 1; g++){
+      var gl = svgEl('line', 'speed-curve-grid');
+      gl.setAttribute('x1', px(g)); gl.setAttribute('x2', px(g)); gl.setAttribute('y1', PAD); gl.setAttribute('y2', H - PAD);
+    }
+    var area = svgEl('path', 'speed-curve-area');
+    var line = svgEl('path', 'speed-curve-line');
+    var dots = [];
+    for(var d = 0; d < n; d++) dots.push(svgEl('circle', 'speed-curve-dot'));
+    plot.appendChild(yLab);
+    plot.appendChild(svg);
+    var xLab = document.createElement('div');
+    xLab.className = 'speed-curve-xlab';
+    xLab.innerHTML = '<span>Start</span><span>Ziel</span>';
+
+    var presets = document.createElement('div');
+    presets.className = 'speed-curve-presets';
+    var presetBtns = SPEED_PRESETS.map(function(pr){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'speed-curve-preset';
+      b.textContent = pr.label;
+      b.addEventListener('click', function(){ commit(pr.curve ? pr.curve.slice() : null); });
+      presets.appendChild(b);
+      return b;
+    });
+
+    var hint = document.createElement('p');
+    hint.className = 'speed-curve-hint';
+    hint.textContent = 'Die Form zählt, nicht die Höhe – die Kurve wird auf Strecke und Dauer der Bewegung skaliert.';
+
+    pop.appendChild(head);
+    pop.appendChild(plot);
+    pop.appendChild(xLab);
+    pop.appendChild(presets);
+    pop.appendChild(hint);
+    document.body.appendChild(pop);
+
+    function px(i){ return PAD + (W - 2*PAD) * i / (n - 1); }
+    function py(v){ return H - PAD - (H - 2*PAD) * v; }
+    var focusIdx = 0;
+    function shown(){ return sanitizeSpeedCurve(bild() && bild().speedCurve) || STANDARD_SPEED_CURVE; }
+    function redraw(){
+      var f = bild(), nx = nextBild();
+      if(!f || !nx){ closeSpeedCurvePopover(); return; }
+      var custom = !!sanitizeSpeedCurve(f.speedCurve), c = shown();
+      title.textContent = '„' + f.name + '“ → „' + nx.name + '“';
+      pop.classList.toggle('custom', custom);
+      var pts = c.map(function(v, i){ return px(i).toFixed(1) + ',' + py(v).toFixed(1); });
+      line.setAttribute('d', 'M' + pts.join('L'));
+      area.setAttribute('d', 'M' + px(0) + ',' + py(0) + 'L' + pts.join('L') + 'L' + px(n - 1) + ',' + py(0) + 'Z');
+      dots.forEach(function(dot, i){
+        dot.setAttribute('cx', px(i)); dot.setAttribute('cy', py(c[i])); dot.setAttribute('r', i === focusIdx && svg === document.activeElement ? 6 : 4.5);
+        dot.classList.toggle('focus', i === focusIdx && svg === document.activeElement);
+      });
+      presetBtns.forEach(function(b, i){
+        var pc = SPEED_PRESETS[i].curve;
+        b.classList.toggle('active', custom ? !!pc && pc.every(function(v, k){ return Math.abs(v - c[k]) < 0.005; }) : !pc);
+      });
+    }
+    // Live edits only touch the Bild; the save (history snapshot, persistence) and the filmstrip
+    // refresh happen once per gesture, in commit().
+    function setCurve(c){
+      var f = bild();
+      if(!f) return;
+      if(c && Math.max.apply(null, c) < 0.05) c[focusIdx] = 0.05;
+      f.speedCurve = sanitizeSpeedCurve(c);
+      redraw();
+    }
+    function commit(c){
+      if(arguments.length) setCurve(c);
+      saveState();
+      renderFilmstrip();
+    }
+
+    var dragging = false, lastIdx = null;
+    function applyPointer(e){
+      var r = svg.getBoundingClientRect();
+      var fx = ((e.clientX - r.left) / r.width * W - PAD) / (W - 2*PAD);
+      var fy = ((e.clientY - r.top) / r.height * H - PAD) / (H - 2*PAD);
+      var i = Math.max(0, Math.min(n - 1, Math.round(fx * (n - 1))));
+      var v = Math.max(0, Math.min(1, 1 - fy));
+      var c = shown().slice();
+      if(lastIdx !== null && Math.abs(i - lastIdx) > 1){
+        var step = i > lastIdx ? 1 : -1, v0 = c[lastIdx];
+        for(var k = lastIdx + step; k !== i; k += step) c[k] = v0 + (v - v0) * (k - lastIdx) / (i - lastIdx);
+      }
+      c[i] = v;
+      focusIdx = lastIdx = i;
+      setCurve(c);
+    }
+    svg.addEventListener('pointerdown', function(e){
+      e.preventDefault();
+      svg.focus();
+      dragging = true; lastIdx = null;
+      svg.setPointerCapture(e.pointerId);
+      applyPointer(e);
+    });
+    svg.addEventListener('pointermove', function(e){ if(dragging) applyPointer(e); });
+    function endDrag(){ if(!dragging) return; dragging = false; commit(); }
+    svg.addEventListener('pointerup', endDrag);
+    svg.addEventListener('pointercancel', endDrag);
+    svg.addEventListener('focus', redraw);
+    svg.addEventListener('blur', redraw);
+    svg.addEventListener('keydown', function(e){
+      if(e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+        e.preventDefault();
+        focusIdx = Math.max(0, Math.min(n - 1, focusIdx + (e.key === 'ArrowLeft' ? -1 : 1)));
+        redraw();
+      }else if(e.key === 'ArrowUp' || e.key === 'ArrowDown'){
+        e.preventDefault();
+        var c = shown().slice(), delta = (e.shiftKey ? 0.2 : 0.05) * (e.key === 'ArrowUp' ? 1 : -1);
+        c[focusIdx] = Math.max(0, Math.min(1, Math.round((c[focusIdx] + delta) * 100) / 100));
+        commit(c);
+      }
+    });
+
+    // Right of the button if the filmstrip column leaves room (desktop), otherwise above it (the
+    // phone's horizontal filmstrip sits at the bottom) — clamped into the viewport either way.
+    var rect = anchorEl.getBoundingClientRect(), popRect = pop.getBoundingClientRect();
+    var left, top;
+    if(rect.right + 12 + popRect.width <= window.innerWidth - 8){
+      left = rect.right + 12;
+      top = rect.top + rect.height / 2 - popRect.height / 2;
+    }else{
+      left = rect.left + rect.width / 2 - popRect.width / 2;
+      top = rect.top - popRect.height - 12;
+    }
+    pop.style.left = Math.max(8, Math.min(left, window.innerWidth - popRect.width - 8)) + 'px';
+    pop.style.top = Math.max(8, Math.min(top, window.innerHeight - popRect.height - 8)) + 'px';
+
+    speedPopover = {
+      el: pop, fid: fid,
+      onOutside: function(e){
+        if(pop.contains(e.target)) return;
+        var b = e.target.closest && e.target.closest('.film-between-speed');
+        if(b && b.dataset.fid === fid) return; // its own click handler toggles it closed
+        closeSpeedCurvePopover();
+      },
+      onKey: function(e){ if(e.key === 'Escape') closeSpeedCurvePopover(); }
+    };
+    document.addEventListener('pointerdown', speedPopover.onOutside, true);
+    document.addEventListener('keydown', speedPopover.onKey);
+    redraw();
   }
 
   // Eckig ↔ abgerundet: whether the move runs in straight legs through its Zwischenpositionen or
