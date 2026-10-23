@@ -292,8 +292,9 @@
 
   function buildBetweenConnector(f, idx){
     var wrap = document.createElement('div');
-    wrap.className = 'film-connector' + (sanitizeSpeedCurve(f.speedCurve) ? ' speed-set' : '');
     var next = state.formations[idx + 1];
+    var turns = next ? sanitizeCoupleTurns(f.coupleTurns) : null;
+    wrap.className = 'film-connector' + (sanitizeSpeedCurve(f.speedCurve) ? ' speed-set' : '') + (turns ? ' turn-set' : '');
 
     var chips = document.createElement('div');
     chips.className = 'film-between-chips';
@@ -333,7 +334,19 @@
     if((f.betweens || []).length) wrap.appendChild(buildBetweenPathToggle(f, next));
     wrap.appendChild(addBtn);
     wrap.appendChild(buildSpeedCurveButton(f, next));
+    if(turns) wrap.appendChild(buildCoupleTurnBadge(turns, next));
     return wrap;
+  }
+
+  // Marks a move with a set Drehung im Paar (set in the selection bar under the stage).
+  function buildCoupleTurnBadge(turns, next){
+    var badge = document.createElement('span');
+    badge.className = 'film-between-turn';
+    badge.appendChild(svgIcon('turn', 12));
+    badge.title = 'Drehung im Paar auf dem Weg zu „' + next.name + '“: ' + Object.keys(turns).map(function(k){
+      return markerDisplayName(k) + ' ' + roundNum(turns[k]) + '°';
+    }).join(', ');
+    return badge;
   }
 
   // Opens the Geschwindigkeitsverlauf graph for the move out of this Bild (see speedEase in

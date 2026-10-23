@@ -550,6 +550,16 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
 .pair-rotate .btn-icon:hover{background:var(--panel-3);color:var(--ink);}
 .pair-rotate-hint{display:none;}
 .pair-rotate.single .pair-rotate-turn{display:none;}
+/* Drehung im Paar bis zum nächsten Bild */
+.pair-turn{
+  display:flex;align-items:center;gap:3px;flex:none;
+  padding-left:.4rem;margin-left:.05rem;border-left:1px solid var(--line);
+}
+.pair-turn-label{
+  font-size:.72rem;color:var(--ink-2);white-space:nowrap;
+  max-width:11rem;overflow:hidden;text-overflow:ellipsis;padding-right:.15rem;
+}
+.pair-turn-ico{display:none;flex:none;color:var(--pair);margin-right:.1rem;}
 .stage-area .pair-split-btn,.pair-split-btn{color:var(--split);border-color:color-mix(in srgb,var(--split) 45%,transparent);}
 .stage-area .pair-split-btn:hover{background:var(--split-wash);border-color:var(--split);}
 .stage-area .pair-split-btn.active{background:var(--split);border-color:var(--split);color:#fff;}
@@ -822,14 +832,14 @@ body.roster-open .roster{display:flex;}
   display:flex;flex-direction:row;justify-content:flex-start;align-items:center;gap:.25rem;
   padding:0 0 0 calc(var(--cp) + 1px + var(--pv) / 2 - 10px);
 }
-.film-connector:has(.film-between-chip),.film-connector.speed-set{padding-top:var(--cg);padding-bottom:var(--cg);}
+.film-connector:has(.film-between-chip),.film-connector.speed-set,.film-connector.turn-set{padding-top:var(--cg);padding-bottom:var(--cg);}
 /* Ohne Zwischenpositionen und eigenen Verlauf: schmale Lücke, „+“ und Tempo schweben beim Überfahren mittig darüber */
-.film-connector:not(:has(.film-between-chip)):not(.speed-set) .film-between-add,
-.film-connector:not(:has(.film-between-chip)):not(.speed-set) .film-between-speed{
+.film-connector:not(:has(.film-between-chip)):not(.speed-set):not(.turn-set) .film-between-add,
+.film-connector:not(:has(.film-between-chip)):not(.speed-set):not(.turn-set) .film-between-speed{
   position:absolute;top:50%;left:calc(var(--cp) + 1px + var(--pv) / 2 - 10px);z-index:3;
   transform:translateY(-50%);background:var(--panel);
 }
-.film-connector:not(:has(.film-between-chip)):not(.speed-set) .film-between-speed{left:calc(var(--cp) + 1px + var(--pv) / 2 + 14px);}
+.film-connector:not(:has(.film-between-chip)):not(.speed-set):not(.turn-set) .film-between-speed{left:calc(var(--cp) + 1px + var(--pv) / 2 + 14px);}
 .film-between-chips:empty{display:none;}
 .film-between-chips{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:.2rem;}
 .film-between-chip-wrap{position:relative;}
@@ -881,6 +891,12 @@ body.roster-open .roster{display:flex;}
 .film-connector:hover .film-between-speed,.film-between-speed:focus-visible,.film-between-speed.custom{opacity:1;}
 .film-between-speed:hover{border-color:var(--pair);color:var(--pair);}
 .film-between-speed.custom{border-style:solid;border-color:var(--pair);color:var(--pair);background:var(--pair-wash);}
+/* Markiert eine eingestellte Drehung im Paar (gesetzt in der Auswahlzeile unter der Bühne) */
+.film-between-turn{
+  width:20px;height:20px;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--pair);border-radius:5px;background:var(--pair-wash);color:var(--pair);
+}
 .between-rename-popover{
   position:fixed;transform:translateX(-50%);z-index:50;
   background:var(--panel);border:1px solid var(--pair);border-radius:8px;padding:.3rem;
@@ -1095,6 +1111,9 @@ body.roster-open .roster{display:flex;}
   .pair-rotate-input{height:30px;width:5rem;}
   .stage-area .pair-rotate .btn-ghost{height:30px;}
   .pair-rotate .btn-icon{width:30px;height:30px;}
+  /* Handy: Symbol statt „Drehung bis …“, damit die Leiste nicht so weit scrollt */
+  .pair-turn-label{display:none;}
+  .pair-turn-ico{display:block;}
 
   /* Bilder: waagerechter Streifen, Karten hochkant */
   .panel-head{height:32px;border-bottom:none;padding:0 .75rem;}
@@ -1116,7 +1135,7 @@ body.roster-open .roster{display:flex;}
   }
   .film-between-chips{flex-direction:column;flex-wrap:nowrap;}
   .film-connector .film-between-add,.film-connector .film-between-speed{position:static !important;transform:none !important;}
-  .film-connector:has(.film-between-chip),.film-connector.speed-set{padding:0;}
+  .film-connector:has(.film-between-chip),.film-connector.speed-set,.film-connector.turn-set{padding:0;}
   .film-add-wrap{width:64px;height:auto;align-self:stretch;margin:0 0 0 .3rem;}
 
   /* Abspielleiste */
@@ -1163,8 +1182,8 @@ body.roster-open .roster{display:flex;}
   .film-remove{opacity:0;pointer-events:none;}
   .film-card.active .film-remove{opacity:.85;pointer-events:auto;}
   .film-between-add,.film-between-speed{opacity:1;}
-  .film-connector:not(:has(.film-between-chip)):not(.speed-set) .film-between-add,
-  .film-connector:not(:has(.film-between-chip)):not(.speed-set) .film-between-speed{position:static;transform:none;}
+  .film-connector:not(:has(.film-between-chip)):not(.speed-set):not(.turn-set) .film-between-add,
+  .film-connector:not(:has(.film-between-chip)):not(.speed-set):not(.turn-set) .film-between-speed{position:static;transform:none;}
   .split-btn{opacity:1;}
   .dancer::after{content:"";position:absolute;inset:-9px;border-radius:50%;}
   .btn-icon{width:40px;height:40px;}

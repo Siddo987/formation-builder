@@ -225,6 +225,16 @@
       info.appendChild(pathLine);
     }
 
+    // A set Drehung im Paar (see setCoupleTurn in js/stage.js) is keyed by the couple's Lead.
+    var turns = state.formations[formationIdx+1] ? sanitizeCoupleTurns(formation.coupleTurns) : null;
+    var turn = turns ? (typeof turns[primary.id] === 'number' ? turns[primary.id] : (secondary ? turns[secondary.id] : undefined)) : undefined;
+    if(typeof turn === 'number'){
+      var turnLine = document.createElement('p');
+      turnLine.className = 'step-between-line';
+      turnLine.textContent = 'Drehung im Paar bis \u201e' + state.formations[formationIdx+1].name + '\u201c: ' + roundNum(Math.abs(turn)) + '\u00b0 ' + (turn > 0 ? 'im Uhrzeigersinn' : 'gegen den Uhrzeigersinn');
+      info.appendChild(turnLine);
+    }
+
     if(role){
       var roleLine = document.createElement('p');
       roleLine.className = 'step-secondary';

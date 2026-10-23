@@ -386,10 +386,17 @@
   function removeDancer(id){
     state.dancers = state.dancers.filter(function(d){ return d.id !== id; });
     state.formations.forEach(function(f){ delete f.pos[id]; delete f.pos[followKey(id)]; });
-    var gonePairIds = state.pairs.filter(function(p){ return p.memberIds.indexOf(id) !== -1; }).map(function(p){ return p.id; });
+    var gonePairs = state.pairs.filter(function(p){ return p.memberIds.indexOf(id) !== -1; });
+    var gonePairIds = gonePairs.map(function(p){ return p.id; });
+    // Drehungen im Paar are keyed by the Lead: the dancer's own couple and any pair it was part of
+    var goneTurnKeys = [id].concat(gonePairs.map(function(p){ return p.memberIds[0]; }));
     state.pairs = state.pairs.filter(function(p){ return p.memberIds.indexOf(id) === -1; });
     state.formations.forEach(function(f){
       if(Array.isArray(f.splitPairs)) f.splitPairs = f.splitPairs.filter(function(pid){ return gonePairIds.indexOf(pid) === -1; });
+      if(f.coupleTurns){
+        goneTurnKeys.forEach(function(k){ delete f.coupleTurns[k]; });
+        f.coupleTurns = sanitizeCoupleTurns(f.coupleTurns);
+      }
     });
     if(selectedDancerId === id) selectedDancerId = null;
     var pairIdx = pairSelection.indexOf(id);

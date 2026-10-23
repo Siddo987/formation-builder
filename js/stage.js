@@ -742,6 +742,7 @@
 
   function updatePairRotateUI(){
     updatePairMidpointMarker(currentFormation().pos);
+    updatePairTurnUI();
     // "Paar lösen/koppeln" is offered for exactly one saved pair, or one partner of a split pair.
     var splitPair = null;
     if(pairSelection.length === 2) splitPair = findPairByMembers(pairSelection);
@@ -919,6 +920,96 @@
   pairRotateAngleInput.addEventListener('keydown', function(e){
     if(e.key === 'Enter'){ e.preventDefault(); pairRotateBtn.click(); }
   });
+
+  /* ---------- Drehung im Paar bis zum nächsten Bild ----------
+     Stored on the Bild the move leaves from (coupleTurns, see turnCouple in state.js): on the way
+     to the next Bild, Lead and Follow turn around their shared midpoint by exactly this angle while
+     the midpoint itself walks its path. */
+
+  // The one couple the selection stands for, if it has a partner offset to turn: a split couple
+  // (one or both of its points selected) or a saved pair from an older project.
+  function selectedCouple(){
+    if(editingBetween || state.shareReadOnly) return null;
+    var cur = state.formations[state.activeIndex], next = state.formations[state.activeIndex + 1];
+    if(!cur || !next || !pairSelection.length || pairSelection.length > 2) return null;
+    var lk = null, fk = null;
+    var base = baseDancerId(pairSelection[0]);
+    if(pairSelection.every(function(id){ return baseDancerId(id) === base; })){
+      if(canCoupleSplit(base) && isCoupleSplitIn(cur, base)){ lk = base; fk = followKey(base); }
+    }else{
+      var pair = findPairByMembers(pairSelection);
+      if(pair && !isPairSplitHere(pair) && !pair.memberIds.some(function(id){ return cur.pos[followKey(id)] || next.pos[followKey(id)]; })){
+        lk = pair.memberIds[0]; fk = pair.memberIds[1];
+      }
+    }
+    if(!lk || !cur.pos[lk] || !cur.pos[fk] || !next.pos[lk]) return null;
+    if(fk !== followKey(lk) && !next.pos[fk]) return null;
+    return {lk: lk, fk: fk, cur: cur, next: next};
+  }
+
+  function coupleTurnOf(c){
+    var turns = sanitizeCoupleTurns(c.cur.coupleTurns);
+    return turns && typeof turns[c.lk] === 'number' ? turns[c.lk] : null;
+  }
+
+  function updatePairTurnUI(){
+    var c = selectedCouple();
+    pairTurnEl.hidden = !c;
+    if(!c) return;
+    pairTurnLabelEl.textContent = 'Drehung bis „' + c.next.name + '“';
+    var turn = coupleTurnOf(c);
+    if(document.activeElement !== pairTurnInput) pairTurnInput.value = turn === null ? '' : roundNum(turn) + '°';
+    pairTurnClearBtn.hidden = turn === null;
+  }
+
+  // Setting a turn also places the couple in the next Bild: same distance apart, turned by that
+  // angle around the midpoint they arrive at there (the couple's dot, if it isn't split there yet)
+  // — so Lead and Follow don't have to be posed by hand. Facing turns along with them.
+  function setCoupleTurn(turn){
+    var c = selectedCouple();
+    if(!c) return;
+    turn = Math.max(-MAX_COUPLE_TURN, Math.min(MAX_COUPLE_TURN, turn));
+    var la = c.cur.pos[c.lk], fa = c.cur.pos[c.fk];
+    var lb = c.next.pos[c.lk], fb = c.next.pos[c.fk] || lb;
+    var hx = (la.x - fa.x)/2, hy = (la.y - fa.y)/2;
+    var mx = (lb.x + fb.x)/2, my = (lb.y + fb.y)/2;
+    var rad = turn * Math.PI / 180;
+    var cos = Math.cos(rad), sin = Math.sin(rad);
+    var rx = hx*cos - hy*sin, ry = hx*sin + hy*cos;
+    c.next.pos[c.lk] = {x: clampGrid(mx + rx), y: clampGrid(my + ry), rot: normAngle((la.rot||0) + turn)};
+    c.next.pos[c.fk] = {x: clampGrid(mx - rx), y: clampGrid(my - ry), rot: normAngle((fa.rot||0) + turn)};
+    var turns = sanitizeCoupleTurns(c.cur.coupleTurns) || {};
+    turns[c.lk] = turn;
+    c.cur.coupleTurns = sanitizeCoupleTurns(turns);
+    afterCoupleTurnChange();
+  }
+
+  // Back to the short way; the next Bild keeps where the couple stands.
+  function clearCoupleTurn(){
+    var c = selectedCouple();
+    if(!c) return;
+    var turns = sanitizeCoupleTurns(c.cur.coupleTurns) || {};
+    delete turns[c.lk];
+    c.cur.coupleTurns = sanitizeCoupleTurns(turns);
+    afterCoupleTurnChange();
+  }
+
+  function afterCoupleTurnChange(){
+    saveState();
+    renderFilmstrip();
+    renderOnionSkin();
+    updatePairRotateUI();
+  }
+
+  pairTurnBtn.addEventListener('click', function(){
+    var deg = parseAngleInput(pairTurnInput.value);
+    if(deg === null){ pairTurnInput.focus(); return; }
+    setCoupleTurn(deg);
+  });
+  pairTurnInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); pairTurnBtn.click(); }
+  });
+  pairTurnClearBtn.addEventListener('click', clearCoupleTurn);
   pairSplitBtn.addEventListener('click', function(){
     if(pairSplitBtn.dataset.couple){ toggleCoupleSplit(pairSplitBtn.dataset.couple); return; }
     var pairId = pairSplitBtn.dataset.pairId;
@@ -1055,6 +1146,7 @@
   }
 
   function refreshRosterCoords(){
+    updatePairRotateUI(); // the selection bar also depends on the Bild (split here? a next Bild?)
     // Switching Bilder can change which pairs are split — the roster layout depends on that.
     if(splitSignature() !== rosterSplitSignature){ renderRoster(); return; }
     var pos = currentFormation().pos;

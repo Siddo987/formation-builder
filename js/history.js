@@ -58,7 +58,8 @@
         showAxes: f.showAxes !== false,
         splitPairs: sanitizeSplitPairs(f.splitPairs),
         betweenPath: sanitizeBetweenPath(f.betweenPath),
-        speedCurve: sanitizeSpeedCurve(f.speedCurve)
+        speedCurve: sanitizeSpeedCurve(f.speedCurve),
+        coupleTurns: sanitizeCoupleTurns(f.coupleTurns)
       });
       Object.keys(f.pos || {}).forEach(function(did){
         var p = f.pos[did];
@@ -149,7 +150,7 @@
       });
       var startPos = {};
       Object.keys(pos).forEach(function(did){ startPos[did] = {x: pos[did].x, y: pos[did].y}; });
-      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, betweenPath: sanitizeBetweenPath(meta.betweenPath), speedCurve: sanitizeSpeedCurve(meta.speedCurve), splitPairs: sanitizeSplitPairs(meta.splitPairs)};
+      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, betweenPath: sanitizeBetweenPath(meta.betweenPath), speedCurve: sanitizeSpeedCurve(meta.speedCurve), coupleTurns: sanitizeCoupleTurns(meta.coupleTurns), splitPairs: sanitizeSplitPairs(meta.splitPairs)};
       if(typeof meta.time === 'number' && isFinite(meta.time) && meta.time >= 0) out.time = meta.time;
       return out;
     });
@@ -265,6 +266,7 @@
         if(before.showAxes !== after.showAxes) return where + ': Achsen ' + (after.showAxes ? 'ein' : 'aus');
         if(before.betweenPath !== after.betweenPath) return where + ': Weg durch die Zwischenpositionen ' + (after.betweenPath === 'smooth' ? 'abgerundet' : 'eckig');
         if(hStable(before.speedCurve) !== hStable(after.speedCurve)) return where + ': Geschwindigkeitsverlauf ' + (after.speedCurve ? 'geändert' : 'zurückgesetzt');
+        if(hStable(before.coupleTurns) !== hStable(after.coupleTurns)) return where + ': Drehung im Paar ' + (after.coupleTurns ? 'geändert' : 'entfernt');
         return where + ' geändert';
       }
       if(parts[2] === 'pos'){
