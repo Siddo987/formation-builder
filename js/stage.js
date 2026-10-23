@@ -62,6 +62,9 @@
 
   function ensureMarkers(){
     var seen = {};
+    // Only points that exist in this Bild count (a Follow that isn't split off here doesn't).
+    var curPos = currentFormation().pos;
+    var multi = pairSelection.filter(function(id){ return curPos[id]; }).length >= 2;
     state.dancers.forEach(function(d){
       seen[d.id] = true;
       var el = stageMarkers[d.id];
@@ -73,7 +76,7 @@
       fel.querySelector('.label').textContent = d.name + ' · Follow';
       fel.style.background = d.color;
       fel.classList.toggle('selected', selectedDancerId === fk);
-      fel.classList.toggle('pair-selected', pairSelection.length >= 2 && pairSelection.indexOf(fk) !== -1);
+      fel.classList.toggle('pair-selected', multi && pairSelection.indexOf(fk) !== -1);
       el.querySelector('.initials').textContent = initials(d.name);
       el.querySelector('.label').textContent = d.name;
       el.style.background = d.color;
@@ -82,7 +85,7 @@
       // threshold) — a lone dancer sitting in pairSelection (e.g. right after a plain click, which
       // now seeds it with just that dancer so a follow-up Ctrl-click has something to add to)
       // still shows as a normal single selection instead of looking like an already-formed pair.
-      el.classList.toggle('pair-selected', pairSelection.length >= 2 && pairSelection.indexOf(d.id) !== -1);
+      el.classList.toggle('pair-selected', multi && pairSelection.indexOf(d.id) !== -1);
     });
     Object.keys(stageMarkers).forEach(function(id){
       if(!seen[id]){ stageMarkers[id].remove(); delete stageMarkers[id]; }
@@ -154,7 +157,7 @@
       var p = posMap[id];
       if(p){ sx+=p.x; sy+=p.y; n++; }
     });
-    if(!n){ marker.hidden = true; return; }
+    if(n < 2){ marker.hidden = true; return; }
     marker.style.left = gridToPercent(sx/n) + '%';
     marker.style.top = gridToPercent(sy/n) + '%';
     marker.hidden = false;
@@ -180,11 +183,11 @@
       e.preventDefault();
       e.stopPropagation();
       try{ marker.setPointerCapture(e.pointerId); }catch(err){}
-      var groupIds = pairSelection.slice();
+      var groupIds = pairSelection.filter(function(id){ return currentFormation().pos[id]; });
       var startPositions = {};
       groupIds.forEach(function(id){
         var p = currentFormation().pos[id];
-        startPositions[id] = {x: p ? p.x : 0, y: p ? p.y : 0};
+        startPositions[id] = {x: p.x, y: p.y};
       });
       var grabStart = {
         x: percentToGrid(parseFloat(marker.style.left)),
@@ -600,8 +603,11 @@
   // The group a plain drag/nudge on `dancerId` should move together — the whole current
   // pairSelection if that dancer is part of one with 2+ members, otherwise just itself. Ctrl/Cmd-
   // click (see pointerdown below) is how you pare a saved pair's auto-selection down to just one.
+  // A selected Follow that isn't split off in this Bild has no point here, so it stays out.
   function dragGroupFor(dancerId){
-    return (pairSelection.length >= 2 && pairSelection.indexOf(dancerId) !== -1) ? pairSelection.slice() : [dancerId];
+    if(pairSelection.length < 2 || pairSelection.indexOf(dancerId) === -1) return [dancerId];
+    var pos = currentFormation().pos;
+    return pairSelection.filter(function(id){ return id === dancerId || pos[id]; });
   }
 
   // What a plain click selects: the dancer's saved pair (unless split in this Bild), else just them.
@@ -760,24 +766,22 @@
     }else{
       pairSplitBtn.hidden = true;
     }
-    pairRotateEl.classList.toggle('single', pairSelection.length < 2);
-    if(pairSelection.length < 2){
+    // Lead & Follow of one couple (both stay selected after „In Lead & Follow aufteilen“). In a
+    // Bild where that couple isn't split, it's just the couple's dot again.
+    var coupleBase = pairSelection.length === 2 && baseDancerId(pairSelection[0]) === baseDancerId(pairSelection[1]) &&
+      canCoupleSplit(pairSelection[0]) ? baseDancerId(pairSelection[0]) : null;
+    var coupleBoth = !!coupleBase && isCoupleSplitIn(currentFormation(), coupleBase);
+    var single = pairSelection.length < 2 || (!!coupleBase && !coupleBoth);
+    pairRotateEl.classList.toggle('single', single);
+    if(single){
       if(splitPair){
         var me = state.dancers.find(function(dd){ return dd.id === pairSelection[0]; });
         pairRotateLabelEl.textContent = (me ? me.name : '?') + ' · ' + roleLabel(dancerRole(pairSelection[0]), false) + ' (Paar in diesem Bild gelöst)';
         pairSameRoleBtn.hidden = true;
         pairRotateEl.hidden = false;
-      }else if(pairSelection.length === 1 && canCoupleSplit(pairSelection[0])){
-        var sid = pairSelection[0], base = baseDancerId(sid);
-        var coupleSplit = isCoupleSplitIn(currentFormation(), base);
-        pairSplitBtn.hidden = false;
-        delete pairSplitBtn.dataset.pairId;
-        pairSplitBtn.dataset.couple = base;
-        pairSplitBtn.textContent = coupleSplit ? 'Lead & Follow zusammenführen' : 'In Lead & Follow aufteilen';
-        pairSplitBtn.title = coupleSplit
-          ? 'Follow geht zurück in den Punkt des Paares (nur in diesem Bild).'
-          : 'Teilt das Paar nur in diesem Bild in zwei Punkte, die du einzeln ziehen kannst. Auch per Doppelklick oder Taste T.';
-        pairSplitBtn.classList.toggle('active', coupleSplit);
+      }else if(coupleBase || (pairSelection.length === 1 && canCoupleSplit(pairSelection[0]))){
+        var sid = coupleBase || pairSelection[0], base = baseDancerId(sid);
+        var coupleSplit = showCoupleSplitBtn(base);
         pairRotateLabelEl.textContent = markerDisplayName(base) + (coupleSplit ? (isFollowKey(sid) ? ' · Follow' : ' · Lead') : '');
         pairSameRoleBtn.hidden = true;
         pairRotateEl.hidden = false;
@@ -788,7 +792,10 @@
     }
     var names = pairSelection.map(markerDisplayName);
     var savedPair = pairSelection.length === 2 && findPairByMembers(pairSelection);
-    pairRotateLabelEl.textContent = savedPair ? 'Paar: ' + names[0] + ' & ' + names[1] : 'Auswahl: ' + names.join(', ');
+    if(coupleBoth) showCoupleSplitBtn(coupleBase);
+    pairRotateLabelEl.textContent = savedPair ? 'Paar: ' + names[0] + ' & ' + names[1]
+      : coupleBoth ? markerDisplayName(coupleBase) + ' · Lead & Follow'
+      : 'Auswahl: ' + names.join(', ');
     // Offer to expand to every dancer sharing the same role (Lead/Follow), whenever the current
     // selection is all one role — most useful for 2+ dancers picked from *different* pairs, but
     // also fires for a single already-selected pair (harmless: "alle Leads" then just includes
@@ -804,6 +811,20 @@
       pairSameRoleBtn.hidden = true;
     }
     pairRotateEl.hidden = false;
+  }
+
+  // „In Lead & Follow aufteilen“ / „zusammenführen“ for a couple dot; returns whether it's split here.
+  function showCoupleSplitBtn(base){
+    var coupleSplit = isCoupleSplitIn(currentFormation(), base);
+    pairSplitBtn.hidden = false;
+    delete pairSplitBtn.dataset.pairId;
+    pairSplitBtn.dataset.couple = base;
+    pairSplitBtn.textContent = coupleSplit ? 'Lead & Follow zusammenführen' : 'In Lead & Follow aufteilen';
+    pairSplitBtn.title = coupleSplit
+      ? 'Follow geht zurück in den Punkt des Paares (nur in diesem Bild).'
+      : 'Teilt das Paar nur in diesem Bild in zwei Punkte, die du einzeln ziehen kannst. Auch per Doppelklick oder Taste T.';
+    pairSplitBtn.classList.toggle('active', coupleSplit);
+    return coupleSplit;
   }
 
   /* ---------- saved dancer pairs (nur noch aus älteren Projekten — neue werden nicht mehr angelegt;
@@ -1134,7 +1155,7 @@
       var nx = p.x + ox, ny = p.y + oy;
       if(clampGrid(nx) !== nx || clampGrid(ny) !== ny){ nx = p.x - ox; ny = p.y - oy; }
       f.pos[fk] = {x: clampGrid(nx), y: clampGrid(ny), rot: p.rot||0};
-      pairSelection = [fk];
+      pairSelection = [did, fk]; // both stay selected: move or turn them as one right away
       selectedDancerId = fk;
     }
     saveState();
