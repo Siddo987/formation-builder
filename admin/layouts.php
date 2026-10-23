@@ -98,15 +98,23 @@ function describe_origin($x, $y): string {
   .error{color:#a5443a;font-size:.82rem;}
   .hint{color:#8a7c9c;font-size:.78rem;}
   .vorlage-grid{
-    position:relative; width:100%; max-width:360px; aspect-ratio:1;
-    background:
-      linear-gradient(#e8dfcb 1px, transparent 1px),
-      linear-gradient(90deg, #e8dfcb 1px, transparent 1px);
-    background-size:calc(100%/7) calc(100%/7);
+    position:relative; width:100%; max-width:min(720px, calc(100vh - 4rem)); aspect-ratio:1;
     background-color:#faf6ef;
     border:1px solid #ddd3c0; border-radius:10px;
     cursor:crosshair; user-select:none; touch-action:none;
   }
+  .vorlage-axes{position:absolute; inset:0; pointer-events:none;}
+  .vorlage-line{position:absolute; background:#ece3d1;}
+  .vorlage-line.vertical{top:0; bottom:0; width:1px;}
+  .vorlage-line.horizontal{left:0; right:0; height:1px;}
+  .vorlage-line.zero{background:#cbbd9f;}
+  .vorlage-label{
+    position:absolute; font-family:ui-monospace,Consolas,monospace; font-size:.68rem;
+    color:#a3947f; font-variant-numeric:tabular-nums;
+  }
+  .vorlage-label.zero{color:#5c5268; font-weight:700;}
+  .vorlage-label.x-label{bottom:5px; transform:translateX(-50%);}
+  .vorlage-label.y-label{left:6px; transform:translateY(-50%);}
   .vorlage-origin{
     position:absolute; width:20px; height:20px;
     transform:translate(-50%,-50%) rotate(45deg);
@@ -183,6 +191,8 @@ function describe_origin($x, $y): string {
       <p class="hint">
         Auf das Raster klicken = Punkt hinzufügen. Punkt ziehen = verschieben. Doppelklick auf einen Punkt = löschen.
         Die Reihenfolge (Nummern) bestimmt, welcher Tänzer welchem Punkt zugeordnet wird.
+        Das Raster entspricht der Bühnenfläche (−7 bis 7, beschriftet wie auf der Bühne) — ohne Verschieben
+        und Drehen landen die Punkte dort genau an diesen Koordinaten.
         Der violette Diamant ist der <strong>Orientierungspunkt</strong> — der Punkt, um den sich die Vorlage
         dreht (Drehfeld auf der Bühne) und den man dort auch selbst greifen und verschieben kann; frei ziehbar,
         muss kein Tänzer-Punkt sein.
@@ -197,7 +207,8 @@ function describe_origin($x, $y): string {
 </div>
 <script>
 (function(){
-  var GRID_MIN = -7, GRID_MAX = 7, GRID_SPAN = 14;
+  // Same coordinate range and edge inset as the stage (js/state.js), so the editor is the Bühne 1:1.
+  var GRID_MIN = -7, GRID_MAX = 7, GRID_SPAN = 14, GRID_INSET = 6;
   var grid = document.getElementById('vorlageGrid');
   var field = document.getElementById('positions_json');
   var originField = document.getElementById('origin_json');
@@ -206,14 +217,47 @@ function describe_origin($x, $y): string {
   var origin = {x: 0, y: 0};
   var suppressNextClick = false;
 
-  function toPercent(v){ return ((v - GRID_MIN) / GRID_SPAN) * 100; }
-  function toGrid(pct){ return (pct / 100) * GRID_SPAN + GRID_MIN; }
+  function toPercent(v){ return GRID_INSET + ((v - GRID_MIN) / GRID_SPAN) * (100 - 2 * GRID_INSET); }
+  function toGrid(pct){ return ((pct - GRID_INSET) / (100 - 2 * GRID_INSET)) * GRID_SPAN + GRID_MIN; }
   function snap(v){ return Math.max(GRID_MIN, Math.min(GRID_MAX, Math.round(v * 2) / 2)); }
+  function formatCoord(v){ return String(v).replace('.', ','); }
+  function eventToGrid(ev){
+    var rect = grid.getBoundingClientRect();
+    var px = ((ev.clientX - rect.left) / rect.width) * 100;
+    var py = ((ev.clientY - rect.top) / rect.height) * 100;
+    return { x: snap(toGrid(px)), y: snap(toGrid(py)) };
+  }
 
-  function sync(){
+  // Lines every grid unit with the 0-axes emphasized and the numbers along the bottom/left edge,
+  // mirroring js/stage.js's buildGridOverlay. pointer-events:none keeps clicks landing on the grid.
+  function buildAxes(){
+    var axes = document.createElement('div');
+    axes.className = 'vorlage-axes';
+    function add(tag, cls, side, pct, text){
+      var el = document.createElement(tag);
+      el.className = cls;
+      el.style[side] = pct + '%';
+      if(text !== undefined) el.textContent = text;
+      axes.appendChild(el);
+    }
+    for(var v = GRID_MIN; v <= GRID_MAX; v++){
+      var pct = toPercent(v);
+      var zero = v === 0 ? ' zero' : '';
+      add('div', 'vorlage-line vertical' + zero, 'left', pct);
+      add('div', 'vorlage-line horizontal' + zero, 'top', pct);
+      add('span', 'vorlage-label x-label' + zero, 'left', pct, v);
+      add('span', 'vorlage-label y-label' + zero, 'top', pct, v);
+    }
+    grid.appendChild(axes);
+  }
+
+  function syncFields(){
     field.value = JSON.stringify(points);
     originField.value = JSON.stringify(origin);
     countEl.textContent = points.length + (points.length === 1 ? ' Punkt' : ' Punkte');
+  }
+  function sync(){
+    syncFields();
     render();
   }
 
@@ -226,16 +270,13 @@ function describe_origin($x, $y): string {
     if(!el){
       el = document.createElement('div');
       el.className = 'vorlage-origin';
-      el.title = 'Orientierungspunkt — Drehpunkt der Vorlage; ziehen zum Verschieben';
       el.addEventListener('pointerdown', function(e){
         e.preventDefault(); e.stopPropagation();
         try{ el.setPointerCapture(e.pointerId); }catch(err){}
         function onMove(ev){
-          var rect = grid.getBoundingClientRect();
-          var px = ((ev.clientX - rect.left) / rect.width) * 100;
-          var py = ((ev.clientY - rect.top) / rect.height) * 100;
-          origin = { x: snap(toGrid(px)), y: snap(toGrid(py)) };
-          sync();
+          origin = eventToGrid(ev);
+          syncFields();
+          renderOrigin();
         }
         function onUp(){
           suppressNextClick = true;
@@ -250,6 +291,13 @@ function describe_origin($x, $y): string {
     }
     el.style.left = toPercent(origin.x) + '%';
     el.style.top = toPercent(origin.y) + '%';
+    el.title = 'Orientierungspunkt (' + formatCoord(origin.x) + ' / ' + formatCoord(origin.y) + ') — Drehpunkt der Vorlage; ziehen zum Verschieben';
+  }
+
+  function placePoint(el, p, i){
+    el.style.left = toPercent(p.x) + '%';
+    el.style.top = toPercent(p.y) + '%';
+    el.title = 'Punkt ' + (i + 1) + ' (' + formatCoord(p.x) + ' / ' + formatCoord(p.y) + ') — ziehen zum Verschieben, Doppelklick zum Löschen';
   }
 
   function render(){
@@ -258,10 +306,8 @@ function describe_origin($x, $y): string {
     points.forEach(function(p, i){
       var el = document.createElement('div');
       el.className = 'vorlage-point';
-      el.style.left = toPercent(p.x) + '%';
-      el.style.top = toPercent(p.y) + '%';
       el.textContent = String(i + 1);
-      el.title = 'Ziehen zum Verschieben, Doppelklick zum Löschen';
+      placePoint(el, p, i);
       el.addEventListener('dblclick', function(e){
         e.preventDefault(); e.stopPropagation();
         points.splice(i, 1);
@@ -270,12 +316,12 @@ function describe_origin($x, $y): string {
       el.addEventListener('pointerdown', function(e){
         e.preventDefault(); e.stopPropagation();
         try{ el.setPointerCapture(e.pointerId); }catch(err){}
+        // Only reposition the dragged dot — a full render() would replace it and drop its
+        // pointer capture after the first move.
         function onMove(ev){
-          var rect = grid.getBoundingClientRect();
-          var px = ((ev.clientX - rect.left) / rect.width) * 100;
-          var py = ((ev.clientY - rect.top) / rect.height) * 100;
-          points[i] = { x: snap(toGrid(px)), y: snap(toGrid(py)) };
-          sync();
+          points[i] = eventToGrid(ev);
+          placePoint(el, points[i], i);
+          syncFields();
         }
         function onUp(){
           suppressNextClick = true;
@@ -293,10 +339,7 @@ function describe_origin($x, $y): string {
   grid.addEventListener('click', function(e){
     if(suppressNextClick){ suppressNextClick = false; return; }
     if(e.target !== grid) return;
-    var rect = grid.getBoundingClientRect();
-    var px = ((e.clientX - rect.left) / rect.width) * 100;
-    var py = ((e.clientY - rect.top) / rect.height) * 100;
-    points.push({ x: snap(toGrid(px)), y: snap(toGrid(py)) });
+    points.push(eventToGrid(e));
     sync();
   });
 
@@ -313,6 +356,7 @@ function describe_origin($x, $y): string {
     sync();
   });
 
+  buildAxes();
   sync();
 })();
 </script>
