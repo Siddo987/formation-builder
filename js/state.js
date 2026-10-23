@@ -44,6 +44,11 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       return {id: b.id || uid('bw'), name: typeof b.name === 'string' ? b.name.slice(0, 40) : '', pos: pos};
     });
   }
+  // How a move runs through its Zwischenpositionen (a per-Bild setting, like the betweens list it
+  // belongs to): 'corner' = straight legs that turn sharply at each one, 'smooth' = one rounded,
+  // flowing curve through all of them (see smoothLeg below). Unknown/missing means 'corner', which is
+  // how every move played before the setting existed.
+  function sanitizeBetweenPath(v){ return v === 'smooth' ? 'smooth' : 'corner'; }
   // A move between two Bilder normally interpolates in one straight leg (fromPos -> toPos). If the
   // *from* Bild has Zwischenpositionen — poses along the way that don't get their own Bild/filmstrip
   // card, added via the "+" between filmstrip cards (see formations.js) — the same move instead
@@ -66,11 +71,16 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     var legIdx = Math.min(legCount - 1, Math.floor(scaled));
     var e = overallT >= 1 ? 1 : (scaled - legIdx);
     var a = waypoints[legIdx], b = waypoints[legIdx + 1];
+    var smooth = mids.length && sanitizeBetweenPath(fromF.betweenPath) === 'smooth';
     var interp = {};
     state.dancers.forEach(function(dd){
       var pa = a[dd.id] || {x:0,y:0,rot:0};
       var pb = b[dd.id] || {x:0,y:0,rot:0};
       interp[dd.id] = { x: pa.x + (pb.x-pa.x)*e, y: pa.y + (pb.y-pa.y)*e, rot: lerpAngle(pa.rot||0, pb.rot||0, e) };
+      if(smooth){
+        var c = smoothLeg(waypoints.map(function(w){ return w[dd.id] || {x:0,y:0}; }), legIdx, e);
+        interp[dd.id].x = clampGrid(c.x); interp[dd.id].y = clampGrid(c.y);
+      }
     });
     // Split couples: the Follow travels straight (no betweens) from its own spot — or out of the
     // couple's dot if it wasn't split before — to its next spot, or back into the dot.
@@ -99,6 +109,26 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       });
     }
     return interp;
+  }
+  // "Abgerundet" (betweenPath 'smooth'): a Hermite spline through all waypoints of the move. Every
+  // leg keeps its equal share of the time, and the two legs meeting at a Zwischenposition share
+  // one tangent there, so the dancer passes through it without a corner or a jump in speed. The
+  // tangent is the usual Catmull-Rom one, shortened next to a much shorter leg so the curve can't
+  // overshoot or loop — down to zero when the dancer stands still for a leg.
+  function smoothLeg(points, legIdx, t){
+    var n = points.length - 1;
+    function tangent(i){
+      if(i === 0) return {x: points[1].x - points[0].x, y: points[1].y - points[0].y};
+      if(i === n) return {x: points[n].x - points[n-1].x, y: points[n].y - points[n-1].y};
+      var p = points[i-1], q = points[i], r = points[i+1];
+      var l1 = Math.hypot(q.x-p.x, q.y-p.y), l2 = Math.hypot(r.x-q.x, r.y-q.y);
+      var damp = Math.max(l1, l2) < 1e-6 ? 0 : Math.min(1, 3 * Math.min(l1, l2) / Math.max(l1, l2));
+      return {x: (r.x-p.x)/2 * damp, y: (r.y-p.y)/2 * damp};
+    }
+    var p0 = points[legIdx], p1 = points[legIdx+1], m0 = tangent(legIdx), m1 = tangent(legIdx+1);
+    var t2 = t*t, t3 = t2*t;
+    var h00 = 2*t3 - 3*t2 + 1, h10 = t3 - 2*t2 + t, h01 = 3*t2 - 2*t3, h11 = t3 - t2;
+    return {x: h00*p0.x + h10*m0.x + h01*p1.x + h11*m1.x, y: h00*p0.y + h10*m0.y + h01*p1.y + h11*m1.y};
   }
   // The couple's midpoint — the axis they turn around — travels straight from one Bild to the next,
   // while the Follow→Lead vector rotates around it the short way and its length eases from the old
@@ -175,7 +205,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
     play: '<path d="M7 4.5v15l12.5-7.5Z" fill="currentColor"/>',
     'chevron-right': '<path d="m9 18 6-6-6-6"/>',
-    'chevron-down': '<path d="m6 9 6 6 6-6"/>'
+    'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+    'path-corner': '<path d="M3 17 9 7l6 10 6-10"/>',
+    'path-smooth': '<path d="M3 17C5 10 7 7 9 7s4 10 6 10 4-3 6-10"/>'
   };
   function svgIcon(name, size, strokeWidth){
     var svg = document.createElementNS(SVG_NS, 'svg');
@@ -327,6 +359,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         }
         // migration: older saves predate Zwischenpositionen entirely — see interpolateThroughBetweens()
         f.betweens = sanitizeBetweens(f.betweens, parsed.dancers);
+        f.betweenPath = sanitizeBetweenPath(f.betweenPath);
         // migration: older saves predate temporarily split pairs ("Paar lösen") entirely
         f.splitPairs = sanitizeSplitPairs(f.splitPairs);
       });

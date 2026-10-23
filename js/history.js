@@ -56,7 +56,8 @@
         category: f.category || '',
         time: (typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) ? Math.round(f.time * 100) / 100 : null,
         showAxes: f.showAxes !== false,
-        splitPairs: sanitizeSplitPairs(f.splitPairs)
+        splitPairs: sanitizeSplitPairs(f.splitPairs),
+        betweenPath: sanitizeBetweenPath(f.betweenPath)
       });
       Object.keys(f.pos || {}).forEach(function(did){
         var p = f.pos[did];
@@ -147,7 +148,7 @@
       });
       var startPos = {};
       Object.keys(pos).forEach(function(did){ startPos[did] = {x: pos[did].x, y: pos[did].y}; });
-      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, splitPairs: sanitizeSplitPairs(meta.splitPairs)};
+      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, betweenPath: sanitizeBetweenPath(meta.betweenPath), splitPairs: sanitizeSplitPairs(meta.splitPairs)};
       if(typeof meta.time === 'number' && isFinite(meta.time) && meta.time >= 0) out.time = meta.time;
       return out;
     });
@@ -261,6 +262,7 @@
         if(before.category !== after.category) return where + ': Abschnitt „' + (after.category || '') + '“';
         if(before.time !== after.time) return where + ': Marke ' + fmtMark(before.time) + ' → ' + fmtMark(after.time);
         if(before.showAxes !== after.showAxes) return where + ': Achsen ' + (after.showAxes ? 'ein' : 'aus');
+        if(before.betweenPath !== after.betweenPath) return where + ': Weg durch die Zwischenpositionen ' + (after.betweenPath === 'smooth' ? 'abgerundet' : 'eckig');
         return where + ' geändert';
       }
       if(parts[2] === 'pos'){

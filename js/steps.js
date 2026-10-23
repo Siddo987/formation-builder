@@ -218,6 +218,12 @@
       line.textContent = 'grau x ' + fmtSigned(bp.x) + ' y ' + fmtSigned(bp.y) + ' · ' + (b.name ? b.name : ('Zwischenposition ' + (i+1)));
       info.appendChild(line);
     });
+    if(betweens.length){
+      var pathLine = document.createElement('p');
+      pathLine.className = 'step-between-line';
+      pathLine.textContent = sanitizeBetweenPath(formation.betweenPath) === 'smooth' ? 'Weg abgerundet, fließend' : 'Weg eckig, direkt durch die Punkte';
+      info.appendChild(pathLine);
+    }
 
     if(role){
       var roleLine = document.createElement('p');

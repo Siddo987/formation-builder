@@ -330,8 +330,32 @@
     addBtn.addEventListener('click', function(){ addBetween(idx); });
 
     wrap.appendChild(chips);
+    if((f.betweens || []).length) wrap.appendChild(buildBetweenPathToggle(f, next));
     wrap.appendChild(addBtn);
     return wrap;
+  }
+
+  // Eckig ↔ abgerundet: whether the move runs in straight legs through its Zwischenpositionen or
+  // in one flowing curve (see betweenPath / smoothLeg in state.js). Only shown once there is at
+  // least one Zwischenposition — without any, the move is a single straight leg either way.
+  function buildBetweenPathToggle(f, next){
+    var smooth = sanitizeBetweenPath(f.betweenPath) === 'smooth';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'film-between-path' + (smooth ? ' smooth' : '');
+    btn.setAttribute('aria-pressed', smooth ? 'true' : 'false');
+    btn.setAttribute('aria-label', 'Weg abgerundet');
+    btn.appendChild(svgIcon(smooth ? 'path-smooth' : 'path-corner', 14));
+    btn.title = (smooth
+      ? 'Weg abgerundet — fließend durch die Zwischenpositionen'
+      : 'Weg eckig — direkt von Punkt zu Punkt durch die Zwischenpositionen')
+      + ' auf dem Weg zu „' + (next ? next.name : '?') + '“ (klicken zum Umschalten)';
+    btn.addEventListener('click', function(){
+      f.betweenPath = smooth ? 'corner' : 'smooth';
+      saveState();
+      renderFilmstrip();
+    });
+    return btn;
   }
 
   // New Zwischenposition's starting pose: linearly interpolated between the two Bilder it sits
