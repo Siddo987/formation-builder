@@ -602,6 +602,12 @@
     return (pairSelection.length >= 2 && pairSelection.indexOf(dancerId) !== -1) ? pairSelection.slice() : [dancerId];
   }
 
+  // What a plain click selects: the dancer's saved pair (unless split in this Bild), else just them.
+  function defaultSelectionFor(dancerId){
+    var pair = findPairForDancer(dancerId);
+    return (pair && !isPairSplitHere(pair)) ? pair.memberIds.slice() : [dancerId];
+  }
+
   function attachDancerEvents(el, dancerId){
     el.tabIndex = 0;
     el.addEventListener('pointerdown', function(e){
@@ -611,6 +617,7 @@
       // even if they're part of a pair or a larger selection. That's the way to pull one dancer
       // out of formation for a moment without disturbing the group's auto-follow.
       var isolate = e.ctrlKey || e.metaKey;
+      var keepGroup = false;
       if(isolate){
         e.preventDefault();
         var idx = pairSelection.indexOf(dancerId);
@@ -623,8 +630,11 @@
         // to even reach length 2, and could end up pairing the wrong two if a stray plain click
         // landed in between).
         // …unless that pair is split in this Bild ("Paar lösen"): then only the clicked partner.
-        var pair = findPairForDancer(dancerId);
-        pairSelection = (pair && !isPairSplitHere(pair)) ? pair.memberIds.slice() : [dancerId];
+        // Pressing a dancer that already belongs to a 2+ selection keeps that selection, so the
+        // whole group can be grabbed and dragged without holding Strg/Cmd; a plain click on it
+        // without moving still narrows down to the clicked dancer (see onUp).
+        keepGroup = pairSelection.length >= 2 && pairSelection.indexOf(dancerId) !== -1;
+        if(!keepGroup) pairSelection = defaultSelectionFor(dancerId);
       }
       try{ el.setPointerCapture(e.pointerId); }catch(err){}
       selectedDancerId = dancerId;
@@ -637,7 +647,10 @@
         startPositions[id] = {x: p ? p.x : 0, y: p ? p.y : 0};
       });
       var grabStart = startPositions[dancerId];
+      var moved = false;
       function onMove(ev){
+        if(!moved && Math.abs(ev.clientX-e.clientX) + Math.abs(ev.clientY-e.clientY) < 4) return;
+        moved = true;
         var rect = stageEl.getBoundingClientRect();
         var px = ((ev.clientX-rect.left)/rect.width)*100;
         var py = ((ev.clientY-rect.top)/rect.height)*100;
@@ -671,6 +684,11 @@
         try{ el.releasePointerCapture(e.pointerId); }catch(err){}
         el.removeEventListener('pointermove', onMove);
         el.removeEventListener('pointerup', onUp);
+        if(keepGroup && !moved){
+          pairSelection = defaultSelectionFor(dancerId);
+          ensureMarkers();
+          updatePairRotateUI();
+        }
         saveState();
       }
       el.addEventListener('pointermove', onMove);
