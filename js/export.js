@@ -977,8 +977,8 @@
         if(audioCtx.state === 'suspended') audioCtx.resume().catch(function(){});
         var sourceNode = audioCtx.createMediaElementSource(exportAudioEl);
         var destNode = audioCtx.createMediaStreamDestination();
+        // Only into the recording, not to the speakers — the song shouldn't play aloud while exporting.
         sourceNode.connect(destNode);
-        sourceNode.connect(audioCtx.destination);
         tracks = tracks.concat(destNode.stream.getAudioTracks());
       }
 
