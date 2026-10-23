@@ -113,6 +113,8 @@
   }
 
   function positionMarkers(posMap){
+    // The stage shows something else now – a held pause (playback.js) can't resume from there.
+    if(!playing && pausedAt){ pausedAt = null; updateProgress(0); }
     function place(el, pos){
       el.style.left = gridToPercent(pos.x) + '%';
       el.style.top = gridToPercent(pos.y) + '%';

@@ -56,12 +56,46 @@
     return 0;
   }
 
+  // Where the play button last paused: the stage keeps showing the positions mid-move and the next
+  // play continues from exactly there. Dropped as soon as anything else redraws the stage (Bild
+  // switch, edit, undo, …) — positionMarkers() in stage.js clears it while not playing.
+  var pausedAt = null;
+
+  function moveDurationMs(){
+    var d = durations();
+    return prefersReducedMotion ? Math.min(180, d.move) : d.move;
+  }
+
+  function resumePaused(){
+    var pa = pausedAt;
+    pausedAt = null;
+    if(!pa || pa.sync !== isSyncActive()) return false;
+    if(!pa.sync && (state.activeIndex !== pa.fromIdx || pa.toIdx >= state.formations.length)) return false;
+    syncActive = pa.sync;
+    if(pa.sync){
+      songAudioEl.currentTime = pa.songTime;
+      songAudioEl.play().catch(function(){});
+      rafId = requestAnimationFrame(syncTick);
+    }else{
+      fromIdx = pa.fromIdx;
+      toIdx = pa.toIdx;
+      phaseStart = performance.now() - pa.t * moveDurationMs();
+      rafId = requestAnimationFrame(tick);
+      if(state.song && state.song.url){
+        songAudioEl.currentTime = pa.songTime;
+        songAudioEl.play().catch(function(){});
+      }
+    }
+    return true;
+  }
+
   function playPause(){
     if(state.formations.length < 2) return;
     if(editingBetween){ editingBetween = null; if(typeof updateBetweenEditBanner === 'function') updateBetweenEditBanner(); } // playback always plays the real timeline
     playing = !playing;
     if(playing){
       if(typeof stopMusicOnly === 'function') stopMusicOnly(); // js/music.js — hand the song over to animated playback
+      if(resumePaused()){ updatePlayButton(); return; }
       // On the last Bild, pressing play has nothing left to advance to (tick() would just hold
       // then immediately stop) — jump back to the first Bild so playback actually runs, matching
       // "stop after the last Bild" ending back at a state play can restart from.
@@ -93,14 +127,20 @@
         }
       }
     }else{
+      // Hold everything right where it is — no jump back to the start of the Bild.
       cancelAnimationFrame(rafId);
-      positionMarkers(currentFormation().pos);
-      updateProgress(0);
       songAudioEl.pause();
+      pausedAt = syncActive
+        ? {sync: true, songTime: songAudioEl.currentTime}
+        : {sync: false, fromIdx: fromIdx, toIdx: toIdx, songTime: songAudioEl.currentTime,
+           t: Math.min(1, (performance.now() - phaseStart) / moveDurationMs())};
+      syncActive = false;
+      renderOnionSkin(); // back to editing semantics for the ghosts
     }
     updatePlayButton();
   }
 
+  // Pause forced by another action (dragging, exporting, picking a Bild …): back to the Bild itself.
   function pausePlayback(){
     if(!playing) return;
     playing = false;
@@ -152,8 +192,7 @@
   // move finishes it immediately sets up and starts the next, until there's nothing left to move
   // to (playback then stops, per playPause()'s "stop after the last Bild" behavior).
   function tick(now){
-    var d = durations();
-    var moveMs = prefersReducedMotion ? Math.min(180, d.move) : d.move;
+    var moveMs = moveDurationMs();
     var elapsed = now - phaseStart;
     var t = Math.min(1, elapsed / moveMs);
     // Zwischenpositionen (see interpolateThroughBetweens in state.js) chain the move through any
