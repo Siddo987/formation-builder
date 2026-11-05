@@ -6,6 +6,10 @@
 --
 -- (If you're testing locally without a MySQL server yet, set DB_DRIVER=sqlite in .env instead —
 -- api/lib/db.php creates the equivalent tables automatically in that mode, this file is not needed.)
+--
+-- On MySQL/MariaDB api/lib/db.php (DB_MYSQL_TABLES, keep it in sync with this file) also adds
+-- missing tables and columns by itself on the next API request, so a new column no longer breaks
+-- saving until this file is re-run. The starter Figuren/Vorlagen rows below still come only from here.
 
 CREATE TABLE IF NOT EXISTS shares (
   id            VARCHAR(32)   NOT NULL PRIMARY KEY,
