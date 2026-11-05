@@ -356,6 +356,7 @@ if ('serviceWorker' in navigator) {
 
         <section class="settings-section">
           <h3>Ab Marker eines Bildes</h3>
+          <label class="music-preroll">Vorlauf <input type="number" id="musicPrerollInput" class="coord-input" min="0" max="60" step="1" value="0" inputmode="numeric" aria-label="Vorlauf in Sekunden vor dem Marker"> s vor dem Marker</label>
           <p class="settings-hint" id="musicNoMarkersHint" hidden>Noch keine Bilder mit Marker — Zeitpunkte setzt du unter „Marker“.</p>
           <div class="marker-list" id="musicMarkerList"></div>
         </section>

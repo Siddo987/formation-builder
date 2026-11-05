@@ -108,6 +108,8 @@
 .music-current{font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
 #musicSongArea:not([hidden]){display:flex;flex-direction:column;gap:1.1rem;}
 .music-stop-toggle{display:flex;align-items:center;gap:.45rem;font-size:.8rem;}
+.music-preroll{display:flex;align-items:center;gap:.45rem;font-size:.8rem;}
+.modal .music-preroll input{width:56px;text-align:center;}
 .modal .music-only-btn.active{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-ink);}
 
 /* Vorlagen / Figuren */

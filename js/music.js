@@ -26,10 +26,21 @@
   var musicStopAtNext = document.getElementById('musicStopAtNext');
   var musicMarkerList = document.getElementById('musicMarkerList');
   var musicNoMarkersHint = document.getElementById('musicNoMarkersHint');
+  var musicPrerollInput = document.getElementById('musicPrerollInput');
 
   var musicOnlyActive = false;
   var musicStopAt = null;
+  var musicAnchor = 0; // where "am nächsten Marker anhalten" counts from — the marker, not the Vorlauf start
   var musicRafId = 0;
+
+  // "Vorlauf": starting at a Bild's marker begins this many seconds earlier, to hear the run-up.
+  // A personal rehearsal habit rather than part of the choreography, so it lives in localStorage
+  // instead of the project (and isn't shared).
+  var PREROLL_KEY = 'aufstellung-music-preroll';
+  function prerollSec(){
+    var v = parseFloat(musicPrerollInput.value);
+    return isFinite(v) && v > 0 ? Math.min(60, v) : 0;
+  }
 
   function hasSong(){ return !!(state.song && state.song.url); }
   function songDuration(){
@@ -52,14 +63,17 @@
     return idx;
   }
 
-  function playMusicFrom(t){
+  // anchor: the marker a Vorlauf start leads up to, so stopping at the next marker doesn't stop
+  // right at that one. Defaults to t itself.
+  function playMusicFrom(t, anchor){
     if(!hasSong()) return;
     if(playing) pausePlayback(); // never animate alongside — that's the regular play button
     t = Math.max(0, t || 0);
     var dur = songDuration();
     if(dur > 0) t = Math.min(t, dur);
     songAudioEl.currentTime = t;
-    musicStopAt = musicStopAtNext.checked ? nextMarkerAfter(t) : null;
+    musicAnchor = Math.max(t, anchor || 0);
+    musicStopAt = musicStopAtNext.checked ? nextMarkerAfter(musicAnchor) : null;
     musicOnlyActive = true;
     songAudioEl.play().catch(function(){ stopMusicOnly(); });
     cancelAnimationFrame(musicRafId);
@@ -157,8 +171,9 @@
       setIconLabel(btn, 'play', 12, 'Ab hier');
       btn.setAttribute('aria-label', 'Musik ab Bild ' + (p.idx+1) + ' abspielen');
       btn.addEventListener('click', function(){
-        musicStartInput.value = formatTime(p.time);
-        playMusicFrom(p.time);
+        var start = Math.max(0, p.time - prerollSec());
+        musicStartInput.value = formatTime(start);
+        playMusicFrom(start, p.time);
       });
       row.appendChild(badge);
       row.appendChild(name);
@@ -189,7 +204,9 @@
     if(musicOnlyActive){ stopMusicOnly(); return; }
     var dur = songDuration();
     var ct = songAudioEl.currentTime;
-    playMusicFrom(dur > 0 && ct >= dur - 0.05 ? 0 : ct);
+    if(dur > 0 && ct >= dur - 0.05){ playMusicFrom(0); return; }
+    // Paused during a Vorlauf: still lead up to that marker rather than stop at it.
+    playMusicFrom(ct, musicAnchor > ct && musicAnchor - ct <= prerollSec() ? musicAnchor : ct);
   });
   function startFromInput(){
     var t = parseTimeInput(musicStartInput.value);
@@ -200,7 +217,12 @@
   musicStartBtn.addEventListener('click', startFromInput);
   musicStartInput.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); startFromInput(); } });
   musicStopAtNext.addEventListener('change', function(){
-    if(musicOnlyActive) musicStopAt = musicStopAtNext.checked ? nextMarkerAfter(songAudioEl.currentTime) : null;
+    if(musicOnlyActive) musicStopAt = musicStopAtNext.checked ? nextMarkerAfter(Math.max(songAudioEl.currentTime, musicAnchor)) : null;
+  });
+  try{ var storedPreroll = localStorage.getItem(PREROLL_KEY); if(storedPreroll !== null) musicPrerollInput.value = storedPreroll; }catch(e){}
+  musicPrerollInput.addEventListener('change', function(){
+    musicPrerollInput.value = String(prerollSec());
+    try{ localStorage.setItem(PREROLL_KEY, musicPrerollInput.value); }catch(e){}
   });
   musicTimelineEl.addEventListener('click', function(e){
     var dur = songDuration();
@@ -209,7 +231,7 @@
     var t = Math.min(1, Math.max(0, (e.clientX - rect.left)/rect.width))*dur;
     musicStartInput.value = formatTime(t);
     if(musicOnlyActive) playMusicFrom(t);
-    else { songAudioEl.currentTime = t; updateMusicPlayhead(); }
+    else { songAudioEl.currentTime = t; musicAnchor = t; updateMusicPlayhead(); }
   });
 
   // The paused check matters: playMusicFrom() may pausePlayback() and then play() in the same
