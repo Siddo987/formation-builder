@@ -27,6 +27,9 @@
   var musicMarkerList = document.getElementById('musicMarkerList');
   var musicNoMarkersHint = document.getElementById('musicNoMarkersHint');
   var musicPrerollInput = document.getElementById('musicPrerollInput');
+  var musicRateSlider = document.getElementById('musicRateSlider');
+  var musicRateReadout = document.getElementById('musicRateReadout');
+  var musicRateResetBtn = document.getElementById('musicRateResetBtn');
 
   var musicOnlyActive = false;
   var musicStopAt = null;
@@ -183,6 +186,22 @@
     });
   }
 
+  // The dialog covers the playbar, so it carries its own copy of the Tempo slider: same state.tempo,
+  // same songRate() mapping. applyTempo() (js/playback.js) calls this after every change, from
+  // either slider, an undo or a shared edit.
+  function syncMusicRate(){
+    musicRateSlider.value = state.tempo;
+    musicRateReadout.textContent = songRate().toFixed(2).replace('.', ',') + '×';
+  }
+  function setMusicRate(tempo){
+    state.tempo = tempo;
+    tempoSlider.value = tempo;
+    applyTempo();
+    saveState();
+  }
+  musicRateSlider.addEventListener('input', function(){ setMusicRate(+musicRateSlider.value); });
+  musicRateResetBtn.addEventListener('click', function(){ setMusicRate(50); });
+
   function openMusicModal(){
     var song = hasSong();
     musicNoSongHint.hidden = song;
@@ -192,6 +211,7 @@
       if(!musicOnlyActive) musicStartInput.value = formatTime(playbackStartTime());
       renderMusicMarkerList();
       renderMusicTimeline();
+      syncMusicRate();
       updateMusicUI();
     }
     musicBackdrop.hidden = false;

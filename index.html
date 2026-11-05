@@ -211,7 +211,7 @@ if ('serviceWorker' in navigator) {
           <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
         </div>
         <div class="tempo-control">
-          <span class="caption">Tempo <span id="tempoReadout">0.7/s</span></span>
+          <span class="caption"><span class="tempo-word">Tempo </span><span id="tempoReadout">0.7/s</span></span>
           <input type="range" id="tempoSlider" min="0" max="100" value="50" aria-label="Abspieltempo">
         </div>
         <button class="btn-ghost music-only-btn" id="musicOnlyBtn" type="button" aria-pressed="false" title="Nur die Musik abspielen, ohne die Bühne zu bewegen" hidden><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>Nur Musik</span></button>
@@ -343,6 +343,16 @@ if ('serviceWorker' in navigator) {
             <div class="marker-timeline-flags" id="musicTimelineFlags"></div>
           </div>
           <p class="settings-hint">Die Bühne bleibt stehen — nur das Lied läuft. Klick in die Zeitleiste springt an die Stelle.</p>
+        </section>
+
+        <section class="settings-section">
+          <h3>Geschwindigkeit</h3>
+          <div class="settings-row music-rate-row">
+            <input type="range" id="musicRateSlider" min="0" max="100" value="50" aria-label="Geschwindigkeit des Lieds">
+            <span class="marker-time music-rate-readout" id="musicRateReadout">1,00×</span>
+            <button class="btn-ghost marker-now-btn" id="musicRateResetBtn" type="button">1,0×</button>
+          </div>
+          <p class="settings-hint">0,5× bis 2,0× vom Original — derselbe Wert wie „Tempo“ in der Abspielleiste.</p>
         </section>
 
         <section class="settings-section">

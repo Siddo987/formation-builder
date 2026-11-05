@@ -110,6 +110,9 @@
 .music-stop-toggle{display:flex;align-items:center;gap:.45rem;font-size:.8rem;}
 .music-preroll{display:flex;align-items:center;gap:.45rem;font-size:.8rem;}
 .modal .music-preroll input{width:56px;text-align:center;}
+.music-rate-row{flex-wrap:nowrap;}
+.music-rate-row input[type="range"]{flex:1;min-width:0;width:auto;}
+.music-rate-readout{flex:none;min-width:3.4em;text-align:right;}
 .modal .music-only-btn.active{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-ink);}
 
 /* Vorlagen / Figuren */

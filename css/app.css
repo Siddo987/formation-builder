@@ -117,6 +117,7 @@ input,select,textarea{color:var(--ink);}
 }
 .caption{font-size:.7rem;color:var(--ink-3);font-weight:700;white-space:nowrap;}
 .caption span{font-family:var(--font-mono);color:var(--ink-2);font-weight:500;}
+.caption .tempo-word{font-family:inherit;color:inherit;font-weight:inherit;}
 .hint{margin:0;font-size:.7rem;line-height:1.45;color:var(--ink-3);}
 input[type="range"]{accent-color:var(--accent);width:100px;}
 input[type="checkbox"]{accent-color:var(--accent);}
@@ -1000,7 +1001,7 @@ body.roster-open .roster{display:flex;}
   .brand h1{display:none;}
   .project-name-field{padding-left:0;border-left:none;}
   .pencil-icon{left:.5rem;}
-  .tempo-control .caption{display:none;}
+  .tempo-word{display:none;}
 }
 
 /* Niedrige Fenster: kleinere Vorschauen */
@@ -1025,7 +1026,7 @@ body.roster-open .roster{display:flex;}
   .context-bar{height:var(--row-h);}
   .pair-rotate{height:32px;}
   .playbar{height:46px;gap:.7rem;}
-  .tempo-control .caption{display:none;}
+  .tempo-word{display:none;}
   .film-track{--pv:36px;--cp:.25rem;}
   .film-card textarea.fname{font-size:.7rem;}
   .context-idle{font-size:.66rem;}
@@ -1140,7 +1141,7 @@ body.roster-open .roster{display:flex;}
 
   /* Abspielleiste */
   .playbar{height:auto;min-height:58px;gap:.6rem;padding:.4rem .7rem calc(.4rem + env(safe-area-inset-bottom)) .45rem;}
-  .tempo-control .caption{display:none;}
+  .tempo-word{display:none;}
   input[type="range"]{width:84px;}
 
   /* Tänzerliste: Blatt von unten */

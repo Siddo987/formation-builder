@@ -41,6 +41,7 @@
       tempoReadoutEl.textContent = (1000/durations().move).toFixed(1) + '/s';
       tempoSlider.title = '';
     }
+    syncMusicRate(); // js/music.js
   }
 
   // Song position playback should begin at, given the currently selected Bild: its own time marker
