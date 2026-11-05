@@ -260,6 +260,7 @@ shareUnlinkBtn.addEventListener('click', function(){
     state.sharedId = null;
     state.shareEditToken = null;
     state.shareReadOnly = false;
+    clearPushFailure();
     stopSharePolling();
     applyShareReadonlyUi();
     saveState();
@@ -292,11 +293,76 @@ var shareNeedsInitialPull = false; // a returning tab (localStorage binding, no 
                                    // stale project — its first poll pulls the current head instead
                                    // of adopting whatever it had as "current".
 
+// A failed commit used to vanish silently: the edit stayed only in this tab, and the next poll or a
+// reopen (shareNeedsInitialPull) could replace it with the server head. Now the failure shows in
+// #saveErrorBanner; transient errors (network, 5xx, 408/429) are retried with backoff and on the
+// `online` event, other 4xx wait for the next edit or the "Erneut versuchen" button. pushUnsaved
+// counts as a pending local edit (haveLocalPendingEdits), so polling never pulls over it.
+var PUSH_RETRY_DELAYS_MS = [2000, 5000, 15000, 30000];
+var pushRetryTimer = null;
+var pushFailCount = 0;
+var pushUnsaved = false;
+var saveErrorBanner = document.getElementById('saveErrorBanner');
+var saveErrorTextEl = document.getElementById('saveErrorText');
+var saveErrorRetryBtn = document.getElementById('saveErrorRetryBtn');
+
 function schedulePushSharedUpdate(){
   if(suppressSharePush) return;
   clearTimeout(pushDebounceTimer);
   pushDebounceTimer = setTimeout(pushSharedUpdateNow, PUSH_DEBOUNCE_MS);
 }
+
+function clearPushFailure(){
+  clearTimeout(pushRetryTimer); pushRetryTimer = null;
+  pushFailCount = 0;
+  pushUnsaved = false;
+  if(saveErrorBanner) saveErrorBanner.hidden = true;
+}
+
+// r: {status, data} from the commit response, or {status:0} for a network/media-upload error.
+function notePushFailure(r){
+  pushUnsaved = true;
+  pushFailCount++;
+  var s = r.status;
+  var transient = !s || s < 400 || s >= 500 || s === 408 || s === 429;
+  var reason;
+  if(!s) reason = navigator.onLine === false ? 'keine Internetverbindung' : 'Server nicht erreichbar';
+  else if(s < 400) reason = 'unerwartete Antwort vom Server';
+  else if(s === 413) reason = 'das Projekt ist zu groß (meist liegt es am Lied)';
+  else if(r.data && r.data.error) reason = String(r.data.error).replace(/[.!\s]+$/, '');
+  else reason = 'Serverfehler ' + s;
+  var text = 'Speichern fehlgeschlagen: ' + reason + '. Deine letzten Änderungen sind nur in diesem Browser'
+    + (transient ? ' — neuer Versuch läuft automatisch.' : '.');
+  clearTimeout(pushRetryTimer); pushRetryTimer = null;
+  if(transient){
+    var delay = PUSH_RETRY_DELAYS_MS[Math.min(pushFailCount, PUSH_RETRY_DELAYS_MS.length) - 1];
+    pushRetryTimer = setTimeout(function(){ pushRetryTimer = null; pushSharedUpdateNow(); }, delay);
+  }
+  if(saveErrorBanner){
+    saveErrorTextEl.textContent = text;
+    saveErrorRetryBtn.disabled = false;
+    saveErrorRetryBtn.textContent = 'Jetzt erneut versuchen';
+    saveErrorBanner.hidden = false;
+  }
+}
+
+function retryPushNow(){
+  if(!pushUnsaved || pushInFlight) return;
+  clearTimeout(pushRetryTimer); pushRetryTimer = null;
+  pushSharedUpdateNow();
+}
+if(saveErrorRetryBtn) saveErrorRetryBtn.addEventListener('click', retryPushNow);
+window.addEventListener('online', retryPushNow);
+
+// Closing the tab while an edit is still unsaved would lose it (a reopen pulls the server head),
+// so ask first. A still-debounced edit goes out right away, so it can land while the dialog shows.
+window.addEventListener('beforeunload', function(e){
+  if(!state.sharedId || state.shareReadOnly) return;
+  if(pushDebounceTimer){ clearTimeout(pushDebounceTimer); pushSharedUpdateNow(); }
+  if(!haveLocalPendingEdits()) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 
 function shareLogoMeta(){ return state.logo ? {name:state.logo.name, mime:state.logo.mime, opacity:state.logo.opacity||18} : null; }
 function shareSongMeta(){ return state.song ? {name:state.song.name, mime:state.song.mime} : null; }
@@ -307,6 +373,7 @@ function detachShare(){
   state.shareEditToken = null;
   state.shareReadOnly = false;
   shareBaseCommit = null; shareBranchId = null; shareHeadCommit = null; shareGraph = null;
+  clearPushFailure();
   stopSharePolling();
   applyShareReadonlyUi();
   saveState();
@@ -314,9 +381,14 @@ function detachShare(){
 
 function pushSharedUpdateNow(){
   pushDebounceTimer = null;
-  if(!state.sharedId || state.shareReadOnly) return;   // Nur-Ansehen-Link: nichts hochladen
+  if(!state.sharedId || state.shareReadOnly){ clearPushFailure(); return; }   // Nur-Ansehen-Link: nichts hochladen
   if(pushInFlight){ pushQueuedAgain = true; return; }
   pushInFlight = true;
+  clearTimeout(pushRetryTimer); pushRetryTimer = null;
+  if(saveErrorBanner && !saveErrorBanner.hidden){
+    saveErrorRetryBtn.disabled = true;
+    saveErrorRetryBtn.textContent = 'Wird gespeichert…';
+  }
   var id = state.sharedId;
   var mediaDirty = (state.logo !== lastPushedLogoRef) || (state.song !== lastPushedSongRef);
   var payloadStr = JSON.stringify(buildProjectHeader(state, shareLogoMeta(), shareSongMeta()));
@@ -347,11 +419,14 @@ function pushSharedUpdateNow(){
           shareHeadCommit = r.data.head_commit || r.data.commit_id;
           if(r.data.rev) lastKnownRev = r.data.rev;
         }
+        clearPushFailure();
         refreshShareBranchUI();
       }else if(r.status === 404){
         detachShare();
+      }else{
+        notePushFailure(r);
       }
-    })
+    }, function(){ notePushFailure({status:0}); })
     .catch(function(){})
     .then(function(){
       pushInFlight = false;
@@ -364,6 +439,7 @@ function pushSharedUpdateNow(){
 function flushPendingCommit(){
   return new Promise(function(resolve){
     if(!state.sharedId){ resolve(); return; }
+    if(pushRetryTimer && !pushInFlight){ clearTimeout(pushRetryTimer); pushRetryTimer = null; pushSharedUpdateNow(); } // one try now, not a loop
     if(!pushInFlight && !pushDebounceTimer && !pushQueuedAgain){ resolve(); return; }
     clearTimeout(pushDebounceTimer); pushDebounceTimer = null;
     var tries = 0;
@@ -391,7 +467,7 @@ function stopSharePolling(){
   if(sharePollTimer){ clearInterval(sharePollTimer); sharePollTimer = null; }
 }
 
-function haveLocalPendingEdits(){ return pushInFlight || !!pushDebounceTimer || pushQueuedAgain; }
+function haveLocalPendingEdits(){ return pushInFlight || !!pushDebounceTimer || pushQueuedAgain || pushUnsaved; }
 
 // The graph is fetched every tick so the Verlauf panel stays current; this only gates *swapping
 // state under the user* (a fast-forward pull) — never the fetch itself.
@@ -593,6 +669,7 @@ function startMerge(theirTip){
   if(!state.sharedId || !shareGraph) return;
   refreshShareBranchUI();
   flushPendingCommit().then(function(){
+    if(pushUnsaved){ alert('Zusammenführen geht gerade nicht: deine letzten Änderungen sind noch nicht gespeichert (siehe Hinweis oben).'); return; }
     var ourTip = shareBaseCommit;
     if(!ourTip || !theirTip || ourTip === theirTip) return;
     var lca = findLCA(shareGraph.commits || [], ourTip, theirTip) || ourTip;

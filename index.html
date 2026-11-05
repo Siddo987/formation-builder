@@ -38,6 +38,11 @@ if ('serviceWorker' in navigator) {
   👁 Nur-Ansehen-Link — Änderungen anderer erscheinen hier live, deine eigenen werden nicht gespeichert.
 </div>
 
+<div class="save-error-banner" id="saveErrorBanner" role="alert" hidden>
+  <span id="saveErrorText">Speichern fehlgeschlagen.</span>
+  <button class="save-error-retry" id="saveErrorRetryBtn" type="button">Jetzt erneut versuchen</button>
+</div>
+
 <div class="app">
   <header class="topbar">
     <div class="brand">

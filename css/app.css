@@ -225,6 +225,23 @@ body{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidd
   padding:.4rem 1rem;
   border-bottom:1px solid rgba(0,0,0,.06);
 }
+/* Speichern eines geteilten Links fehlgeschlagen (js/share.js, notePushFailure) */
+.save-error-banner{
+  flex:none;
+  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.35rem .8rem;
+  background:var(--danger-wash);color:var(--danger);
+  font-size:.76rem;font-weight:700;text-align:center;
+  padding:.35rem 1rem;
+  border-bottom:1px solid var(--danger);
+}
+.save-error-banner[hidden]{display:none;}
+.save-error-retry{
+  height:26px;padding:0 .6rem;
+  border:1px solid var(--danger);border-radius:6px;
+  background:var(--danger);color:#fff;
+  font-size:.74rem;font-weight:700;white-space:nowrap;cursor:pointer;
+}
+.save-error-retry:disabled{opacity:.6;cursor:default;}
 body.share-readonly .stage-wrap,
 body.share-readonly .layout-select-wrap,
 body.share-readonly .roster-list > *,
