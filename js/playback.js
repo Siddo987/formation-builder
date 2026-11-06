@@ -197,8 +197,8 @@
     var elapsed = now - phaseStart;
     var t = Math.min(1, elapsed / moveMs);
     // Zwischenpositionen (see interpolateThroughBetweens in state.js) chain the move through any
-    // poses on fromIdx's own betweens list — total duration unchanged, just divided evenly across
-    // them — instead of a single straight fromPos->toPos interpolation.
+    // poses on fromIdx's own betweens list — total duration unchanged, divided at the times set on
+    // them (evenly where none is set) — instead of a single straight fromPos->toPos interpolation.
     positionMarkers(interpolateThroughBetweens(fromIdx, toIdx, t));
     updateProgress(t*100);
     if(t >= 1){

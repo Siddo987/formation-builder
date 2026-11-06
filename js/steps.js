@@ -48,11 +48,13 @@
   stepsCloseBtn.addEventListener('click', closeStepsModal);
   stepsBackdrop.addEventListener('click', function(e){ if(e.target === stepsBackdrop) closeStepsModal(); });
 
-  // A couple that's split into Lead & Follow in at least one Bild gets one sheet per role: the
-  // Follow's sheet follows the Follow's own spot wherever the couple is split (and the couple's dot
-  // everywhere else), with the other role's spot alongside for reference.
+  // A couple that's split into Lead & Follow in at least one Bild or Zwischenposition gets one sheet
+  // per role: the Follow's sheet follows the Follow's own spot wherever the couple is split (and the
+  // couple's dot everywhere else), with the other role's spot alongside for reference.
   function sheetsForDancer(d, partner){
-    var split = state.formations.some(function(f){ return isCoupleSplitIn(f, d.id); });
+    var split = state.formations.some(function(f){
+      return isCoupleSplitIn(f, d.id) || (f.betweens || []).some(function(b){ return isCoupleSplitIn(b, d.id); });
+    });
     if(!split) return [{primary: d, secondary: partner, role: null}];
     return [{primary: d, secondary: partner, role: 'lead'}, {primary: d, secondary: partner, role: 'follow'}];
   }
@@ -174,10 +176,11 @@
     var rolePos = split ? formation.pos[ownIsFollow ? primary.id : fk] : null;
     var secondaryPos = secondary ? formation.pos[secondary.id] : null;
     var betweens = Array.isArray(formation.betweens) ? formation.betweens : [];
-    // Zwischenpositionen only shape the couple's own dot; a Follow split here or in the next Bild
-    // walks straight (see interpolateThroughBetweens), so the Follow's sheet leaves them out.
-    if(role === 'follow' && (split || isCoupleSplitIn(state.formations[formationIdx+1], primary.id))) betweens = [];
-    var betweenPositions = betweens.map(function(b){ return b.pos[primary.id]; });
+    // This sheet's person at a Zwischenposition: on a Follow's sheet the Follow's own spot there, or
+    // the couple's dot where the couple is closed at that one.
+    var ownKey = role === 'follow' ? fk : primary.id;
+    function ownAt(b){ return b.pos[ownKey] || b.pos[primary.id]; }
+    var betweenPositions = betweens.map(ownAt);
     var contextPositions = [];
     if(showContext){
       state.dancers.forEach(function(d){
@@ -211,7 +214,7 @@
     // positionen. Uses the between's own name (right-click a chip in the filmstrip to set one) when
     // there is one, falling back to a generic "Zwischenposition N" otherwise.
     betweens.forEach(function(b, i){
-      var bp = b.pos[primary.id];
+      var bp = ownAt(b);
       if(!bp) return;
       var line = document.createElement('p');
       line.className = 'step-between-line';
@@ -225,15 +228,23 @@
       info.appendChild(pathLine);
     }
 
-    // A set Drehung im Paar (see setCoupleTurn in js/stage.js) is keyed by the couple's Lead.
-    var turns = state.formations[formationIdx+1] ? sanitizeCoupleTurns(formation.coupleTurns) : null;
-    var turn = turns ? (typeof turns[primary.id] === 'number' ? turns[primary.id] : (secondary ? turns[secondary.id] : undefined)) : undefined;
-    if(typeof turn === 'number'){
+    // Set Drehungen im Paar (keyed by the couple's Lead, see setCoupleTurn in js/stage.js) and
+    // Eigendrehungen (by the person's own pos key), leg by leg: out of the Bild, then out of each
+    // Zwischenposition.
+    var nextF = state.formations[formationIdx+1];
+    function addTurnLine(what, deg, toName){
       var turnLine = document.createElement('p');
       turnLine.className = 'step-between-line';
-      turnLine.textContent = 'Drehung im Paar bis \u201e' + state.formations[formationIdx+1].name + '\u201c: ' + roundNum(Math.abs(turn)) + '\u00b0 ' + (turn > 0 ? 'im Uhrzeigersinn' : 'gegen den Uhrzeigersinn');
+      turnLine.textContent = what + ' bis \u201e' + toName + '\u201c: ' + roundNum(Math.abs(deg)) + '\u00b0 ' + (deg > 0 ? 'im Uhrzeigersinn' : 'gegen den Uhrzeigersinn');
       info.appendChild(turnLine);
     }
+    if(nextF) [formation].concat(betweens).forEach(function(stop, i){
+      var toName = i < betweens.length ? (betweens[i].name || 'Zwischenposition ' + (i+1)) : nextF.name;
+      var turns = sanitizeCoupleTurns(stop.coupleTurns), spins = sanitizeSpins(stop.spins);
+      var turn = turns ? (typeof turns[primary.id] === 'number' ? turns[primary.id] : (secondary ? turns[secondary.id] : undefined)) : undefined;
+      if(typeof turn === 'number') addTurnLine('Drehung im Paar', turn, toName);
+      if(spins && typeof spins[ownKey] === 'number') addTurnLine('Eigendrehung', spins[ownKey], toName);
+    });
 
     if(role){
       var roleLine = document.createElement('p');

@@ -749,6 +749,7 @@
   function updatePairRotateUI(){
     updatePairMidpointMarker(currentFormation().pos);
     updatePairTurnUI();
+    updatePairSpinUI();
     // "Paar lösen/koppeln" is offered for exactly one saved pair, or one partner of a split pair.
     var splitPair = null;
     if(pairSelection.length === 2) splitPair = findPairByMembers(pairSelection);
@@ -942,30 +943,48 @@
     if(e.key === 'Enter'){ e.preventDefault(); pairRotateBtn.click(); }
   });
 
-  /* ---------- Drehung im Paar bis zum nächsten Bild ----------
-     Stored on the Bild the move leaves from (coupleTurns, see turnCouple in state.js): on the way
-     to the next Bild, Lead and Follow turn around their shared midpoint by exactly this angle while
-     the midpoint itself walks its path. */
+  /* ---------- Drehung im Paar und Eigendrehung bis zur nächsten Station ----------
+     Stored on the stop the move leaves from — the Bild, or the Zwischenposition being edited
+     (coupleTurns / spins, see interpolateThroughBetweens in state.js). Drehung: on the way to the
+     next stop, Lead and Follow turn around their shared midpoint by exactly this angle while the
+     midpoint itself walks its path; a closed couple's arrow turns by it instead. Eigendrehung: one
+     person's arrow turns by it on the spot, on top of anything else. */
 
-  // The one couple the selection stands for, if it has a partner offset to turn: a split couple
-  // (one or both of its points selected) or a saved pair from an older project.
+  // The leg the stage shows the start of: from the active Bild, or from the Zwischenposition being
+  // edited, to whatever comes next on the way there (the next Zwischenposition or the next Bild).
+  function currentLeg(){
+    var fIdx = editingBetween ? editingBetween.fIdx : state.activeIndex;
+    var f = state.formations[fIdx], nextF = state.formations[fIdx + 1];
+    if(!f || !nextF) return null;
+    var bs = Array.isArray(f.betweens) ? f.betweens : [];
+    var i = editingBetween ? editingBetween.bIdx : -1;
+    var cur = i < 0 ? f : bs[i];
+    if(!cur || !cur.pos) return null;
+    var next = bs[i + 1];
+    var nextName = next ? 'Zwischenposition ' + (i + 2) + (next.name ? ' — ' + next.name : '') : nextF.name;
+    return {cur: cur, next: next || nextF, nextName: nextName};
+  }
+
+  // The one couple the selection stands for: a couple dot — closed, or one or both of its points
+  // when split — or a saved pair from an older project.
   function selectedCouple(){
-    if(editingBetween || state.shareReadOnly) return null;
-    var cur = state.formations[state.activeIndex], next = state.formations[state.activeIndex + 1];
-    if(!cur || !next || !pairSelection.length || pairSelection.length > 2) return null;
+    if(state.shareReadOnly) return null;
+    var leg = currentLeg();
+    if(!leg || !pairSelection.length || pairSelection.length > 2) return null;
+    var cur = leg.cur, next = leg.next;
     var lk = null, fk = null;
     var base = baseDancerId(pairSelection[0]);
     if(pairSelection.every(function(id){ return baseDancerId(id) === base; })){
-      if(canCoupleSplit(base) && isCoupleSplitIn(cur, base)){ lk = base; fk = followKey(base); }
+      if(canCoupleSplit(base)){ lk = base; fk = followKey(base); }
     }else{
       var pair = findPairByMembers(pairSelection);
       if(pair && !isPairSplitHere(pair) && !pair.memberIds.some(function(id){ return cur.pos[followKey(id)] || next.pos[followKey(id)]; })){
         lk = pair.memberIds[0]; fk = pair.memberIds[1];
+        if(!cur.pos[fk] || !next.pos[fk]) return null;
       }
     }
-    if(!lk || !cur.pos[lk] || !cur.pos[fk] || !next.pos[lk]) return null;
-    if(fk !== followKey(lk) && !next.pos[fk]) return null;
-    return {lk: lk, fk: fk, cur: cur, next: next};
+    if(!lk || !cur.pos[lk] || !next.pos[lk]) return null;
+    return {lk: lk, fk: fk, cur: cur, next: next, nextName: leg.nextName};
   }
 
   function coupleTurnOf(c){
@@ -977,41 +996,96 @@
     var c = selectedCouple();
     pairTurnEl.hidden = !c;
     if(!c) return;
-    pairTurnLabelEl.textContent = 'Drehung bis „' + c.next.name + '“';
+    pairTurnLabelEl.textContent = 'Drehung bis „' + c.nextName + '“';
     var turn = coupleTurnOf(c);
     if(document.activeElement !== pairTurnInput) pairTurnInput.value = turn === null ? '' : roundNum(turn) + '°';
     pairTurnClearBtn.hidden = turn === null;
   }
 
-  // Setting a turn also places the couple in the next Bild: same distance apart, turned by that
+  // Setting a turn also poses the couple at the next stop: same distance apart, turned by that
   // angle around the midpoint they arrive at there (the couple's dot, if it isn't split there yet)
-  // — so Lead and Follow don't have to be posed by hand. Facing turns along with them.
+  // — so Lead and Follow don't have to be posed by hand. Facing turns along with them. A couple
+  // that is closed at both ends just arrives with its arrow turned that far; one that only opens
+  // up on the way keeps the spots it was posed in.
   function setCoupleTurn(turn){
     var c = selectedCouple();
     if(!c) return;
     turn = Math.max(-MAX_COUPLE_TURN, Math.min(MAX_COUPLE_TURN, turn));
     var la = c.cur.pos[c.lk], fa = c.cur.pos[c.fk];
     var lb = c.next.pos[c.lk], fb = c.next.pos[c.fk] || lb;
-    var hx = (la.x - fa.x)/2, hy = (la.y - fa.y)/2;
-    var mx = (lb.x + fb.x)/2, my = (lb.y + fb.y)/2;
-    var rad = turn * Math.PI / 180;
-    var cos = Math.cos(rad), sin = Math.sin(rad);
-    var rx = hx*cos - hy*sin, ry = hx*sin + hy*cos;
-    c.next.pos[c.lk] = {x: clampGrid(mx + rx), y: clampGrid(my + ry), rot: normAngle((la.rot||0) + turn)};
-    c.next.pos[c.fk] = {x: clampGrid(mx - rx), y: clampGrid(my - ry), rot: normAngle((fa.rot||0) + turn)};
+    if(fa){
+      var hx = (la.x - fa.x)/2, hy = (la.y - fa.y)/2;
+      var mx = (lb.x + fb.x)/2, my = (lb.y + fb.y)/2;
+      var rad = turn * Math.PI / 180;
+      var cos = Math.cos(rad), sin = Math.sin(rad);
+      var rx = hx*cos - hy*sin, ry = hx*sin + hy*cos;
+      c.next.pos[c.lk] = {x: clampGrid(mx + rx), y: clampGrid(my + ry), rot: normAngle((la.rot||0) + turn)};
+      c.next.pos[c.fk] = {x: clampGrid(mx - rx), y: clampGrid(my - ry), rot: normAngle((fa.rot||0) + turn)};
+    }else if(!c.next.pos[c.fk]){
+      c.next.pos[c.lk] = {x: lb.x, y: lb.y, rot: normAngle((la.rot||0) + turn)};
+    }
     var turns = sanitizeCoupleTurns(c.cur.coupleTurns) || {};
     turns[c.lk] = turn;
     c.cur.coupleTurns = sanitizeCoupleTurns(turns);
     afterCoupleTurnChange();
   }
 
-  // Back to the short way; the next Bild keeps where the couple stands.
+  // Back to the short way; the next stop keeps where the couple stands.
   function clearCoupleTurn(){
     var c = selectedCouple();
     if(!c) return;
     var turns = sanitizeCoupleTurns(c.cur.coupleTurns) || {};
     delete turns[c.lk];
     c.cur.coupleTurns = sanitizeCoupleTurns(turns);
+    afterCoupleTurnChange();
+  }
+
+  // The one person an Eigendrehung is for: a single selected point that is one person here — Lead
+  // or Follow of a split couple, or a dancer of a saved pair. A closed couple turns via Drehung.
+  function selectedSpinner(){
+    if(state.shareReadOnly || pairSelection.length !== 1) return null;
+    var leg = currentLeg();
+    var k = pairSelection[0];
+    if(!leg || !leg.cur.pos[k]) return null;
+    if(!isFollowKey(k) && !leg.cur.pos[followKey(k)] && !findPairForDancer(k)) return null;
+    return {k: k, cur: leg.cur, next: leg.next, nextName: leg.nextName};
+  }
+
+  function spinOf(s){
+    var spins = sanitizeSpins(s.cur.spins);
+    return spins && typeof spins[s.k] === 'number' ? spins[s.k] : null;
+  }
+
+  function updatePairSpinUI(){
+    var s = selectedSpinner();
+    pairSpinEl.hidden = !s;
+    if(!s) return;
+    pairSpinLabelEl.textContent = 'Eigendrehung bis „' + s.nextName + '“';
+    var spin = spinOf(s);
+    if(document.activeElement !== pairSpinInput) pairSpinInput.value = spin === null ? '' : roundNum(spin) + '°';
+    pairSpinClearBtn.hidden = spin === null;
+  }
+
+  // Like a Drehung, setting it also turns the person's arrow at the next stop by that much (where
+  // they have a spot of their own there — a Follow closing into the dot ends up facing its way).
+  function setSpin(spin){
+    var s = selectedSpinner();
+    if(!s) return;
+    spin = Math.max(-MAX_COUPLE_TURN, Math.min(MAX_COUPLE_TURN, spin));
+    var spins = sanitizeSpins(s.cur.spins) || {};
+    spins[s.k] = spin;
+    s.cur.spins = sanitizeSpins(spins);
+    var nb = s.next.pos[s.k];
+    if(nb) s.next.pos[s.k] = {x: nb.x, y: nb.y, rot: normAngle((s.cur.pos[s.k].rot||0) + spin)};
+    afterCoupleTurnChange();
+  }
+
+  function clearSpin(){
+    var s = selectedSpinner();
+    if(!s) return;
+    var spins = sanitizeSpins(s.cur.spins) || {};
+    delete spins[s.k];
+    s.cur.spins = sanitizeSpins(spins);
     afterCoupleTurnChange();
   }
 
@@ -1031,6 +1105,15 @@
     if(e.key === 'Enter'){ e.preventDefault(); pairTurnBtn.click(); }
   });
   pairTurnClearBtn.addEventListener('click', clearCoupleTurn);
+  pairSpinBtn.addEventListener('click', function(){
+    var deg = parseAngleInput(pairSpinInput.value);
+    if(deg === null){ pairSpinInput.focus(); return; }
+    setSpin(deg);
+  });
+  pairSpinInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); pairSpinBtn.click(); }
+  });
+  pairSpinClearBtn.addEventListener('click', clearSpin);
   pairSplitBtn.addEventListener('click', function(){
     if(pairSplitBtn.dataset.couple){ toggleCoupleSplit(pairSplitBtn.dataset.couple); return; }
     var pairId = pairSplitBtn.dataset.pairId;
@@ -1128,11 +1211,11 @@
     updatePairRotateUI();
   }
 
-  // A couple dot (no saved pair) can be split into Lead & Follow — in real Bilder only, not while
-  // a Zwischenposition is being edited.
+  // A couple dot (no saved pair) can be split into Lead & Follow — in a Bild or in the
+  // Zwischenposition being edited, each on its own.
   function canCoupleSplit(id){
     var base = baseDancerId(id);
-    if(editingBetween || state.shareReadOnly) return false;
+    if(state.shareReadOnly) return false;
     if(!state.dancers.some(function(d){ return d.id === base; })) return false;
     return !findPairForDancer(base);
   }
@@ -1140,7 +1223,7 @@
   function toggleCoupleSplit(id){
     if(!canCoupleSplit(id)) return;
     var did = baseDancerId(id);
-    var f = state.formations[state.activeIndex];
+    var f = currentFormation();
     if(!f || !f.pos[did]) return;
     var fk = followKey(did);
     if(f.pos[fk]){

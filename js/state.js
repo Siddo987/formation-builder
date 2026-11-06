@@ -27,22 +27,42 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // loading from anywhere untrusted (localStorage, an imported file, a share link) — same idea as
   // the per-Bild startPos/localAxes migrations around loadState(), just shared across the three
   // call sites (loadState here, parseStg in export.js, reconstructSharedState in share.js) since a
-  // between's pos is a full per-dancer map rather than a single flat field.
+  // between's pos is a full per-dancer map rather than a single flat field. A between keeps a
+  // couple's Follow key where the couple is split there, its own time (`at`) and the Drehungen /
+  // Eigendrehungen for the leg after it, all optional.
   function sanitizeBetweens(betweens, dancers){
     if(!Array.isArray(betweens)) return [];
     var validIds = (dancers||[]).map(function(d){ return d.id; });
+    function point(p){
+      return {
+        x: clampGrid(p && typeof p.x === 'number' ? p.x : 0),
+        y: clampGrid(p && typeof p.y === 'number' ? p.y : 0),
+        rot: normAngle(p && typeof p.rot === 'number' ? p.rot : 0)
+      };
+    }
     return betweens.filter(function(b){ return b && typeof b === 'object' && b.pos && typeof b.pos === 'object'; }).map(function(b){
       var pos = {};
       validIds.forEach(function(id){
-        var p = b.pos[id];
-        pos[id] = {
-          x: clampGrid(p && typeof p.x === 'number' ? p.x : 0),
-          y: clampGrid(p && typeof p.y === 'number' ? p.y : 0),
-          rot: normAngle(p && typeof p.rot === 'number' ? p.rot : 0)
-        };
+        pos[id] = point(b.pos[id]);
+        var fp = b.pos[followKey(id)];
+        if(fp && typeof fp === 'object') pos[followKey(id)] = point(fp);
       });
-      return {id: b.id || uid('bw'), name: typeof b.name === 'string' ? b.name.slice(0, 40) : '', pos: pos};
+      var out = {id: b.id || uid('bw'), name: typeof b.name === 'string' ? b.name.slice(0, 40) : '', pos: pos};
+      var at = sanitizeBetweenAt(b.at);
+      if(at !== null) out.at = at;
+      var turns = sanitizeCoupleTurns(b.coupleTurns);
+      if(turns) out.coupleTurns = turns;
+      var spins = sanitizeSpins(b.spins);
+      if(spins) out.spins = spins;
+      return out;
     });
+  }
+  // When a Zwischenposition is reached, as a share of its move's time (strictly between 0 and 1) —
+  // e.g. on a beat of the song. null = not set: it's spread evenly between its neighbours instead
+  // (see betweenAnchors).
+  function sanitizeBetweenAt(v){
+    if(typeof v !== 'number' || !isFinite(v) || v <= 0 || v >= 1) return null;
+    return Math.min(0.9999, Math.max(0.0001, Math.round(v * 10000) / 10000));
   }
   // How a move runs through its Zwischenpositionen (a per-Bild setting, like the betweens list it
   // belongs to): 'corner' = straight legs that turn sharply at each one, 'smooth' = one rounded,
@@ -61,9 +81,11 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     return out;
   }
   // Drehung im Paar (a per-Bild setting for the move *out of* this Bild, like betweens): couple key
-  // (the Lead's pos key — the dancer id of a split couple, memberIds[0] of an older saved pair) ->
-  // degrees the couple turns around its middle on the way to the next Bild. Positive = clockwise on
-  // stage, more than one full turn allowed. Unset = the short way, as before (see turnCouple).
+  // (the Lead's pos key — the dancer id of a couple, memberIds[0] of an older saved pair) ->
+  // degrees the couple turns around its middle on the way to the next stop. Positive = clockwise
+  // on stage, more than one full turn allowed. Unset = the short way, as before (see turnCouple).
+  // With Zwischenpositionen the Bild's own setting covers the first leg only, and every
+  // Zwischenposition carries its own for the leg after it (see interpolateThroughBetweens).
   var MAX_COUPLE_TURN = 3600;
   function sanitizeCoupleTurns(v){
     if(!v || typeof v !== 'object' || Array.isArray(v)) return null;
@@ -76,113 +98,177 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     });
     return any ? out : null;
   }
+  // Eigendrehung, stored next to coupleTurns (on a Bild for the move — or first leg — out of it, on
+  // a Zwischenposition for the leg after it): pos key (a dancer, or a split couple's Lead or
+  // Follow) -> degrees that person turns around their own axis on the way, same sign and limits as
+  // a Drehung im Paar. Unset = the facing turns the short way to the next arrow.
+  function sanitizeSpins(v){ return sanitizeCoupleTurns(v); }
   // A move between two Bilder normally interpolates in one straight leg (fromPos -> toPos). If the
   // *from* Bild has Zwischenpositionen — poses along the way that don't get their own Bild/filmstrip
   // card, added via the "+" between filmstrip cards (see formations.js) — the same move instead
-  // chains through each of them in turn, without changing the move's total duration: it's simply
-  // divided evenly across (Zwischenpositionen + 1) legs, per "Gesamtlänge der Bewegung/(Anzahl der
-  // Zwischenpositionen + 1)". Used by both playback paths (playback.js tick() and syncTick()), each
-  // of which already has its own overall progress `overallT` (0..1) for the whole move — this eases
-  // that once for the whole move and then resolves it into the right leg, so the dancers keep going
-  // through each Zwischenposition instead of stopping there. Betweens only apply when `toIdx` is
-  // literally the next Bild after `fromIdx` (fromIdx+1) — sync playback can skip over Bilder with no
-  // time marker of their own, and a between belongs to a specific gap, not to whatever pair of
-  // Bilder happen to be interpolating at the moment.
+  // chains through each of them in turn, without changing the move's total duration. A
+  // Zwischenposition with its own time (`at`, e.g. on a beat of the song) is reached exactly then;
+  // the ones without are spread evenly between their neighbours (see betweenAnchors), which with no
+  // times set at all is the old even split, "Gesamtlänge der Bewegung/(Anzahl der
+  // Zwischenpositionen + 1)". Used by every playback path (playback.js tick() and syncTick(), the
+  // video export), each of which already has its own overall progress `overallT` (0..1) for the
+  // whole move — this eases that once for the whole move and then resolves it into the right leg,
+  // so the dancers keep going through each Zwischenposition instead of stopping there.
+  // Every stop — the from-Bild and each Zwischenposition — also says how the leg *out of* it runs:
+  // its Drehungen im Paar (coupleTurns) and Eigendrehungen (spins), and whether a couple is split
+  // there (it has a Follow key) or closed (none: the Follow stands on the couple's dot).
+  // Betweens only apply when `toIdx` is literally the next Bild after `fromIdx` (fromIdx+1) — sync
+  // playback can skip over Bilder with no time marker of their own, and a between belongs to a
+  // specific gap, not to whatever pair of Bilder happen to be interpolating at the moment.
+  function moveBetweens(fromIdx, toIdx){
+    var f = state.formations[fromIdx];
+    return toIdx === fromIdx + 1 && f && Array.isArray(f.betweens) ? f.betweens : [];
+  }
+  // Eased progress (moveEase's 0..1 scale) at every stop of the move: 0 at the from-Bild, 1 at the
+  // to-Bild, moveEase(at) at a timed Zwischenposition. They never run backwards — one timed earlier
+  // than a Zwischenposition before it is reached right after that one — and runs without a time are
+  // filled in evenly between the anchors around them.
+  function betweenAnchors(fromIdx, toIdx){
+    var anchors = [0], last = 0;
+    moveBetweens(fromIdx, toIdx).forEach(function(b){
+      var at = sanitizeBetweenAt(b.at);
+      if(at === null){ anchors.push(null); return; }
+      last = Math.max(last, moveEase(fromIdx, toIdx, at));
+      anchors.push(last);
+    });
+    anchors.push(1);
+    for(var i = 1; i < anchors.length - 1; i++){
+      if(anchors[i] !== null) continue;
+      var j = i;
+      while(anchors[j] === null) j++;
+      for(var k = i; k < j; k++) anchors[k] = lerp(anchors[i-1], anchors[j], (k - i + 1) / (j - i + 1));
+      i = j;
+    }
+    return anchors;
+  }
+  // The share of its move's time (0..1) at which each Zwischenposition after Bild `fromIdx` is
+  // reached — its own `at`, or wherever betweenAnchors spread it — for showing in the editor.
+  function betweenTimes(fromIdx){
+    var toIdx = fromIdx + 1;
+    return betweenAnchors(fromIdx, toIdx).slice(1, -1).map(function(target){
+      var lo = 0, hi = 1;
+      for(var i = 0; i < 40; i++){
+        var mid = (lo + hi) / 2;
+        if(moveEase(fromIdx, toIdx, mid) < target) lo = mid; else hi = mid;
+      }
+      return (lo + hi) / 2;
+    });
+  }
   function interpolateThroughBetweens(fromIdx, toIdx, overallT){
     var fromF = state.formations[fromIdx], toF = state.formations[toIdx];
-    var mids = (toIdx === fromIdx + 1 && Array.isArray(fromF.betweens)) ? fromF.betweens.map(function(b){ return b.pos; }) : [];
-    var waypoints = [fromF.pos].concat(mids, [toF.pos]);
-    var legCount = waypoints.length - 1;
+    var stops = [fromF].concat(moveBetweens(fromIdx, toIdx), [toF]);
+    var pts = stops.map(function(s){ return s.pos || {}; });
+    var anchors = betweenAnchors(fromIdx, toIdx);
+    var legCount = stops.length - 1;
     var eAll = moveEase(fromIdx, toIdx, overallT >= 1 ? 1 : Math.max(0, overallT));
-    var scaled = Math.min(legCount - 1e-9, eAll * legCount);
-    var legIdx = Math.min(legCount - 1, Math.floor(scaled));
-    var e = overallT >= 1 ? 1 : (scaled - legIdx);
-    var a = waypoints[legIdx], b = waypoints[legIdx + 1];
-    var smooth = mids.length && sanitizeBetweenPath(fromF.betweenPath) === 'smooth';
+    var legIdx = 0, e = 0;
+    if(overallT >= 1){ legIdx = legCount - 1; e = 1; }
+    else if(overallT > 0){
+      while(legIdx < legCount - 1 && anchors[legIdx + 1] <= eAll) legIdx++;
+      var span = anchors[legIdx + 1] - anchors[legIdx];
+      e = span < 1e-9 ? 1 : Math.min(1, Math.max(0, (eAll - anchors[legIdx]) / span));
+    }
+    var a = pts[legIdx], b = pts[legIdx + 1];
+    var smooth = legCount > 1 && sanitizeBetweenPath(fromF.betweenPath) === 'smooth';
+    var ZERO = {x:0, y:0, rot:0};
+    // Where pos key `k` is at a stop — a Follow whose couple is closed there is on the couple's dot.
+    function spot(w, k){ return w[k] || w[baseDancerId(k)] || ZERO; }
     var interp = {};
-    state.dancers.forEach(function(dd){
-      var pa = a[dd.id] || {x:0,y:0,rot:0};
-      var pb = b[dd.id] || {x:0,y:0,rot:0};
-      interp[dd.id] = { x: pa.x + (pb.x-pa.x)*e, y: pa.y + (pb.y-pa.y)*e, rot: lerpAngle(pa.rot||0, pb.rot||0, e) };
+    function place(k){
+      var pa = spot(a, k), pb = spot(b, k);
+      interp[k] = { x: lerp(pa.x, pb.x, e), y: lerp(pa.y, pb.y, e), rot: lerpAngle(pa.rot||0, pb.rot||0, e) };
       if(smooth){
-        var c = smoothLeg(waypoints.map(function(w){ return w[dd.id] || {x:0,y:0}; }), legIdx, e);
-        interp[dd.id].x = clampGrid(c.x); interp[dd.id].y = clampGrid(c.y);
+        var c = smoothLeg(pts.map(function(w){ return spot(w, k); }), legIdx, e, anchors);
+        interp[k].x = clampGrid(c.x); interp[k].y = clampGrid(c.y);
       }
-    });
-    // Split couples: the Follow travels straight (no betweens) from its own spot — or out of the
-    // couple's dot if it wasn't split before — to its next spot, or back into the dot.
+    }
+    // Every dot, plus the Follow of a couple that is split at either end of this leg — stepping out
+    // of the dot, back into it, or from one spot of its own to the next.
     state.dancers.forEach(function(dd){
+      place(dd.id);
       var k = followKey(dd.id);
-      if(!fromF.pos[k] && !toF.pos[k]) return;
-      var pa = fromF.pos[k] || fromF.pos[dd.id] || {x:0,y:0,rot:0};
-      var pb = toF.pos[k] || toF.pos[dd.id] || {x:0,y:0,rot:0};
-      interp[k] = { x: pa.x + (pb.x-pa.x)*eAll, y: pa.y + (pb.y-pa.y)*eAll, rot: lerpAngle(pa.rot||0, pb.rot||0, eAll) };
+      if(a[k] || b[k]) place(k);
     });
-    // Turning within a couple: if Lead and Follow are apart in both Bilder, they don't walk straight
-    // (and possibly right through each other) — see turnCouple below. Without a set Drehung only for
-    // a plain move without Zwischenpositionen: those are hand-placed paths and are followed as-is.
-    // With one, the couple's middle walks the Zwischenpositionen instead (centrePath) while the pair
-    // turns around it. Either way the angle runs on eAll, in step with the legs above.
-    var turns = toIdx === fromIdx + 1 ? sanitizeCoupleTurns(fromF.coupleTurns) : null;
-    function centrePath(lk, fk){
-      if(!mids.length) return null;
-      var pts = waypoints.map(function(w){
-        var l = w[lk] || {x:0,y:0}, f = w[fk] || l; // a Zwischenposition holds the couple's dot only
+    // Turning within a couple, with the settings of the stop this leg leaves from. Split at both
+    // ends: Lead and Follow don't walk straight (and possibly right through each other) but turn
+    // around their middle — see turnCouple below — the short way, or as far round as a set Drehung
+    // says. Split at one end only: they open out of / close into the dot that way only with a set
+    // Drehung. Closed at both ends: a set Drehung turns the dot's arrow.
+    var leaving = stops[legIdx];
+    var turns = sanitizeCoupleTurns(leaving.coupleTurns), spins = sanitizeSpins(leaving.spins);
+    function turnOf(lk){ return turns && typeof turns[lk] === 'number' ? turns[lk] : null; }
+    function centre(lk, fk){
+      var mids = pts.map(function(w){
+        var l = spot(w, lk), f = spot(w, fk);
         return {x: (l.x+f.x)/2, y: (l.y+f.y)/2};
       });
-      if(smooth) return smoothLeg(pts, legIdx, e);
-      return {x: lerp(pts[legIdx].x, pts[legIdx+1].x, e), y: lerp(pts[legIdx].y, pts[legIdx+1].y, e)};
-    }
-    function turnIf(lk, fk){
-      var turn = turns && typeof turns[lk] === 'number' ? turns[lk] : null;
-      if(mids.length && turn === null) return;
-      turnCouple(interp, lk, fk, fromF.pos, toF.pos, eAll, turn, centrePath(lk, fk));
+      if(smooth) return smoothLeg(mids, legIdx, e, anchors);
+      return {x: lerp(mids[legIdx].x, mids[legIdx+1].x, e), y: lerp(mids[legIdx].y, mids[legIdx+1].y, e)};
     }
     state.dancers.forEach(function(dd){
-      var k = followKey(dd.id);
-      if(fromF.pos[k] && toF.pos[k] && fromF.pos[dd.id] && toF.pos[dd.id]) turnIf(dd.id, k);
+      var lk = dd.id, fk = followKey(lk);
+      if(!a[lk] || !b[lk]) return;
+      var turn = turnOf(lk);
+      if(a[fk] && b[fk]) turnCouple(interp, lk, fk, a[lk], a[fk], b[lk], b[fk], e, turn, centre(lk, fk));
+      else if(turn === null) return;
+      else if(a[fk] || b[fk]) turnCouple(interp, lk, fk, a[lk], spot(a, fk), b[lk], spot(b, fk), e, turn, centre(lk, fk));
+      else interp[lk].rot = normAngle((a[lk].rot||0) + turnSweep((b[lk].rot||0) - (a[lk].rot||0), turn) * e);
     });
     // Legacy linked pairs (two separate dots, memberIds = [lead, follow]) turn the same way —
-    // unless one of them is itself split, which the loop above already handled.
+    // unless one of them is itself split at either end, which the loop above already handled.
     (state.pairs || []).forEach(function(pr){
       var ids = pr.memberIds || [];
-      if(ids.length !== 2 || ids.some(function(id){ return !fromF.pos[id] || !toF.pos[id] || fromF.pos[followKey(id)] || toF.pos[followKey(id)]; })) return;
-      turnIf(ids[0], ids[1]);
+      if(ids.length !== 2 || ids.some(function(id){ return !a[id] || !b[id] || a[followKey(id)] || b[followKey(id)]; })) return;
+      turnCouple(interp, ids[0], ids[1], a[ids[0]], a[ids[1]], b[ids[0]], b[ids[1]], e, turnOf(ids[0]), centre(ids[0], ids[1]));
+    });
+    // Eigendrehungen last, so they win over a Drehung's facing: that one person's arrow turns by
+    // the set amount over the leg, wherever they're walking.
+    if(spins) Object.keys(spins).forEach(function(k){
+      if(!interp[k]) return;
+      var ra = spot(a, k).rot || 0;
+      interp[k].rot = normAngle(ra + turnSweep((spot(b, k).rot || 0) - ra, spins[k]) * e);
     });
     return interp;
   }
-  // "Abgerundet" (betweenPath 'smooth'): a Hermite spline through all waypoints of the move. Every
-  // leg keeps its equal share of the time, and the two legs meeting at a Zwischenposition share
-  // one tangent there, so the dancer passes through it without a corner or a jump in speed. The
-  // tangent is the usual Catmull-Rom one, shortened next to a much shorter leg so the curve can't
-  // overshoot or loop — down to zero when the dancer stands still for a leg.
-  function smoothLeg(points, legIdx, t){
+  // "Abgerundet" (betweenPath 'smooth'): a Hermite spline through all waypoints of the move. The
+  // two legs meeting at a Zwischenposition share one tangent there, so the dancer passes through it
+  // without a corner or a jump in speed. `anchors` (see betweenAnchors) are when each waypoint is
+  // reached — tangents are velocities per unit of that progress, so a short leg in the time doesn't
+  // overshoot; without them every leg gets the same share. The tangent is the usual Catmull-Rom one,
+  // shortened next to a leg that is much slower than the other so the curve can't overshoot or loop
+  // — down to zero when the dancer stands still for a leg.
+  function smoothLeg(points, legIdx, t, anchors){
     var n = points.length - 1;
+    function dur(i){ return anchors ? Math.max(1e-6, anchors[i+1] - anchors[i]) : 1; }
     function tangent(i){
-      if(i === 0) return {x: points[1].x - points[0].x, y: points[1].y - points[0].y};
-      if(i === n) return {x: points[n].x - points[n-1].x, y: points[n].y - points[n-1].y};
-      var p = points[i-1], q = points[i], r = points[i+1];
-      var l1 = Math.hypot(q.x-p.x, q.y-p.y), l2 = Math.hypot(r.x-q.x, r.y-q.y);
-      var damp = Math.max(l1, l2) < 1e-6 ? 0 : Math.min(1, 3 * Math.min(l1, l2) / Math.max(l1, l2));
-      return {x: (r.x-p.x)/2 * damp, y: (r.y-p.y)/2 * damp};
+      if(i === 0) return {x: (points[1].x - points[0].x) / dur(0), y: (points[1].y - points[0].y) / dur(0)};
+      if(i === n) return {x: (points[n].x - points[n-1].x) / dur(n-1), y: (points[n].y - points[n-1].y) / dur(n-1)};
+      var p = points[i-1], q = points[i], r = points[i+1], h1 = dur(i-1), h2 = dur(i);
+      var v1 = Math.hypot(q.x-p.x, q.y-p.y) / h1, v2 = Math.hypot(r.x-q.x, r.y-q.y) / h2;
+      var damp = Math.max(v1, v2) < 1e-6 ? 0 : Math.min(1, 3 * Math.min(v1, v2) / Math.max(v1, v2));
+      return {x: (r.x-p.x) / (h1+h2) * damp, y: (r.y-p.y) / (h1+h2) * damp};
     }
+    var h = dur(legIdx);
     var p0 = points[legIdx], p1 = points[legIdx+1], m0 = tangent(legIdx), m1 = tangent(legIdx+1);
     var t2 = t*t, t3 = t2*t;
-    var h00 = 2*t3 - 3*t2 + 1, h10 = t3 - 2*t2 + t, h01 = 3*t2 - 2*t3, h11 = t3 - t2;
+    var h00 = 2*t3 - 3*t2 + 1, h10 = (t3 - 2*t2 + t) * h, h01 = 3*t2 - 2*t3, h11 = (t3 - t2) * h;
     return {x: h00*p0.x + h10*m0.x + h01*p1.x + h11*m1.x, y: h00*p0.y + h10*m0.y + h01*p1.y + h11*m1.y};
   }
-  // The couple's midpoint — the axis they turn around — travels straight from one Bild to the next,
+  // The couple's midpoint `c` — the axis they turn around, already worked out for this moment by
+  // the caller (straight between the two ends' middles, or rounded through Zwischenpositionen) —
   // while the Follow→Lead vector rotates around it the short way and its length eases from the old
-  // spacing to the new one. A couple that only moves (no change of direction between them) ends up
-  // exactly on the straight lines; one that swaps sides turns around its moving middle instead of
-  // running through each other.
+  // spacing (la/fa) to the new one (lb/fb). A couple that only moves (no change of direction
+  // between them) ends up exactly on the straight lines; one that swaps sides turns around its
+  // moving middle instead of running through each other.
   // With a set Drehung (`turn`, see sanitizeCoupleTurns) the axis — and both partners' facing —
   // sweeps the way round that comes closest to it instead: 360 is a full turn back to the same
-  // spots, -180 swaps sides anticlockwise. `centre` overrides the straight middle (a path through
-  // Zwischenpositionen).
-  function turnCouple(interp, lk, fk, pa, pb, t, turn, centre){
-    var la = pa[lk], fa = pa[fk], lb = pb[lk], fb = pb[fk];
-    var c = centre || {x: lerp((la.x+fa.x)/2, (lb.x+fb.x)/2, t), y: lerp((la.y+fa.y)/2, (lb.y+fb.y)/2, t)};
+  // spots, -180 swaps sides anticlockwise.
+  function turnCouple(interp, lk, fk, la, fa, lb, fb, t, turn, c){
     var distA = Math.hypot(la.x-fa.x, la.y-fa.y), distB = Math.hypot(lb.x-fb.x, lb.y-fb.y);
     var angA = Math.atan2(la.y-fa.y, la.x-fa.x) * 180/Math.PI, angB = Math.atan2(lb.y-fb.y, lb.x-fb.x) * 180/Math.PI;
     // On top of each other on one side: no direction to turn from/to, just open up or close.
@@ -206,10 +292,11 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     var d = (((diff % 360) + 540) % 360) - 180;
     return typeof turn === 'number' ? d + 360 * Math.round((turn - d) / 360) : d;
   }
-  // "Punkt = Paar aufspalten": every dot is a couple by default. In single Bilder it can be split
-  // into Lead (the dot's own pos key) and Follow, stored in the same Bild's pos map under
-  // `<dancerId>~f`. Only real Bilder carry follow keys (sanitizeBetweens drops them), and every
-  // serializer (.stg/.auf/share/Verlauf) already round-trips arbitrary pos keys.
+  // "Punkt = Paar aufspalten": every dot is a couple by default. In a Bild or a Zwischenposition it
+  // can be split into Lead (the dot's own pos key) and Follow, stored in the same pos map under
+  // `<dancerId>~f`; where that key is missing the couple is closed and the Follow is on the dot
+  // (see interpolateThroughBetweens). Every serializer (.stg/.auf/share/Verlauf) already
+  // round-trips arbitrary pos keys.
   var FOLLOW_SUFFIX = '~f';
   function followKey(did){ return did + FOLLOW_SUFFIX; }
   function isFollowKey(id){ return typeof id === 'string' && id.slice(-FOLLOW_SUFFIX.length) === FOLLOW_SUFFIX; }
@@ -448,6 +535,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         f.speedCurve = sanitizeSpeedCurve(f.speedCurve);
         // migration: older saves predate set Drehungen im Paar — see turnCouple()
         f.coupleTurns = sanitizeCoupleTurns(f.coupleTurns);
+        // migration: older saves predate Eigendrehungen — see interpolateThroughBetweens()
+        f.spins = sanitizeSpins(f.spins);
         // migration: older saves predate temporarily split pairs ("Paar lösen") entirely
         f.splitPairs = sanitizeSplitPairs(f.splitPairs);
       });
@@ -601,6 +690,11 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var pairTurnInput = document.getElementById('pairTurnInput');
   var pairTurnBtn = document.getElementById('pairTurnBtn');
   var pairTurnClearBtn = document.getElementById('pairTurnClearBtn');
+  var pairSpinEl = document.getElementById('pairSpin');
+  var pairSpinLabelEl = document.getElementById('pairSpinLabel');
+  var pairSpinInput = document.getElementById('pairSpinInput');
+  var pairSpinBtn = document.getElementById('pairSpinBtn');
+  var pairSpinClearBtn = document.getElementById('pairSpinClearBtn');
   var rosterListEl = document.getElementById('rosterList');
   var dancerCountEl = document.getElementById('dancerCount');
   var addDancerBtn = document.getElementById('addDancerBtn');

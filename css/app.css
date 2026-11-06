@@ -389,6 +389,13 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
   height:24px;border-radius:5px;border:none;background:rgba(255,255,255,.22);color:#fff;padding:0 .55rem;font-size:.74rem;
 }
 .stage-area .between-edit-banner .btn-ghost:hover{background:rgba(255,255,255,.35);}
+.between-edit-time{
+  width:68px;height:24px;border:none;border-radius:5px;
+  background:rgba(255,255,255,.22);color:#fff;
+  padding:0 .35rem;font-family:var(--font-mono);font-size:.72rem;font-variant-numeric:tabular-nums;text-align:center;
+}
+.between-edit-time::placeholder{color:rgba(255,255,255,.7);}
+.between-edit-time:focus{outline:2px solid #fff;outline-offset:-1px;background:rgba(255,255,255,.32);}
 
 .stage-wrap{position:relative;flex:1;min-width:0;min-height:0;container-type:size;padding:0 .75rem;display:flex;flex-direction:column;justify-content:center;}
 
@@ -568,7 +575,7 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
 .pair-rotate .btn-icon:hover{background:var(--panel-3);color:var(--ink);}
 .pair-rotate-hint{display:none;}
 .pair-rotate.single .pair-rotate-turn{display:none;}
-/* Drehung im Paar bis zum nächsten Bild */
+/* Drehung im Paar und Eigendrehung bis zur nächsten Station */
 .pair-turn{
   display:flex;align-items:center;gap:3px;flex:none;
   padding-left:.4rem;margin-left:.05rem;border-left:1px solid var(--line);
@@ -1119,6 +1126,10 @@ body.roster-open .roster{display:flex;}
   .stage-toolbar::-webkit-scrollbar{display:none;}
   .stage-toolbar > *{flex:none;}
   .stage-toolbar-spacer{flex:1 0 0;}
+  /* Zwischenposition: Text kürzen, damit Zeitfeld und „Fertig“ im Bild bleiben */
+  .stage-toolbar > .between-edit-banner{flex:0 1 auto;min-width:0;}
+  #betweenEditBannerText{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+  .between-edit-time,.between-edit-banner .btn-ghost{flex:none;}
   .float-pill{height:34px;}
   .stage-wrap{padding:0 .45rem;}
   .stage-frame{--lab:1.45rem;}

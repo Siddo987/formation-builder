@@ -59,7 +59,8 @@
         splitPairs: sanitizeSplitPairs(f.splitPairs),
         betweenPath: sanitizeBetweenPath(f.betweenPath),
         speedCurve: sanitizeSpeedCurve(f.speedCurve),
-        coupleTurns: sanitizeCoupleTurns(f.coupleTurns)
+        coupleTurns: sanitizeCoupleTurns(f.coupleTurns),
+        spins: sanitizeSpins(f.spins)
       });
       Object.keys(f.pos || {}).forEach(function(did){
         var p = f.pos[did];
@@ -75,7 +76,7 @@
       // (which between, which dancer) is joined with '::' rather than another '/'.
       m.set('bild/' + f.id + '/betweenorder', (f.betweens || []).map(function(b){ return b.id; }));
       (f.betweens || []).forEach(function(b){
-        m.set('bild/' + f.id + '/betweenmeta/' + b.id, {name: b.name || ''});
+        m.set('bild/' + f.id + '/betweenmeta/' + b.id, {name: b.name || '', at: sanitizeBetweenAt(b.at), coupleTurns: sanitizeCoupleTurns(b.coupleTurns), spins: sanitizeSpins(b.spins)});
         Object.keys(b.pos || {}).forEach(function(did){
           var p = b.pos[did];
           m.set('bild/' + f.id + '/between/' + b.id + '::' + did, {x: hNum(p.x), y: hNum(p.y), rot: hNum(p.rot)});
@@ -137,7 +138,7 @@
         var sep = key.indexOf('::');
         if(sep === -1) return;
         var bwid = key.slice(0, sep), did = key.slice(sep + 2);
-        if(!dancerIdSet[did]) return;
+        if(!dancerIdSet[baseDancerId(did)]) return; // also keeps split Follow keys (<id>~f)
         var v = m.get('bild/' + fid + '/between/' + key) || {};
         if(!betweenPosByBw[bwid]) betweenPosByBw[bwid] = {};
         betweenPosByBw[bwid][did] = {x: v.x || 0, y: v.y || 0, rot: v.rot || 0};
@@ -146,11 +147,16 @@
       Object.keys(betweenPosByBw).forEach(function(id){ if(betweenOrder.indexOf(id) === -1) betweenOrder.push(id); });
       var betweens = betweenOrder.map(function(id){
         var bmeta = m.get('bild/' + fid + '/betweenmeta/' + id) || {};
-        return {id: id, name: bmeta.name || '', pos: betweenPosByBw[id]};
+        var bw = {id: id, name: bmeta.name || '', pos: betweenPosByBw[id]};
+        var at = sanitizeBetweenAt(bmeta.at), turns = sanitizeCoupleTurns(bmeta.coupleTurns), spins = sanitizeSpins(bmeta.spins);
+        if(at !== null) bw.at = at;
+        if(turns) bw.coupleTurns = turns;
+        if(spins) bw.spins = spins;
+        return bw;
       });
       var startPos = {};
       Object.keys(pos).forEach(function(did){ startPos[did] = {x: pos[did].x, y: pos[did].y}; });
-      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, betweenPath: sanitizeBetweenPath(meta.betweenPath), speedCurve: sanitizeSpeedCurve(meta.speedCurve), coupleTurns: sanitizeCoupleTurns(meta.coupleTurns), splitPairs: sanitizeSplitPairs(meta.splitPairs)};
+      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, betweenPath: sanitizeBetweenPath(meta.betweenPath), speedCurve: sanitizeSpeedCurve(meta.speedCurve), coupleTurns: sanitizeCoupleTurns(meta.coupleTurns), spins: sanitizeSpins(meta.spins), splitPairs: sanitizeSplitPairs(meta.splitPairs)};
       if(typeof meta.time === 'number' && isFinite(meta.time) && meta.time >= 0) out.time = meta.time;
       return out;
     });
@@ -267,6 +273,7 @@
         if(before.betweenPath !== after.betweenPath) return where + ': Weg durch die Zwischenpositionen ' + (after.betweenPath === 'smooth' ? 'abgerundet' : 'eckig');
         if(hStable(before.speedCurve) !== hStable(after.speedCurve)) return where + ': Geschwindigkeitsverlauf ' + (after.speedCurve ? 'geändert' : 'zurückgesetzt');
         if(hStable(before.coupleTurns) !== hStable(after.coupleTurns)) return where + ': Drehung im Paar ' + (after.coupleTurns ? 'geändert' : 'entfernt');
+        if(hStable(before.spins) !== hStable(after.spins)) return where + ': Eigendrehung ' + (after.spins ? 'geändert' : 'entfernt');
         return where + ' geändert';
       }
       if(parts[2] === 'pos'){
@@ -288,8 +295,13 @@
         return where + ': Zwischenposition geändert';
       }
       if(parts[2] === 'betweenmeta'){
-        if(kind === 'changed' && before.name !== after.name) return where + ': Zwischenposition umbenannt (vorher „' + (before.name || '') + '“)';
-        return where + ': Zwischenposition umbenannt';
+        if(kind === 'added') return where + ': Zwischenposition hinzugefügt';
+        if(kind === 'removed') return where + ': Zwischenposition entfernt';
+        if(before.name !== after.name) return where + ': Zwischenposition umbenannt (vorher „' + (before.name || '') + '“)';
+        if(before.at !== after.at) return where + ': Zeitpunkt einer Zwischenposition ' + (after.at === null || after.at === undefined ? 'automatisch' : 'geändert');
+        if(hStable(before.coupleTurns) !== hStable(after.coupleTurns)) return where + ': Drehung im Paar ab einer Zwischenposition ' + (after.coupleTurns ? 'geändert' : 'entfernt');
+        if(hStable(before.spins) !== hStable(after.spins)) return where + ': Eigendrehung ab einer Zwischenposition ' + (after.spins ? 'geändert' : 'entfernt');
+        return where + ': Zwischenposition geändert';
       }
     }
     return path + ' geändert';

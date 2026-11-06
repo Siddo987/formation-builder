@@ -293,7 +293,7 @@
   function buildBetweenConnector(f, idx){
     var wrap = document.createElement('div');
     var next = state.formations[idx + 1];
-    var turns = next ? sanitizeCoupleTurns(f.coupleTurns) : null;
+    var turns = next ? moveTurnSummary(f) : null;
     wrap.className = 'film-connector' + (sanitizeSpeedCurve(f.speedCurve) ? ' speed-set' : '') + (turns ? ' turn-set' : '');
 
     var chips = document.createElement('div');
@@ -338,14 +338,28 @@
     return wrap;
   }
 
-  // Marks a move with a set Drehung im Paar (set in the selection bar under the stage).
-  function buildCoupleTurnBadge(turns, next){
+  // Every Drehung im Paar and Eigendrehung set anywhere on the move out of Bild `f` — on the Bild
+  // itself (its first leg) or on one of its Zwischenpositionen (the leg after it) — as one line per
+  // stop that has any, or null if none does.
+  function moveTurnSummary(f){
+    var lines = [];
+    [f].concat(f.betweens || []).forEach(function(stop, i){
+      var parts = [];
+      var turns = sanitizeCoupleTurns(stop.coupleTurns), spins = sanitizeSpins(stop.spins);
+      if(turns) Object.keys(turns).forEach(function(k){ parts.push(markerDisplayName(k) + ' ' + roundNum(turns[k]) + '°'); });
+      if(spins) Object.keys(spins).forEach(function(k){ parts.push(markerDisplayName(k) + ' Eigendrehung ' + roundNum(spins[k]) + '°'); });
+      if(parts.length) lines.push((i ? 'ab Zwischenposition ' + i : 'ab „' + f.name + '“') + ': ' + parts.join(', '));
+    });
+    return lines.length ? lines : null;
+  }
+
+  // Marks a move with a set Drehung im Paar or Eigendrehung (set in the selection bar under the
+  // stage, in the Bild or in one of its Zwischenpositionen).
+  function buildCoupleTurnBadge(lines, next){
     var badge = document.createElement('span');
     badge.className = 'film-between-turn';
     badge.appendChild(svgIcon('turn', 12));
-    badge.title = 'Drehung im Paar auf dem Weg zu „' + next.name + '“: ' + Object.keys(turns).map(function(k){
-      return markerDisplayName(k) + ' ' + roundNum(turns[k]) + '°';
-    }).join(', ');
+    badge.title = 'Drehungen auf dem Weg zu „' + next.name + '“ — ' + lines.join('; ');
     return badge;
   }
 
@@ -594,22 +608,48 @@
     return btn;
   }
 
-  // New Zwischenposition's starting pose: linearly interpolated between the two Bilder it sits
-  // between, at whatever fraction its position among any existing ones implies — just a seed the
-  // user then poses properly by dragging on the stage, same as a freshly duplicated Bild's pos.
+  // New Zwischenposition's starting pose: exactly what playback shows at the moment it will be
+  // reached (after the last one so far, untimed, so spread like the others — see betweenAnchors),
+  // split couples, path shape and speed curve included — just a seed the user then poses properly by
+  // dragging on the stage, same as a freshly duplicated Bild's pos. A Drehung im Paar or
+  // Eigendrehung set on the leg it lands in is shared out between the two legs it now makes, so the
+  // move still turns as far in total.
   function addBetween(fIdx){
     var f = state.formations[fIdx];
     var next = state.formations[fIdx + 1];
     if(!f || !next) return;
     if(!Array.isArray(f.betweens)) f.betweens = [];
-    var frac = (f.betweens.length + 1) / (f.betweens.length + 2);
+    var before = betweenAnchors(fIdx, fIdx + 1);
+    var leaving = f.betweens.length ? f.betweens[f.betweens.length - 1] : f;
+    f.betweens.push({pos: {}});
+    var after = betweenAnchors(fIdx, fIdx + 1);
+    f.betweens.pop();
+    var target = after[after.length - 2], legStart = before[before.length - 2];
+    var lo = 0, hi = 1;
+    for(var i = 0; i < 40; i++){
+      var mid = (lo + hi) / 2;
+      if(moveEase(fIdx, fIdx + 1, mid) < target) lo = mid; else hi = mid;
+    }
+    var seen = interpolateThroughBetweens(fIdx, fIdx + 1, (lo + hi) / 2);
     var pos = {};
-    state.dancers.forEach(function(d){
-      var a = f.pos[d.id] || {x:0, y:0, rot:0};
-      var b = next.pos[d.id] || {x:0, y:0, rot:0};
-      pos[d.id] = { x: a.x + (b.x-a.x)*frac, y: a.y + (b.y-a.y)*frac, rot: lerpAngle(a.rot||0, b.rot||0, frac) };
+    Object.keys(seen).forEach(function(k){
+      var p = seen[k];
+      pos[k] = {x: Math.round(p.x*100)/100, y: Math.round(p.y*100)/100, rot: normAngle(Math.round(p.rot*10)/10)};
     });
-    f.betweens.push({id: uid('bw'), name: '', pos: pos});
+    var share = legStart < 1 ? Math.min(1, Math.max(0, (target - legStart) / (1 - legStart))) : 0.5;
+    var between = {id: uid('bw'), name: '', pos: pos};
+    ['coupleTurns', 'spins'].forEach(function(field){
+      var set = sanitizeCoupleTurns(leaving[field]);
+      if(!set) return;
+      var first = {}, rest = {};
+      Object.keys(set).forEach(function(k){
+        first[k] = Math.round(set[k] * share * 10) / 10;
+        rest[k] = Math.round((set[k] - first[k]) * 10) / 10;
+      });
+      if(sanitizeCoupleTurns(first)) leaving[field] = sanitizeCoupleTurns(first); else delete leaving[field];
+      if(sanitizeCoupleTurns(rest)) between[field] = sanitizeCoupleTurns(rest);
+    });
+    f.betweens.push(between);
     saveState();
     renderFilmstrip();
     enterBetweenEdit(fIdx, f.betweens.length - 1);
@@ -667,8 +707,64 @@
       textEl.textContent = 'Zwischenposition ' + (editingBetween.bIdx + 1) + (between && between.name ? ' — ' + between.name : '')
         + ' wird bearbeitet — zwischen „' + anchor.name + '“ und „' + next.name + '“';
     }
+    updateBetweenTimeInput();
     banner.hidden = false;
   }
+
+  // When the edited Zwischenposition is reached: a time in the song (m:ss.s) when both Bilder
+  // around it have a time marker, otherwise a share of the move in %. Empty = spread evenly with the
+  // other untimed ones, and the placeholder shows where that puts it. Stored as `at`, a share of the
+  // move's time either way (see sanitizeBetweenAt in state.js), so it follows when the markers move.
+  var betweenEditTimeInput = document.getElementById('betweenEditTime');
+  function betweenTimeSpan(fIdx){
+    var t0 = formationTime(state.formations[fIdx]), t1 = formationTime(state.formations[fIdx + 1]);
+    return t0 !== null && t1 !== null && t1 > t0 ? {t0: t0, t1: t1} : null;
+  }
+  function formatBetweenAt(fIdx, at){
+    var span = betweenTimeSpan(fIdx);
+    if(span) return formatTime(span.t0 + (span.t1 - span.t0) * at);
+    return roundNum(Math.round(at * 1000) / 10) + ' %';
+  }
+  function updateBetweenTimeInput(){
+    if(!betweenEditTimeInput || !editingBetween) return;
+    var fIdx = editingBetween.fIdx, between = (state.formations[fIdx].betweens || [])[editingBetween.bIdx];
+    if(!between) return;
+    var span = betweenTimeSpan(fIdx), at = sanitizeBetweenAt(between.at);
+    var auto = betweenTimes(fIdx)[editingBetween.bIdx];
+    betweenEditTimeInput.value = at === null ? '' : formatBetweenAt(fIdx, at);
+    betweenEditTimeInput.placeholder = typeof auto === 'number' ? formatBetweenAt(fIdx, auto) : '';
+    betweenEditTimeInput.title = 'Wann diese Zwischenposition erreicht wird — '
+      + (span ? 'Zeit im Lied (m:ss.s)' : 'Anteil der Bewegung in % (mit Zeitmarkern an beiden Bildern als Zeit im Lied)')
+      + '. Leer = gleichmäßig verteilt.';
+  }
+  if(betweenEditTimeInput) betweenEditTimeInput.addEventListener('change', function(){
+    if(!editingBetween) return;
+    var fIdx = editingBetween.fIdx, bIdx = editingBetween.bIdx;
+    var list = state.formations[fIdx].betweens || [], between = list[bIdx];
+    if(!between) return;
+    var raw = betweenEditTimeInput.value.trim(), span = betweenTimeSpan(fIdx), at = null;
+    if(raw){
+      if(span){
+        var sec = parseTimeInput(raw);
+        if(sec !== null) at = (sec - span.t0) / (span.t1 - span.t0);
+      } else {
+        var pct = parseFloat(raw.replace('%', '').replace(',', '.'));
+        if(isFinite(pct)) at = pct / 100;
+      }
+    }
+    if(at === null) delete between.at;
+    else {
+      // Stays between the nearest timed Zwischenpositionen before and after it.
+      var lo = 0, hi = 1;
+      for(var i = bIdx - 1; i >= 0; i--){ var a = sanitizeBetweenAt(list[i].at); if(a !== null){ lo = a; break; } }
+      for(var j = bIdx + 1; j < list.length; j++){ var b = sanitizeBetweenAt(list[j].at); if(b !== null){ hi = b; break; } }
+      between.at = sanitizeBetweenAt(Math.min(hi - 0.001, Math.max(lo + 0.001, at)));
+      if(between.at === null) delete between.at;
+    }
+    saveState();
+    updateBetweenTimeInput();
+    updatePlaybarInfo();
+  });
 
   var betweenEditDoneBtn = document.getElementById('betweenEditDoneBtn');
   if(betweenEditDoneBtn) betweenEditDoneBtn.addEventListener('click', exitBetweenEdit);

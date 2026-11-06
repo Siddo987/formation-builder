@@ -223,7 +223,7 @@
         main.appendChild(roleTag);
       }
       var coupleSplit = !role && isCoupleSplitIn(currentFormation(), d.id);
-      if(!role && !editingBetween){
+      if(!role){
         var splitBtn = document.createElement('button');
         splitBtn.type = 'button';
         splitBtn.className = 'split-btn' + (coupleSplit ? ' active' : '');
@@ -234,8 +234,8 @@
           splitBtn.append('L', Object.assign(document.createElement('span'), { className: 'split-sep' }), 'F');
         }
         splitBtn.title = coupleSplit
-          ? 'Lead & Follow in diesem Bild wieder zu einem Punkt zusammenführen'
-          : 'Paar nur in diesem Bild in Lead & Follow aufteilen';
+          ? 'Lead & Follow hier wieder zu einem Punkt zusammenführen (nur in diesem Bild bzw. dieser Zwischenposition)'
+          : 'Paar nur hier in Lead & Follow aufteilen (nur in diesem Bild bzw. dieser Zwischenposition)';
         splitBtn.setAttribute('aria-pressed', coupleSplit ? 'true' : 'false');
         splitBtn.addEventListener('click', function(e){ e.stopPropagation(); toggleCoupleSplit(d.id); });
         main.appendChild(splitBtn);
@@ -385,18 +385,31 @@
 
   function removeDancer(id){
     state.dancers = state.dancers.filter(function(d){ return d.id !== id; });
-    state.formations.forEach(function(f){ delete f.pos[id]; delete f.pos[followKey(id)]; });
+    var goneKeys = [id, followKey(id)];
+    state.formations.forEach(function(f){
+      goneKeys.forEach(function(k){ delete f.pos[k]; });
+      (f.betweens || []).forEach(function(b){ if(b.pos) goneKeys.forEach(function(k){ delete b.pos[k]; }); });
+    });
     var gonePairs = state.pairs.filter(function(p){ return p.memberIds.indexOf(id) !== -1; });
     var gonePairIds = gonePairs.map(function(p){ return p.id; });
     // Drehungen im Paar are keyed by the Lead: the dancer's own couple and any pair it was part of
     var goneTurnKeys = [id].concat(gonePairs.map(function(p){ return p.memberIds[0]; }));
     state.pairs = state.pairs.filter(function(p){ return p.memberIds.indexOf(id) === -1; });
+    // … and Eigendrehungen by pos key — on every Bild and Zwischenposition a leg leaves from.
+    function dropTurns(stop){
+      if(stop.coupleTurns){
+        goneTurnKeys.forEach(function(k){ delete stop.coupleTurns[k]; });
+        stop.coupleTurns = sanitizeCoupleTurns(stop.coupleTurns);
+      }
+      if(stop.spins){
+        goneKeys.forEach(function(k){ delete stop.spins[k]; });
+        stop.spins = sanitizeSpins(stop.spins);
+      }
+    }
     state.formations.forEach(function(f){
       if(Array.isArray(f.splitPairs)) f.splitPairs = f.splitPairs.filter(function(pid){ return gonePairIds.indexOf(pid) === -1; });
-      if(f.coupleTurns){
-        goneTurnKeys.forEach(function(k){ delete f.coupleTurns[k]; });
-        f.coupleTurns = sanitizeCoupleTurns(f.coupleTurns);
-      }
+      dropTurns(f);
+      (f.betweens || []).forEach(dropTurns);
     });
     if(selectedDancerId === id) selectedDancerId = null;
     var pairIdx = pairSelection.indexOf(id);
