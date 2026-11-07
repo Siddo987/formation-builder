@@ -266,7 +266,6 @@ body.share-readonly .film-category-input,
 body.share-readonly .project-name-field{pointer-events:none;}
 body.share-readonly #addDancerBtn,
 body.share-readonly #resetBtn,
-body.share-readonly #importBtn,
 body.share-readonly #markerBtn,
 body.share-readonly #historyUndoBtn,
 body.share-readonly #historyRedoBtn{display:none;}

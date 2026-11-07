@@ -76,7 +76,7 @@ if ('serviceWorker' in navigator) {
     <!-- Desktop: Knopfleiste. Handy/Tablet hoch: Aufklappmenü hinter „Mehr“ -->
     <div class="topbar-actions" id="topbarMenu">
       <div class="tb-group">
-        <button class="btn-ghost" id="importBtn" type="button" title="Öffnen (.stg/.auf)">
+        <button class="btn-ghost" id="importBtn" type="button" title="Projekt öffnen">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
           <span class="lbl">Öffnen</span>
         </button>
@@ -425,6 +425,28 @@ if ('serviceWorker' in navigator) {
         <button class="btn-ghost" id="filenameCancelBtn" type="button">Abbrechen</button>
         <button class="btn-ghost" id="filenameConfirmBtn" type="button">Speichern</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="openBackdrop" hidden>
+  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="openTitle">
+    <div class="modal-header">
+      <h2 id="openTitle">Projekt öffnen</h2>
+      <button class="modal-close" id="openCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <section class="settings-section">
+        <h3>Zuletzt bearbeitet</h3>
+        <div class="figures-list" id="openProjectsList"></div>
+        <p class="settings-hint">Auf diesem Gerät gespeichert, die letzten 12. Geteilte Projekte bleiben zusätzlich über ihren Link erreichbar.</p>
+      </section>
+      <section class="settings-section">
+        <h3>Aus Datei</h3>
+        <div class="settings-row">
+          <button class="btn-ghost" id="openFileBtn" type="button">Datei wählen (.stg/.auf)</button>
+        </div>
+      </section>
     </div>
   </div>
 </div>

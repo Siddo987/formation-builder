@@ -485,9 +485,12 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
 
   function loadState(){
     try{
-      var tabId = null;
+      var tabId = null, openId = null;
       try{ tabId = sessionStorage.getItem(TAB_PROJECT_KEY); }catch(e){}
-      var raw = (tabId && localStorage.getItem(projectStorageKey(tabId))) || localStorage.getItem(STORAGE_KEY);
+      // ?project=<localId>: the "Öffnen" list (js/export.js) reloads the page into that project.
+      try{ openId = new URLSearchParams(location.search).get('project'); }catch(e){}
+      var raw = (openId && localStorage.getItem(projectStorageKey(openId))) ||
+        (tabId && localStorage.getItem(projectStorageKey(tabId))) || localStorage.getItem(STORAGE_KEY);
       if(!raw) return defaultState();
       var parsed = JSON.parse(raw);
       if(!parsed || !parsed.dancers || !parsed.formations || !parsed.formations.length) return defaultState();
@@ -578,7 +581,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         sharedId: state.sharedId,
         shareEditToken: state.shareEditToken,
         shareReadOnly: state.shareReadOnly,
-        localId: id
+        localId: id,
+        savedAt: Date.now()
       });
     }catch(e){ return; }
     var index = readProjectIndex();
@@ -610,6 +614,31 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     idbDelete(idbBlobKey('logo', id));
     idbDelete(idbBlobKey('song', id));
   }
+  function forgetLocalProject(id){
+    dropLocalProject(id);
+    writeProjectIndex(readProjectIndex().filter(function(other){ return other !== id; }));
+  }
+  // The saved projects as the "Öffnen" list shows them, most recently saved first. savedAt is null
+  // for saves from before it was recorded.
+  function listLocalProjects(){
+    return readProjectIndex().map(function(id){
+      var p = null;
+      try{ p = JSON.parse(localStorage.getItem(projectStorageKey(id))); }catch(e){}
+      if(!p || !Array.isArray(p.formations)) return null;
+      return {
+        id: id,
+        name: (typeof p.projectName === 'string' && p.projectName.trim()) || 'Meine Formation',
+        savedAt: typeof p.savedAt === 'number' ? p.savedAt : null,
+        bilder: p.formations.length,
+        sharedId: typeof p.sharedId === 'string' && p.sharedId ? p.sharedId : null
+      };
+    }).filter(Boolean);
+  }
+  // Opening the same share link again reuses its local copy instead of filing a duplicate.
+  function localProjectForShare(sharedId){
+    var hit = listLocalProjects().filter(function(p){ return p.sharedId === sharedId; })[0];
+    return hit ? hit.id : null;
+  }
 
   function saveState(){
     writeLocalProject();
@@ -625,7 +654,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   }
   var saveStateDebounced = (function(){
     var timer = null;
-    return function(){ clearTimeout(timer); timer = setTimeout(saveState, 400); };
+    function debounced(){ clearTimeout(timer); timer = setTimeout(function(){ timer = null; saveState(); }, 400); }
+    // Runs a still-waiting save right away (before leaving the page).
+    debounced.flush = function(){ if(timer){ clearTimeout(timer); timer = null; saveState(); } };
+    return debounced;
   })();
 
   /* ---------- IndexedDB persistence for logo/song blobs (too large/binary for localStorage) ---------- */
@@ -745,6 +777,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         tabChannel.postMessage({type:'mine', id:m.id, to:m.from});
       }else if(m.type === 'mine' && m.to === tabInstanceId && m.id === state.localId){
         forkTabProject();
+      }else if(m.type === 'ping' && m.from !== tabInstanceId){
+        tabChannel.postMessage({type:'pong', id:state.localId, to:m.from});
+      }else if(m.type === 'pong' && m.to === tabInstanceId && onOpenTabProject){
+        onOpenTabProject(m.id);
       }
     };
     if(askNow) askWhoHasTabProject();
@@ -753,6 +789,12 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   }
   function askWhoHasTabProject(){
     if(tabChannel) tabChannel.postMessage({type:'who', id:state.localId, from:tabInstanceId});
+  }
+  // Every other open tab answers with the localId it has open; onAnswer runs once per answer.
+  var onOpenTabProject = null;
+  function askOpenTabProjects(onAnswer){
+    onOpenTabProject = onAnswer;
+    if(tabChannel) tabChannel.postMessage({type:'ping', from:tabInstanceId});
   }
   function forkTabProject(){
     var oldId = state.localId, newId = uid('proj'), myGen = idbHydrationGen;
@@ -774,6 +816,16 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   }
 
   var state = loadState();
+  // ?project= has done its job once loadState() read it; a reload goes by sessionStorage again.
+  (function(){
+    try{
+      var params = new URLSearchParams(location.search);
+      if(!params.has('project')) return;
+      params.delete('project');
+      var rest = params.toString();
+      history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+    }catch(e){}
+  })();
   // A save from before per-tab projects, or a brand-new project: file it under this tab right away,
   // so a reload before the first edit still finds it.
   try{ if(!localStorage.getItem(projectStorageKey(state.localId))) writeLocalProject(); }catch(e){}

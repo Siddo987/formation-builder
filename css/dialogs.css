@@ -127,6 +127,12 @@
 }
 .figure-delete:hover{color:var(--danger);border-color:var(--danger);background:var(--danger-wash);}
 .figure-delete.armed{background:var(--danger);color:#fff;border-color:var(--danger);animation:armPulse 1.1s ease-in-out infinite;}
+.figure-delete:disabled{opacity:.4;pointer-events:none;}
+/* Projekt öffnen */
+#openProjectsList .export-menu-item:disabled{cursor:default;}
+#openProjectsList .export-menu-item:disabled:not(.is-current){opacity:.6;}
+#openProjectsList .export-menu-item.is-current{border-color:var(--accent);background:var(--accent-wash);}
+#openProjectsList .export-menu-item strong{overflow-wrap:anywhere;}
 .figure-form{display:flex;flex-direction:column;gap:.7rem;padding:.8rem;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;}
 .figure-form-row{display:flex;flex-direction:column;gap:.25rem;}
 .figure-form-row > label{font-size:.72rem;font-weight:700;color:var(--ink-2);}

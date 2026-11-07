@@ -421,12 +421,85 @@
     if(!opts.keepBlobs) syncBlobsToIdb();
     saveState();
     fullRerender();
+    applyShareReadonlyUi();   // a file opened from a view-only link is the viewer's own, editable project
     importErrorEl.hidden = true;
   }
 
   function applyImportedState(parsed){ applyState(parsed, {}); }
 
-  importBtn.addEventListener('click', function(){ importInput.click(); });
+  // „Öffnen“: a project saved on this device (listLocalProjects() in js/state.js) or a file. Opening
+  // a saved one reloads the page into it (?project=) instead of swapping state in place, so a share
+  // push still pending for the current project can't end up in the other one's link.
+  var openBackdrop = document.getElementById('openBackdrop');
+  var openProjectsList = document.getElementById('openProjectsList');
+  var openElsewhere = {}; // localId -> true once another tab has answered that it has it open
+
+  function openProjectsModal(){
+    openElsewhere = {};
+    renderOpenProjectsList();
+    openBackdrop.hidden = false;
+    askOpenTabProjects(function(id){
+      if(openElsewhere[id] || id === state.localId) return;
+      openElsewhere[id] = true;
+      if(!openBackdrop.hidden) renderOpenProjectsList();
+    });
+  }
+  function closeOpenProjectsModal(){ openBackdrop.hidden = true; }
+
+  function renderOpenProjectsList(){
+    openProjectsList.innerHTML = '';
+    var projects = listLocalProjects();
+    // The open project first, with its in-memory name (a rename may still be in the save debounce).
+    projects.sort(function(a, b){ return (b.id === state.localId) - (a.id === state.localId); });
+    projects.forEach(function(p){
+      var isCurrent = p.id === state.localId;
+      var elsewhere = !isCurrent && openElsewhere[p.id];
+      var name = isCurrent ? (state.projectName.trim() || 'Meine Formation') : p.name;
+      var bilder = isCurrent ? state.formations.length : p.bilder;
+      var meta = [];
+      if(isCurrent) meta.push('Hier geöffnet');
+      else if(elsewhere) meta.push('In einem anderen Tab geöffnet');
+      if(p.savedAt && typeof relTime === 'function') meta.push(relTime(p.savedAt));
+      meta.push(bilder + (bilder === 1 ? ' Bild' : ' Bilder'));
+      if(p.sharedId) meta.push('geteilt');
+
+      var row = document.createElement('div');
+      row.className = 'figure-row';
+      var item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'export-menu-item' + (isCurrent ? ' is-current' : '');
+      item.disabled = isCurrent || elsewhere;
+      item.innerHTML = '<strong></strong><span></span>';
+      item.querySelector('strong').textContent = name;
+      item.querySelector('span').textContent = meta.join(' · ');
+      if(!item.disabled) item.addEventListener('click', function(){ openLocalProject(p.id); });
+      row.appendChild(item);
+
+      if(!isCurrent){
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'figure-delete';
+        del.disabled = elsewhere;
+        del.appendChild(svgIcon('x', 16));
+        del.setAttribute('aria-label', 'Projekt "' + name + '" von diesem Gerät entfernen');
+        del.title = 'Von diesem Gerät entfernen';
+        armDeleteButton(del, function(){ forgetLocalProject(p.id); renderOpenProjectsList(); });
+        row.appendChild(del);
+      }
+      openProjectsList.appendChild(row);
+    });
+  }
+
+  function openLocalProject(id){
+    saveStateDebounced.flush();
+    writeLocalProject();
+    location.assign(location.pathname + '?project=' + encodeURIComponent(id));
+  }
+
+  importBtn.addEventListener('click', openProjectsModal);
+  document.getElementById('openCloseBtn').addEventListener('click', closeOpenProjectsModal);
+  openBackdrop.addEventListener('click', function(e){ if(e.target === openBackdrop) closeOpenProjectsModal(); });
+  document.getElementById('openFileBtn').addEventListener('click', function(){ closeOpenProjectsModal(); importInput.click(); });
   importInput.addEventListener('change', function(e){
     var file = e.target.files[0];
     if(!file) return;
@@ -481,7 +554,10 @@
     pausePlayback();
     revokeStateBlobs(state);
     stopSharePolling();
+    var oldId = state.localId;
     state = defaultState();
+    // The dialog says the project is deleted, so it must not linger in the „Öffnen“ list either.
+    forgetLocalProject(oldId);
     syncBlobsToIdb();
     saveState();
     fullRerender();

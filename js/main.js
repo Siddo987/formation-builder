@@ -15,6 +15,7 @@
   document.addEventListener('keydown', function(e){
     if(e.key !== 'Escape') return;
     if(!settingsBackdrop.hidden) closeSettings();
+    if(!openBackdrop.hidden) closeOpenProjectsModal();
     if(!videoBackdrop.hidden && exportState) exportState.cancelled = true;
     if(!filenameBackdrop.hidden) closeFilenameDialog();
     if(!markerBackdrop.hidden) closeMarkerModal();

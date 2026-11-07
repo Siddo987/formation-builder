@@ -896,6 +896,7 @@ function loadSharedProjectFromUrl(){
       newState.sharedId = id;
       newState.shareEditToken = editToken;
       newState.shareReadOnly = !editToken;
+      newState.localId = localProjectForShare(id);
       suppressSharePush = true;     // loading the link must not turn around and commit it back
       applyImportedState(newState);
       suppressSharePush = false;
@@ -908,6 +909,7 @@ function loadSharedProjectFromUrl(){
       history.replaceState(null, '', location.pathname);
       startSharePolling();          // first poll bootstraps shareBaseCommit from the graph head
       if(typeof initHistory === 'function') initHistory();
+      askWhoHasTabProject();        // the reused local copy may already be open in another tab
     })
     .catch(function(err){
       console.error('Konnte geteilten Link nicht laden:', err);
