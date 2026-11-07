@@ -795,7 +795,7 @@ body.roster-open .roster{display:flex;}
 .tempo-control{display:flex;align-items:center;gap:.55rem;flex:none;margin-left:auto;}
 .tempo-caption{display:inline-flex;align-items:center;gap:.2rem;cursor:text;}
 .tempo-input{
-  width:calc(4ch + .7rem);height:24px;padding:0 .35rem;
+  width:calc(4ch + .7rem + 6px);height:24px;padding:0 .35rem;
   border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--ink-2);
   font-family:var(--font-mono);font-size:.7rem;font-weight:500;text-align:right;font-variant-numeric:tabular-nums;
 }
@@ -1234,7 +1234,7 @@ body.roster-open .roster{display:flex;}
   input[type="range"]{width:70px;}
   .tempo-control{gap:.3rem;}
   .tempo-control input[type="range"]{width:56px;}
-  .tempo-input{padding:0 .25rem;width:calc(4ch + .5rem);}
+  .tempo-input{padding:0 .25rem;width:calc(4ch + .5rem + 6px);}
 }
 
 /* Touch: nichts darf nur per Hover erreichbar sein */
