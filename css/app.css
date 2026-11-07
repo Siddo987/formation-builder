@@ -729,10 +729,10 @@ body.roster-open .roster{display:flex;}
 
 /* ---------------- Paar in Lead & Follow geteilt (nur aktuelles Bild) ---------------- */
 .dancer .role-badge{
-  display:none;position:absolute;right:-6px;bottom:-6px;
-  min-width:13px;height:13px;padding:0 2px;border-radius:7px;
+  display:none;position:absolute;right:-5px;bottom:-5px;
+  min-width:11px;height:11px;padding:0 2px;border-radius:6px;
   background:var(--split);color:#fff;
-  font-size:.46rem;font-weight:800;line-height:13px;text-align:center;
+  font-size:.42rem;font-weight:800;line-height:11px;text-align:center;
   box-shadow:0 0 0 1.5px var(--floor-1);
   pointer-events:none;
 }
@@ -740,9 +740,9 @@ body.roster-open .roster{display:flex;}
 .dancer.follow{border-style:dashed;}
 /* getrennte Lead/Follow-Punkte kleiner als normale Paar-Punkte */
 .dancer.is-split,.dancer.follow{
-  width:clamp(14px,calc(var(--s) * .028),21px);height:clamp(14px,calc(var(--s) * .028),21px);
+  width:clamp(12px,calc(var(--s) * .024),18px);height:clamp(12px,calc(var(--s) * .024),18px);
 }
-.dancer.is-split .initials,.dancer.follow .initials{font-size:.42rem;}
+.dancer.is-split .initials,.dancer.follow .initials{font-size:.38rem;}
 .dancer.is-split:not(.selected):not(.pair-selected),
 .dancer.follow:not(.selected):not(.pair-selected){box-shadow:0 0 0 2px var(--split),0 2px 6px rgba(0,0,0,.45);}
 

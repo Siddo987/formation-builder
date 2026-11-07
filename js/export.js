@@ -765,7 +765,7 @@
       drawList.forEach(function(item){
         var pos = posMap[item.k];
         if(!pos || focusIds.indexOf(item.d.id) !== -1) return;
-        var r = (item.follow || posMap[followKey(item.d.id)]) ? radius*0.72 : radius;
+        var r = (item.follow || posMap[followKey(item.d.id)]) ? radius*0.62 : radius;
         var cx = gx(pos.x), cy = gy(pos.y);
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI*2);
@@ -787,7 +787,7 @@
       var isSplit = item.follow || !!posMap[followKey(d.id)];
       var splitRole = item.follow ? ' · F' : (isSplit ? ' · L' : '');
       // Getrennte Lead/Follow-Punkte etwas kleiner als normale Paar-Punkte (wie auf der Bühne).
-      var r = isSplit ? radius*0.72 : radius;
+      var r = isSplit ? radius*0.62 : radius;
       var cx = gx(pos.x);
       var cy = gy(pos.y);
       var rot = pos.rot || 0;

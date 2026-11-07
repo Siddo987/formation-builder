@@ -239,7 +239,7 @@
   .step-dot-primary{background:#d99a34; border:2px solid #fff; box-shadow:0 0 0 1px #d99a34;}
   .step-dot-secondary{background:#fff; border:2px solid #bbb;}
   /* Paar in diesem Bild in Lead & Follow geteilt: beide Punkte kleiner, Follow gestrichelt */
-  .step-dot-split{width:14px; height:14px;}
+  .step-dot-split{width:11px; height:11px;}
   .step-dot-role{background:#fff; border:2px solid #d99a34;}
   .step-dot-follow{border-style:dashed;}
   /* „Andere Paare hellgrau einblenden“: die übrigen Paare nur als Kontext */
