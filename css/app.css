@@ -377,7 +377,12 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
 .roster-toggle.active{border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:var(--accent-wash);color:var(--accent-ink);}
 .roster-toggle.active .count{background:var(--accent);color:#fff;}
 
-/* Zwischenposition: sitzt mittig in der Werkzeugzeile */
+/* Zwischenposition: sitzt mittig in der Werkzeugzeile. Solange sie da ist, bricht die Zeile nicht
+   um — der Text wird stattdessen gekürzt (voll steht er im Tooltip und in der Abspielleiste). */
+.stage-toolbar:has(> .between-edit-banner:not([hidden])){flex-wrap:nowrap;}
+.stage-toolbar > .between-edit-banner{flex:0 1 auto;min-width:0;}
+#betweenEditBannerText{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.between-edit-time,.between-edit-banner .btn-ghost{flex:none;}
 .between-edit-banner{
   display:flex;align-items:center;gap:.5rem;
   height:var(--ctl-h);
@@ -389,6 +394,7 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
   height:24px;border-radius:5px;border:none;background:rgba(255,255,255,.22);color:#fff;padding:0 .55rem;font-size:.74rem;
 }
 .stage-area .between-edit-banner .btn-ghost:hover{background:rgba(255,255,255,.35);}
+.stage-area .between-edit-banner .between-edit-rename{width:24px;padding:0;margin-left:-.2rem;}
 .between-edit-time{
   width:68px;height:24px;border:none;border-radius:5px;
   background:rgba(255,255,255,.22);color:#fff;
@@ -1134,10 +1140,9 @@ body.roster-open .roster{display:flex;}
   .stage-toolbar::-webkit-scrollbar{display:none;}
   .stage-toolbar > *{flex:none;}
   .stage-toolbar-spacer{flex:1 0 0;}
-  /* Zwischenposition: Text kürzen, damit Zeitfeld und „Fertig“ im Bild bleiben */
-  .stage-toolbar > .between-edit-banner{flex:0 1 auto;min-width:0;}
-  #betweenEditBannerText{min-width:0;overflow:hidden;text-overflow:ellipsis;}
-  .between-edit-time,.between-edit-banner .btn-ghost{flex:none;}
+  /* Neben der Vorlagen-Auswahl bliebe der Zwischenpositions-Leiste kaum Platz — sie bekommt dann eine eigene Zeile */
+  .stage-toolbar:has(> .layout-select-wrap:not([hidden])):has(> .between-edit-banner:not([hidden])){flex-wrap:wrap;row-gap:.35rem;}
+  .stage-toolbar:has(> .layout-select-wrap:not([hidden])) > .between-edit-banner{order:1;flex:1 1 100%;}
   .float-pill{height:34px;}
   .stage-wrap{padding:0 .45rem;}
   .stage-frame{--lab:1.45rem;}

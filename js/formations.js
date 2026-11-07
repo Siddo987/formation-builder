@@ -307,7 +307,7 @@
       chip.className = 'film-between-chip' + (editingBetween && editingBetween.fIdx === idx && editingBetween.bIdx === bIdx ? ' active' : '');
       chip.textContent = String(bIdx + 1);
       chip.title = 'Zwischenposition ' + (bIdx + 1) + (between.name ? ' — ' + between.name : '')
-        + ' bearbeiten — zwischen „' + f.name + '“ und „' + (next ? next.name : '?') + '“ (Rechtsklick zum Umbenennen)';
+        + ' bearbeiten — zwischen „' + f.name + '“ und „' + (next ? next.name : '?') + '“ (umbenennen per Rechtsklick oder mit dem Stift in der Leiste über der Bühne)';
       chip.addEventListener('click', function(){ enterBetweenEdit(idx, bIdx); });
       chip.addEventListener('contextmenu', function(e){ e.preventDefault(); openBetweenRenamePopover(chip, idx, bIdx); });
 
@@ -706,6 +706,7 @@
     if(textEl){
       textEl.textContent = 'Zwischenposition ' + (editingBetween.bIdx + 1) + (between && between.name ? ' — ' + between.name : '')
         + ' wird bearbeitet — zwischen „' + anchor.name + '“ und „' + next.name + '“';
+      textEl.title = textEl.textContent; // the text is cut off with "…" when the toolbar is narrow
     }
     updateBetweenTimeInput();
     banner.hidden = false;
@@ -768,8 +769,13 @@
 
   var betweenEditDoneBtn = document.getElementById('betweenEditDoneBtn');
   if(betweenEditDoneBtn) betweenEditDoneBtn.addEventListener('click', exitBetweenEdit);
+  // The pencil in the banner — renaming without a right-click, which touch devices don't have.
+  var betweenEditRenameBtn = document.getElementById('betweenEditRenameBtn');
+  if(betweenEditRenameBtn) betweenEditRenameBtn.addEventListener('click', function(){
+    if(editingBetween) openBetweenRenamePopover(betweenEditRenameBtn, editingBetween.fIdx, editingBetween.bIdx, true);
+  });
 
-  // Right-click a between chip to rename it (see buildBetweenConnector) — a floating popover rather
+  // Right-click a between chip (or the banner's pencil) to rename it — a floating popover rather
   // than swapping the tiny 22px chip itself into a text field, which has no room for typing. Follows
   // this app's existing "commit as you type" convention (pair/dancer/Bild names all save on every
   // 'input' event, not on blur/Enter) — blur just closes the popover and refreshes the chip's
@@ -778,7 +784,7 @@
   function closeBetweenRenamePopover(){
     if(betweenRenamePopoverEl){ betweenRenamePopoverEl.remove(); betweenRenamePopoverEl = null; }
   }
-  function openBetweenRenamePopover(anchorEl, fIdx, bIdx){
+  function openBetweenRenamePopover(anchorEl, fIdx, bIdx, below){
     closeBetweenRenamePopover();
     var f = state.formations[fIdx];
     var between = f && f.betweens && f.betweens[bIdx];
@@ -810,7 +816,10 @@
     var left = rect.left + rect.width / 2;
     left = Math.min(Math.max(left, popRect.width / 2 + 8), window.innerWidth - popRect.width / 2 - 8);
     pop.style.left = left + 'px';
-    pop.style.top = (rect.top - popRect.height - 14) + 'px';
+    // The banner's pencil (below = true) sits right under the top bar — open downward there.
+    var top = rect.top - popRect.height - 14;
+    if(below || top < 8) top = rect.bottom + 8;
+    pop.style.top = top + 'px';
 
     input.focus();
     input.select();
