@@ -182,8 +182,11 @@
   // point pattern as dragging a dancer or a Vorlage ghost dot (grid-snap unless Shift, and snaps
   // onto an active Vorlage point too when close enough).
   function attachPairMidpointMarkerDragEvents(marker){
+    marker.addEventListener('contextmenu', function(e){
+      if(openSelectionMenu(e.clientX, e.clientY)) e.preventDefault();
+    });
     marker.addEventListener('pointerdown', function(e){
-      if(pairSelection.length < 2) return;
+      if(pairSelection.length < 2 || e.button === 2) return;
       if(playing) pausePlayback();
       e.preventDefault();
       e.stopPropagation();
@@ -623,7 +626,12 @@
 
   function attachDancerEvents(el, dancerId){
     el.tabIndex = 0;
+    el.addEventListener('contextmenu', function(e){
+      openSelectionMenuFromEvent(e, el, defaultSelectionFor(dancerId), [dancerId], dancerId);
+    });
     el.addEventListener('pointerdown', function(e){
+      // The right button selects and opens the menu on its own (contextmenu above), without a drag.
+      if(e.button === 2) return;
       if(playing) pausePlayback();
       // Ctrl/Cmd-held is "isolate": toggles this one dancer in/out of the ad hoc selection like
       // before, but — unlike before — the drag that follows still moves just this one dancer,
@@ -661,9 +669,16 @@
       });
       var grabStart = startPositions[dancerId];
       var moved = false;
+      // Touch has no right button: holding a finger still on the dancer opens the menu instead.
+      var longPressed = false;
+      var longPressTimer = e.pointerType === 'mouse' ? null : setTimeout(function(){
+        longPressed = true;
+        openSelectionMenu(e.clientX, e.clientY);
+      }, LONG_PRESS_MS);
       function onMove(ev){
-        if(!moved && Math.abs(ev.clientX-e.clientX) + Math.abs(ev.clientY-e.clientY) < 4) return;
+        if(longPressed || !moved && Math.abs(ev.clientX-e.clientX) + Math.abs(ev.clientY-e.clientY) < 4) return;
         moved = true;
+        clearTimeout(longPressTimer);
         var rect = stageEl.getBoundingClientRect();
         var px = ((ev.clientX-rect.left)/rect.width)*100;
         var py = ((ev.clientY-rect.top)/rect.height)*100;
@@ -694,10 +709,11 @@
         });
       }
       function onUp(ev){
+        clearTimeout(longPressTimer);
         try{ el.releasePointerCapture(e.pointerId); }catch(err){}
         el.removeEventListener('pointermove', onMove);
         el.removeEventListener('pointerup', onUp);
-        if(keepGroup && !moved){
+        if(keepGroup && !moved && !longPressed){
           pairSelection = defaultSelectionFor(dancerId);
           ensureMarkers();
           updatePairRotateUI();
@@ -795,6 +811,7 @@
         pairRotateEl.hidden = false;
       }else{
         pairRotateEl.hidden = true;
+        closeSelectionMenu();
       }
       return;
     }
@@ -917,12 +934,13 @@
 
   // Generalized from the original exactly-2 (midpoint) version to N selected dancers, rotated
   // together around their shared centroid — a strict generalization, since the centroid of 2
-  // points is their midpoint, so the original 2-person behavior is unchanged.
+  // points is their midpoint, so the original 2-person behavior is unchanged. A single dancer
+  // (from the right-click menu) is its own centroid, so it just turns on the spot.
   function rotatePairSelection(deg){
-    if(pairSelection.length < 2 || !deg) return;
+    if(!pairSelection.length || !deg) return;
     var pos = currentFormation().pos;
     var ids = pairSelection.filter(function(id){ return pos[id]; });
-    if(ids.length < 2) return;
+    if(!ids.length) return;
     var mx = 0, my = 0;
     ids.forEach(function(id){ mx += pos[id].x; my += pos[id].y; });
     mx /= ids.length; my /= ids.length;
@@ -1145,6 +1163,12 @@
   // Schließen-Handlern geprüft wird, sonst würde ein Esc Dialog und Auswahl zugleich wegnehmen.
   document.addEventListener('keydown', function(e){
     if(e.key !== 'Escape') return;
+    // An open right-click menu closes first, the selection stays — also while typing in it.
+    if(selectionMenuAt){
+      if(pairRotateEl.contains(document.activeElement)) document.activeElement.blur();
+      closeSelectionMenu();
+      return;
+    }
     if(!pairSelection.length && selectedDancerId == null) return;
     if(document.querySelector('.modal-backdrop:not([hidden])')) return;
     if(document.body.classList.contains('menu-open')) return;
@@ -1154,6 +1178,70 @@
     if(ae && ae.classList && ae.classList.contains('dancer')) ae.blur();
     clearSelection();
   }, true);
+
+  /* ---------- Rechtsklick-Menü ----------
+     A right-click (or long press) on a dancer, a pair or the selection's cross selects like a plain
+     click and then floats the selection bar right there as a menu — the same controls, so it always
+     offers exactly what the bar does (Drehen, Drehung bis …, Eigendrehung, Paar lösen …). */
+
+  var LONG_PRESS_MS = 500;
+  var selectionMenuAt = null;
+
+  function openSelectionMenu(x, y){
+    if(pairRotateEl.hidden) return false;
+    selectionMenuAt = {x: x, y: y};
+    pairRotateEl.classList.add('floating');
+    placeSelectionMenu();
+    return true;
+  }
+
+  function closeSelectionMenu(){
+    if(!selectionMenuAt) return;
+    selectionMenuAt = null;
+    pairRotateEl.classList.remove('floating');
+    pairRotateEl.style.left = pairRotateEl.style.top = '';
+  }
+
+  // Below/right of the pointer; flipped to the other side where that would run off screen.
+  function placeSelectionMenu(){
+    if(!selectionMenuAt) return;
+    var m = 8, w = pairRotateEl.offsetWidth, h = pairRotateEl.offsetHeight;
+    var vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+    var x = selectionMenuAt.x, y = selectionMenuAt.y;
+    if(x + w > vw - m) x -= w;
+    if(y + h > vh - m) y -= h;
+    pairRotateEl.style.left = Math.max(m, Math.min(x, vw - m - w)) + 'px';
+    pairRotateEl.style.top = Math.max(m, Math.min(y, vh - m - h)) + 'px';
+  }
+
+  // `select` is what a plain click on the thing would select; a 2+ selection that already holds
+  // `keepIfIn` stays, so the menu is for the whole group. With Strg/Cmd held (on a Mac, Ctrl-click
+  // is the right-click) the selection isn't touched — the pointerdown already toggled it.
+  function openSelectionMenuFromEvent(e, el, select, keepIfIn, primaryId){
+    if(playing) pausePlayback();
+    if(!(e.ctrlKey || e.metaKey)){
+      var keep = pairSelection.length >= 2 && keepIfIn.every(function(id){ return pairSelection.indexOf(id) !== -1; });
+      if(!keep) pairSelection = select.slice();
+      selectedDancerId = primaryId;
+      ensureMarkers();
+      updatePairRotateUI();
+    }
+    // Menu key / Shift+F10 come without a pointer position — open it at the element instead.
+    var x = e.clientX, y = e.clientY;
+    if(!x && !y){
+      var r = el.getBoundingClientRect();
+      x = r.left + r.width/2; y = r.bottom;
+    }
+    if(openSelectionMenu(x, y)) e.preventDefault();
+  }
+
+  // Anything pressed outside the menu closes it (and then does what it does anyway).
+  document.addEventListener('pointerdown', function(e){
+    if(selectionMenuAt && !pairRotateEl.contains(e.target)) closeSelectionMenu();
+  }, true);
+  // A different set of controls (e.g. after „Paar lösen“) changes its size — keep it on screen.
+  if(window.ResizeObserver) new ResizeObserver(placeSelectionMenu).observe(pairRotateEl);
+  window.addEventListener('resize', placeSelectionMenu);
 
   function setDancerPos(dancerId, x, y, skipRosterUpdate){
     x = clampGrid(x); y = clampGrid(y);

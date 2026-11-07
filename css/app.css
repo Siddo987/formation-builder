@@ -559,6 +559,7 @@ body.hide-facing .dancer .rot-indicator{display:none;}
   font-size:.7rem;color:var(--ink-3);
 }
 .context-idle span + span::before{content:"·";margin:0 .55em;opacity:.7;}
+.context-idle .hint-touch{display:none;}
 .pair-rotate:not([hidden]) ~ .context-idle{display:none;}
 
 .pair-rotate{
@@ -601,6 +602,29 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 .stage-area .pair-split-btn,.pair-split-btn{color:var(--split);border-color:color-mix(in srgb,var(--split) 45%,transparent);}
 .stage-area .pair-split-btn:hover{background:var(--split-wash);border-color:var(--split);}
 .stage-area .pair-split-btn.active{background:var(--split);border-color:var(--split);color:#fff;}
+/* Rechtsklick / langes Drücken: dieselbe Leiste schwebt als Menü am Zeiger, untereinander.
+   Die Zeile darunter zeigt dann wieder den Bedienhinweis statt eines leeren Streifens. */
+.stage-area .pair-rotate.floating{
+  position:fixed;z-index:45;margin:0;
+  flex-direction:column;align-items:stretch;gap:.4rem;
+  width:max-content;min-width:15rem;max-width:calc(100vw - 16px);
+  height:auto;max-height:calc(100vh - 16px);overflow-y:auto;
+  padding:.5rem .55rem .55rem;
+  border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);
+}
+.pair-rotate.floating:not([hidden]) ~ .context-idle{display:block;}
+.pair-rotate.floating .pair-rotate-label{
+  max-width:none;margin:0;padding:.15rem 2rem .45rem 0;
+  border-right:none;border-bottom:1px solid var(--line);
+}
+.pair-rotate.floating #pairRotateClearBtn{position:absolute;top:.3rem;right:.3rem;}
+.pair-rotate.floating .pair-rotate-turn,.pair-rotate.floating.single .pair-rotate-turn{display:flex;}
+.pair-rotate.floating .pair-turn{padding:0;margin:0;border-left:none;}
+.pair-rotate.floating .pair-turn-label{display:block;flex:1;min-width:0;max-width:none;}
+.pair-rotate.floating .pair-turn-ico{display:none;}
+.pair-rotate.floating .pair-rotate-turn .pair-rotate-input{flex:1;}
+.pair-rotate.floating .pair-rotate-actions{flex-direction:column;}
 
 /* ---------------- Tänzerliste ---------------- */
 .roster{
@@ -1247,7 +1271,8 @@ body.roster-open .roster{display:flex;}
   .dancer::after{content:"";position:absolute;inset:-9px;border-radius:50%;}
   .btn-icon{width:40px;height:40px;}
   .btn-play{width:46px;height:46px;}
-  .context-idle span:nth-child(2),.context-idle span:nth-child(4){display:none;}
+  .context-idle .hint-mouse{display:none;}
+  .context-idle .hint-touch{display:inline;}
   .tempo-input{height:32px;font-size:16px;} /* below 16px iOS zooms in on focus */
   .scrub{padding:10px 0;margin:-10px 0;}
   .scrub-thumb{transform:translate(-50%,-50%) scale(1);}

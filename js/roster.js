@@ -45,6 +45,15 @@
     updatePairRotateUI();
   }
 
+  // Right-click on a row or pair header: select like a plain click (a 2+ selection already holding
+  // it stays), then the selection bar floats right there as a menu — see openSelectionMenuFromEvent.
+  // Fields keep the browser's own menu (copy/paste).
+  function handleRosterContextMenu(e, select, primaryId){
+    if(e.target.closest('input, button, textarea, select')) return;
+    e.stopPropagation();
+    openSelectionMenuFromEvent(e, e.currentTarget, select, select, primaryId);
+  }
+
   var rosterSplitSignature = '';
 
   function renderRoster(){
@@ -131,6 +140,7 @@
     header.appendChild(splitBtn);
     header.appendChild(unpairBtn);
     header.addEventListener('click', function(e){ handleRosterPairSelectClick(e, pair); });
+    header.addEventListener('contextmenu', function(e){ handleRosterContextMenu(e, pair.memberIds, pair.memberIds[0]); });
     group.appendChild(header);
 
     if(pair.collapsed && !split){
@@ -150,6 +160,7 @@
     var row = document.createElement('div');
     row.className = 'pair-group-midpoint';
     row.addEventListener('click', function(e){ handleRosterPairSelectClick(e, pair); });
+    row.addEventListener('contextmenu', function(e){ handleRosterContextMenu(e, pair.memberIds, pair.memberIds[0]); });
     var mid = pairMidpoint(pair);
 
     var xLabel = document.createElement('span');
@@ -192,6 +203,7 @@
       var row = document.createElement('div');
       row.className = 'dancer-row';
       row.addEventListener('click', function(e){ handleRosterSelectClick(e, d.id); });
+      row.addEventListener('contextmenu', function(e){ handleRosterContextMenu(e, defaultSelectionFor(d.id), d.id); });
 
       var main = document.createElement('div');
       main.className = 'dancer-row-main';
@@ -368,6 +380,7 @@
     rosterCoordInputs[fk] = {x: x.i, y: y.i, rot: r.i};
     wrap.appendChild(coords);
     wrap.addEventListener('click', function(e){ handleRosterSelectClick(e, fk); });
+    wrap.addEventListener('contextmenu', function(e){ handleRosterContextMenu(e, [fk], fk); });
     return wrap;
   }
 
