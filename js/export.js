@@ -326,7 +326,7 @@
   function exportNeedsDancers(fmt){ return fmt === 'video' || fmt === 'pdf'; }
 
   function exportExt(){
-    if(exportFormat === 'video') return bestVideoMime().ext;
+    if(exportFormat === 'video') return videoExportExt();
     if(exportFormat === 'pdf') return '.pdf';
     return '.' + exportFormat;
   }
@@ -418,7 +418,7 @@
     var showContext = !exportContextOption.hidden && exportContextToggle.checked;
     closeExportDialog();
     if(exportFormat === 'video'){
-      startVideoExport(base + bestVideoMime().ext, sheets ? stepsFocusIds(sheets) : null, exportGhostToggle.checked, showContext);
+      startVideoExport(base + videoExportExt(), sheets ? stepsFocusIds(sheets) : null, exportGhostToggle.checked, showContext);
     } else {
       printStepsSheets(sheets || getAllStepsSheets(), base, showContext);
     }
@@ -992,6 +992,71 @@
     return {mime:'', ext:'.webm'};
   }
 
+  // Fast path: MediaRecorder can only film the canvas in real time, so a 3-minute choreo took 3
+  // minutes to export. With WebCodecs every frame is encoded as soon as it's drawn and mp4-muxer
+  // (js/vendor, loaded on first use) packs the chunks into an .mp4 — seconds instead of minutes.
+  // H.264/AAC where the browser can encode them, else VP9/Opus, which an .mp4 carries just as well.
+  // isConfigSupported is async, so the codecs are probed once at load; until that settles (or where
+  // nothing fits) the video goes through the real-time recording below.
+  var FAST_VIDEO_FPS = 30, FAST_AUDIO_RATE = 48000;
+  var fastVideoCodecs = null; // {video:{codec, muxer, config}, audio:{…}|null} once probed
+
+  function firstSupportedConfig(Encoder, candidates){
+    var i = 0;
+    function next(){
+      if(i >= candidates.length) return Promise.resolve(null);
+      var c = candidates[i++];
+      return Encoder.isConfigSupported(c.config).then(function(r){ return r.supported ? c : next(); }, next);
+    }
+    return next();
+  }
+
+  (function probeFastVideoCodecs(){
+    if(typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined' || !VideoEncoder.isConfigSupported) return;
+    var W = 1200 + VIDEO_INFO_PANEL_W, H = 800;
+    var video = ['avc1.640028', 'avc1.4D0028', 'avc1.42E028'].map(function(codec){
+      return {codec:codec, muxer:'avc', config:{codec:codec, width:W, height:H, bitrate:6000000, framerate:FAST_VIDEO_FPS, avc:{format:'avc'}}};
+    }).concat([{codec:'vp09.00.10.08', muxer:'vp9', config:{codec:'vp09.00.10.08', width:W, height:H, bitrate:6000000, framerate:FAST_VIDEO_FPS}}]);
+    var audio = (typeof AudioEncoder === 'undefined' || typeof AudioData === 'undefined') ? [] : [['mp4a.40.2', 'aac'], ['opus', 'opus']].map(function(c){
+      return {codec:c[0], muxer:c[1], config:{codec:c[0], sampleRate:FAST_AUDIO_RATE, numberOfChannels:2, bitrate:128000}};
+    });
+    Promise.all([firstSupportedConfig(VideoEncoder, video), firstSupportedConfig(window.AudioEncoder, audio)]).then(function(found){
+      if(!found[0]) return;
+      fastVideoCodecs = {video:found[0], audio:found[1]};
+      if(!exportBackdrop.hidden) filenameExt.textContent = exportExt();
+    }).catch(function(){});
+  })();
+
+  // Song tempo ≠ 1×: the real-time recording gets a pitch-preserving stretch for free from the
+  // <audio> element's playbackRate; offline there's no such thing, so those videos stay real-time.
+  function fastVideoExportPossible(){
+    if(!fastVideoCodecs) return false;
+    if(!(state.song && state.song.url)) return true;
+    return !!fastVideoCodecs.audio && typeof OfflineAudioContext !== 'undefined' && songRate() === 1;
+  }
+
+  function videoExportExt(){
+    return fastVideoExportPossible() ? '.mp4' : bestVideoMime().ext;
+  }
+
+  var mp4MuxerPromise = null;
+  function loadMp4Muxer(){
+    if(window.Mp4Muxer) return Promise.resolve(window.Mp4Muxer);
+    if(!mp4MuxerPromise){
+      mp4MuxerPromise = new Promise(function(resolve, reject){
+        var script = document.createElement('script');
+        script.src = 'js/vendor/mp4-muxer-5.2.2.js';
+        script.onload = function(){
+          if(window.Mp4Muxer) resolve(window.Mp4Muxer);
+          else{ mp4MuxerPromise = null; reject(new Error('mp4-muxer did not define Mp4Muxer')); }
+        };
+        script.onerror = function(){ mp4MuxerPromise = null; reject(new Error('mp4-muxer failed to load')); };
+        document.head.appendChild(script);
+      });
+    }
+    return mp4MuxerPromise;
+  }
+
   videoCancelBtn.addEventListener('click', function(){
     if(exportState) exportState.cancelled = true;
   });
@@ -1053,18 +1118,235 @@
     });
   }
 
+  // syncPts: syncWaypoints() when the video follows the song's markers, else null.
+  function buildVideoSegments(syncPts, songDuration, rate){
+    if(syncPts && songDuration > 0) return buildSyncSegments(syncPts, songDuration, rate);
+    var d = durations();
+    if(state.formations.length === 1) return [{type:'hold', idx:0, dur: Math.max(d.hold, 2000)}];
+    // Match the live playback (js/playback.js tick): one continuous chain of moves with no
+    // hold in between — just a brief hold on the first and last Bild so the opening and closing
+    // formations are readable before/after the motion.
+    var segments = [{type:'hold', idx:0, dur:d.hold}];
+    for(var i=0; i<state.formations.length-1; i++){
+      segments.push({type:'move', from:i, to:i+1, dur:d.move});
+    }
+    segments.push({type:'hold', idx:state.formations.length-1, dur:d.hold});
+    return segments;
+  }
+
+  function segmentsDuration(segments){
+    return segments.reduce(function(sum, seg){ return sum+seg.dur; }, 0);
+  }
+
+  // Where everyone stands elapsedInSeg ms into seg, plus the info panel's cursor (drawVideoInfoPanel).
+  function videoFrameAt(seg, elapsedInSeg){
+    if(seg.type === 'hold'){
+      // static — the info-panel stack only moves during an actual move segment
+      return {pos: state.formations[seg.idx].pos, cursor: seg.idx};
+    }
+    var t = Math.min(1, elapsedInSeg/seg.dur);
+    return {
+      // Chains through any Zwischenpositionen on seg.from's own betweens list, same as live
+      // playback (see interpolateThroughBetweens in state.js) — so a video export shows exactly
+      // the poses the editor does, not a single straight interpolation that skips them.
+      pos: interpolateThroughBetweens(seg.from, seg.to, t),
+      // The info-panel's own continuous cursor (see drawVideoInfoPanel) — glides from seg.from to
+      // seg.to across the *whole* segment, independent of however many Zwischenpositionen-legs
+      // pos above just chained through, so the panel scrolls smoothly through exactly one Bild
+      // per move regardless of how it's spatially subdivided.
+      cursor: seg.from + moveEase(seg.from, seg.to, t)
+    };
+  }
+
+  function showVideoProgress(seg, fraction){
+    videoProgressFill.style.width = Math.min(100, fraction*100) + '%';
+    var displayIdx = (seg.type === 'hold' ? seg.idx : seg.to) + 1;
+    videoStatusText.textContent = 'Bild ' + displayIdx + ' / ' + state.formations.length;
+  }
+
+  // The stage itself keeps its old 1200×800 footprint — the left info panel (drawVideoInfoPanel)
+  // is added alongside it, not carved out of it, so the dance display doesn't shrink to make room.
+  function createVideoCanvas(){
+    var canvas = document.createElement('canvas');
+    canvas.width = 1200 + VIDEO_INFO_PANEL_W; canvas.height = 800;
+    return canvas;
+  }
+
   function runVideoRecording(logoImg, filename, focusIds){
-    if(!window.MediaRecorder || !canvasCaptureStreamSupported()){
+    var realtimePossible = !!window.MediaRecorder && canvasCaptureStreamSupported();
+    if(fastVideoExportPossible()){
+      renderVideoOffline(logoImg, filename, focusIds).then(finishExportUI, function(err){
+        // Whatever WebCodecs or mp4-muxer trip over (a song decodeAudioData can't read, an encoder
+        // failing half-way) falls back to the real-time recording instead of ending in nothing.
+        console.error(err);
+        if(exportState.cancelled){ finishExportUI(); return; }
+        if(!realtimePossible){
+          videoStatusText.textContent = 'Fehler beim Rendern.';
+          setTimeout(finishExportUI, 1500);
+          return;
+        }
+        videoProgressFill.classList.remove('indeterminate');
+        videoProgressFill.style.width = '0%';
+        videoStatusText.textContent = 'Wird vorbereitet…';
+        recordVideoRealtime(logoImg, filename.replace(/\.mp4$/i, bestVideoMime().ext), focusIds);
+      });
+      return;
+    }
+    if(!realtimePossible){
       videoStatusText.textContent = 'Dieser Browser unterstützt keine Videoaufnahme.';
       setTimeout(finishExportUI, 2000);
       return;
     }
+    recordVideoRealtime(logoImg, filename, focusIds);
+  }
 
-    // The stage itself keeps its old 1200×800 footprint — the left info panel (drawVideoInfoPanel)
-    // is added alongside it, not carved out of it, so the dance display doesn't shrink to make room.
-    var H = 800, W = 1200 + VIDEO_INFO_PANEL_W;
-    var canvas = document.createElement('canvas');
-    canvas.width = W; canvas.height = H;
+  // setTimeout is throttled to about once a second in a background tab, a MessageChannel message
+  // isn't — so the offline render keeps its pace while the user looks at something else.
+  function yieldToBrowser(fn){
+    if(!document.hidden){ setTimeout(fn, 0); return; }
+    var channel = new MessageChannel();
+    channel.port1.onmessage = function(){ channel.port1.close(); fn(); };
+    channel.port2.postMessage(null);
+  }
+
+  // Resumes once the encoder has taken a frame off its queue; the timeout covers browsers without
+  // the dequeue event and an encoder that errored (and so never dequeues again).
+  function waitForEncoder(encoder, fn){
+    var done = false;
+    function go(){
+      if(done) return;
+      done = true;
+      if(encoder.removeEventListener) encoder.removeEventListener('dequeue', go);
+      fn();
+    }
+    if(encoder.addEventListener) encoder.addEventListener('dequeue', go);
+    setTimeout(go, 50);
+  }
+
+  function closeEncoder(encoder){
+    try{ if(encoder && encoder.state !== 'closed') encoder.close(); }catch(e){}
+  }
+
+  // Resolves once the .mp4 is downloaded or the user cancelled; rejects when anything fails.
+  function renderVideoOffline(logoImg, filename, focusIds){
+    exportState = { cancelled:false };
+    var codecs = fastVideoCodecs;
+    var canvas = createVideoCanvas();
+    var W = canvas.width, H = canvas.height;
+    var ctx = canvas.getContext('2d');
+    // decodeAudioData resamples to the context's rate, so the samples come out at FAST_AUDIO_RATE.
+    var songPromise = (state.song && state.song.url) ? fetch(state.song.url).then(function(res){ return res.arrayBuffer(); }).then(function(buf){
+      return new OfflineAudioContext(2, 1, FAST_AUDIO_RATE).decodeAudioData(buf);
+    }) : Promise.resolve(null);
+
+    return Promise.all([loadMp4Muxer(), songPromise]).then(function(loaded){
+      if(exportState.cancelled) return;
+      var Mp4 = loaded[0], audioBuf = loaded[1];
+      var pts = syncWaypoints();
+      var segments = buildVideoSegments(audioBuf && pts.length >= 2 ? pts : null, audioBuf ? audioBuf.duration : 0, 1);
+      var totalDuration = segmentsDuration(segments);
+      var totalFrames = Math.max(1, Math.ceil(totalDuration*FAST_VIDEO_FPS/1000));
+      // Like the real-time recording, the sound ends with the picture (or earlier, with the song).
+      var audioFrames = audioBuf ? Math.min(audioBuf.length, Math.round(totalFrames/FAST_VIDEO_FPS*FAST_AUDIO_RATE)) : 0;
+      var left = audioBuf ? audioBuf.getChannelData(0) : null;
+      var right = audioBuf ? audioBuf.getChannelData(Math.min(1, audioBuf.numberOfChannels-1)) : null; // mono → both sides
+
+      var muxer = new Mp4.Muxer({
+        target: new Mp4.ArrayBufferTarget(),
+        video: {codec: codecs.video.muxer, width: W, height: H, frameRate: FAST_VIDEO_FPS},
+        audio: audioBuf ? {codec: codecs.audio.muxer, numberOfChannels: 2, sampleRate: FAST_AUDIO_RATE} : undefined,
+        fastStart: 'in-memory',
+        firstTimestampBehavior: 'offset'
+      });
+      var failure = null;
+      function fail(err){ if(!failure) failure = err || new Error('encoder failed'); }
+      var videoEncoder = new VideoEncoder({
+        output: function(chunk, meta){ try{ muxer.addVideoChunk(chunk, meta); }catch(e){ fail(e); } },
+        error: fail
+      });
+      videoEncoder.configure(codecs.video.config);
+      var audioEncoder = null;
+      if(audioBuf){
+        audioEncoder = new AudioEncoder({
+          output: function(chunk, meta){ try{ muxer.addAudioChunk(chunk, meta); }catch(e){ fail(e); } },
+          error: fail
+        });
+        audioEncoder.configure(codecs.audio.config);
+      }
+
+      return new Promise(function(resolve, reject){
+        var frameIdx = 0, segIdx = 0, segStart = 0, audioPos = 0;
+
+        // Audio goes in alongside the frames it belongs to, so the muxer gets both tracks in time order.
+        function encodeAudioUntil(end){
+          while(audioPos < end){
+            var n = Math.min(4800, end - audioPos);
+            var planes = new Float32Array(n*2);
+            planes.set(left.subarray(audioPos, audioPos+n), 0);
+            planes.set(right.subarray(audioPos, audioPos+n), n);
+            var data = new AudioData({format:'f32-planar', sampleRate:FAST_AUDIO_RATE, numberOfFrames:n, numberOfChannels:2,
+              timestamp: Math.round(audioPos*1e6/FAST_AUDIO_RATE), data:planes});
+            audioEncoder.encode(data);
+            data.close();
+            audioPos += n;
+          }
+        }
+
+        function stop(err){
+          closeEncoder(videoEncoder);
+          closeEncoder(audioEncoder);
+          if(err) reject(err); else resolve();
+        }
+
+        function finish(){
+          videoProgressFill.style.width = '100%';
+          videoProgressFill.classList.add('indeterminate');
+          videoStatusText.textContent = 'Wird finalisiert…';
+          Promise.all([videoEncoder.flush(), audioEncoder && audioEncoder.flush()]).then(function(){
+            if(failure) throw failure;
+            if(exportState.cancelled){ stop(); return; }
+            muxer.finalize();
+            downloadBlob(new Blob([muxer.target.buffer], {type:'video/mp4'}), filename);
+            stop();
+          }).catch(stop);
+        }
+
+        function step(){
+          if(exportState.cancelled){ stop(); return; }
+          if(failure){ stop(failure); return; }
+          try{ encodeSlice(); }catch(e){ stop(e); return; } // an encoder that errored throws on encode()
+          showVideoProgress(segments[segIdx], frameIdx/totalFrames);
+          if(frameIdx >= totalFrames) finish();
+          else if(videoEncoder.encodeQueueSize > 8) waitForEncoder(videoEncoder, step);
+          else yieldToBrowser(step);
+        }
+
+        function encodeSlice(){
+          var sliceEnd = performance.now() + 40; // keep the page (and the Abbrechen button) responsive
+          while(frameIdx < totalFrames && videoEncoder.encodeQueueSize <= 8 && performance.now() < sliceEnd){
+            var tMs = frameIdx*1000/FAST_VIDEO_FPS;
+            while(segIdx < segments.length-1 && tMs >= segStart + segments[segIdx].dur){
+              segStart += segments[segIdx].dur;
+              segIdx++;
+            }
+            var seg = segments[segIdx];
+            var at = videoFrameAt(seg, tMs - segStart);
+            renderCanvasFrame(ctx, W, H, at.pos, logoImg, focusIds, ghostsFor(seg), at.cursor);
+            var frame = new VideoFrame(canvas, {timestamp: Math.round(frameIdx*1e6/FAST_VIDEO_FPS), duration: Math.round(1e6/FAST_VIDEO_FPS)});
+            videoEncoder.encode(frame, {keyFrame: frameIdx % (2*FAST_VIDEO_FPS) === 0});
+            frame.close();
+            frameIdx++;
+            if(audioEncoder) encodeAudioUntil(Math.min(audioFrames, Math.round(frameIdx*FAST_AUDIO_RATE/FAST_VIDEO_FPS)));
+          }
+        }
+        step();
+      });
+    });
+  }
+
+  function recordVideoRealtime(logoImg, filename, focusIds){
+    var canvas = createVideoCanvas();
+    var W = canvas.width, H = canvas.height;
     var ctx = canvas.getContext('2d');
 
     var exportAudioEl = (state.song && state.song.url) ? new Audio(state.song.url) : null;
@@ -1074,23 +1356,8 @@
     var durationPromise = useSync ? getAudioDuration(exportAudioEl) : Promise.resolve(0);
 
     durationPromise.then(function(songDuration){
-      var d = durations();
-      var segments;
-      if(useSync && songDuration > 0){
-        segments = buildSyncSegments(pts, songDuration, songRate());
-      }else if(state.formations.length === 1){
-        segments = [{type:'hold', idx:0, dur: Math.max(d.hold, 2000)}];
-      }else{
-        // Match the live playback (js/playback.js tick): one continuous chain of moves with no
-        // hold in between — just a brief hold on the first and last Bild so the opening and closing
-        // formations are readable before/after the motion.
-        segments = [{type:'hold', idx:0, dur:d.hold}];
-        for(var i=0; i<state.formations.length-1; i++){
-          segments.push({type:'move', from:i, to:i+1, dur:d.move});
-        }
-        segments.push({type:'hold', idx:state.formations.length-1, dur:d.hold});
-      }
-      var totalDuration = segments.reduce(function(sum, seg){ return sum+seg.dur; }, 0);
+      var segments = buildVideoSegments(useSync ? pts : null, songDuration, songRate());
+      var totalDuration = segmentsDuration(segments);
 
       // Manual capture mode when the browser supports it (Chrome/Edge): the canvas only emits a
       // frame when recordSegments() explicitly calls track.requestFrame() after drawing one, rather
@@ -1128,7 +1395,9 @@
     var chunks = [];
     recorder.ondataavailable = function(e){ if(e.data && e.data.size) chunks.push(e.data); };
 
-    exportState = { cancelled:false };
+    // Already set when this is the fallback after a failed offline render — keeping it means an
+    // Abbrechen clicked in between still counts.
+    exportState = exportState || { cancelled:false };
 
     recorder.onstop = function(){
       var cancelled = exportState && exportState.cancelled;
@@ -1164,23 +1433,8 @@
       if(segStart === null) segStart = now;
       var seg = segments[segIdx];
       var elapsedInSeg = now - segStart;
-      var posMap, segCursor;
-      if(seg.type === 'hold'){
-        posMap = state.formations[seg.idx].pos;
-        segCursor = seg.idx; // static — the info-panel stack only moves during an actual move segment
-      }else{
-        var t = Math.min(1, elapsedInSeg/seg.dur);
-        // Chains through any Zwischenpositionen on seg.from's own betweens list, same as live
-        // playback (see interpolateThroughBetweens in state.js) — so a video export shows exactly
-        // the poses the editor does, not a single straight interpolation that skips them.
-        posMap = interpolateThroughBetweens(seg.from, seg.to, t);
-        // The info-panel's own continuous cursor (see drawVideoInfoPanel) — glides from seg.from to
-        // seg.to across the *whole* segment, independent of however many Zwischenpositionen-legs
-        // posMap above just chained through, so the panel scrolls smoothly through exactly one Bild
-        // per move regardless of how it's spatially subdivided.
-        segCursor = seg.from + moveEase(seg.from, seg.to, t);
-      }
-      renderCanvasFrame(ctx, W, H, posMap, logoImg, focusIds, ghostsFor(seg), segCursor);
+      var at = videoFrameAt(seg, elapsedInSeg);
+      renderCanvasFrame(ctx, W, H, at.pos, logoImg, focusIds, ghostsFor(seg), at.cursor);
       // In manual-capture mode (see runVideoRecording), the stream never emits a frame on its own —
       // this is the one and only signal that a new frame is ready, which is exactly what keeps
       // recording accurate while backgrounded: however slowly setTimeout ends up firing, each call
@@ -1191,9 +1445,7 @@
       var elapsedBefore = 0;
       for(var s=0; s<segIdx; s++) elapsedBefore += segments[s].dur;
       var elapsedTotal = elapsedBefore + Math.min(elapsedInSeg, seg.dur);
-      videoProgressFill.style.width = Math.min(100, (elapsedTotal/totalDuration*100)) + '%';
-      var displayIdx = (seg.type === 'hold' ? seg.idx : seg.to) + 1;
-      videoStatusText.textContent = 'Bild ' + displayIdx + ' / ' + state.formations.length;
+      showVideoProgress(seg, elapsedTotal/totalDuration);
 
       if(elapsedInSeg >= seg.dur){
         segIdx += 1;
