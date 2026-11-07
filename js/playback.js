@@ -17,11 +17,12 @@
 
   function updateProgress(pct){ progressFillEl.style.width = pct + '%'; }
 
-  // With a song loaded, the Tempo slider also sets how fast the song itself plays: 0,5× to 2,0× of
-  // the original, 1,0× in the middle. Sync playback follows the song's clock, so the stage speeds
-  // up with it. Piecewise linear so the readout lands on round values (75 → 1,50×).
+  // With a song loaded, the Tempo slider sets how fast the song itself plays (songTempo, see
+  // js/state.js): 0,5× to 2,0× of the original, 1,0× in the middle. Sync playback follows the song's
+  // clock, so the stage speeds up with it. Piecewise linear so the readout lands on round values
+  // (75 → 1,50×).
   function songRate(){
-    var t = state.tempo;
+    var t = songTempo;
     return t <= 50 ? 0.5 + t/100 : 1 + (t-50)/50;
   }
   function applySongRate(audioEl){
@@ -34,6 +35,7 @@
   // speed is correct. A rate grows with the slider instead, matching what "Tempo" implies.
   function applyTempo(){
     applySongRate(songAudioEl);
+    tempoSlider.value = activeTempo();
     if(state.song && state.song.url){
       tempoReadoutEl.textContent = songRate().toFixed(2).replace('.', ',') + '×';
       tempoSlider.title = 'Geschwindigkeit des Lieds (0,5× bis 2,0× vom Original)';
@@ -42,6 +44,20 @@
       tempoSlider.title = '';
     }
     syncMusicRate(); // js/music.js
+  }
+
+  // Every Tempo control funnels through these. The song's speed is tab-local (no saveState(), so
+  // no share push or history entry); without a song the slider edits the project's Bilder tempo.
+  function setSongTempo(v){
+    songTempo = v;
+    try{ sessionStorage.setItem(SONG_TEMPO_KEY, String(v)); }catch(e){}
+    applyTempo();
+  }
+  function setTempo(v){
+    if(state.song && state.song.url){ setSongTempo(v); return; }
+    state.tempo = v;
+    applyTempo();
+    saveState();
   }
 
   // Song position playback should begin at, given the currently selected Bild: its own time marker

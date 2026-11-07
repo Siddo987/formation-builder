@@ -186,21 +186,15 @@
     });
   }
 
-  // The dialog covers the playbar, so it carries its own copy of the Tempo slider: same state.tempo,
+  // The dialog covers the playbar, so it carries its own copy of the Tempo slider: same songTempo,
   // same songRate() mapping. applyTempo() (js/playback.js) calls this after every change, from
-  // either slider, an undo or a shared edit.
+  // either slider or a song being loaded/removed.
   function syncMusicRate(){
-    musicRateSlider.value = state.tempo;
+    musicRateSlider.value = songTempo;
     musicRateReadout.textContent = songRate().toFixed(2).replace('.', ',') + '×';
   }
-  function setMusicRate(tempo){
-    state.tempo = tempo;
-    tempoSlider.value = tempo;
-    applyTempo();
-    saveState();
-  }
-  musicRateSlider.addEventListener('input', function(){ setMusicRate(+musicRateSlider.value); });
-  musicRateResetBtn.addEventListener('click', function(){ setMusicRate(50); });
+  musicRateSlider.addEventListener('input', function(){ setSongTempo(+musicRateSlider.value); });
+  musicRateResetBtn.addEventListener('click', function(){ setSongTempo(50); });
 
   function openMusicModal(){
     var song = hasSong();

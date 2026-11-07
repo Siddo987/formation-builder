@@ -794,7 +794,22 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     return base + '|' + couples;
   }
 
+  // How fast a loaded song plays (songRate() in js/playback.js), kept apart from the project's own
+  // state.tempo: a project slowed down for its Bilder (and shared or imported like that) would
+  // otherwise start its song at 0,5×. Remembered per tab across a reload, never saved into the
+  // project or pushed to a share — every new tab starts the song at 1,00×.
+  var SONG_TEMPO_KEY = 'aufstellung-song-tempo';
+  var songTempo = (function(){
+    try{
+      var v = parseFloat(sessionStorage.getItem(SONG_TEMPO_KEY));
+      return isFinite(v) && v >= 0 && v <= 100 ? v : 50;
+    }catch(e){ return 50; }
+  })();
+  // The one Tempo value the playbar shows: the song's speed while a song is loaded (playback then
+  // paces even unmarked Bilder by it, as before), the project's Bilder tempo otherwise.
+  function activeTempo(){ return state.song && state.song.url ? songTempo : state.tempo; }
+
   function durations(){
-    var t = state.tempo/100;
+    var t = activeTempo()/100;
     return { move: lerp(2200,500,t), hold: lerp(1600,300,t) };
   }

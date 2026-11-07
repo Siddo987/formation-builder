@@ -154,11 +154,7 @@
   playBtn.addEventListener('click', playPause);
   prevBtn.addEventListener('click', function(){ selectFormation(Math.max(0, state.activeIndex-1)); });
   nextBtn.addEventListener('click', function(){ selectFormation(Math.min(state.formations.length-1, state.activeIndex+1)); });
-  tempoSlider.addEventListener('input', function(){
-    state.tempo = +tempoSlider.value;
-    applyTempo();
-    saveState();
-  });
+  tempoSlider.addEventListener('input', function(){ setTempo(+tempoSlider.value); });
 
   /* ---------- init ---------- */
 
@@ -170,7 +166,6 @@
   renderFilmstrip();
   updatePlaybarInfo();
   updatePlayButton();
-  tempoSlider.value = state.tempo;
   projectNameInput.value = state.projectName || '';
   document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
   applySongSource();

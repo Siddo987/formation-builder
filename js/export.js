@@ -1109,7 +1109,6 @@
     updatePairRotateUI();
     updatePlaybarInfo();
     updatePlayButton();
-    tempoSlider.value = state.tempo;
     applyTempo();
     projectNameInput.value = state.projectName || '';
     document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
