@@ -36,14 +36,44 @@
   function applyTempo(){
     applySongRate(songAudioEl);
     tempoSlider.value = activeTempo();
-    if(state.song && state.song.url){
-      tempoReadoutEl.textContent = songRate().toFixed(2).replace('.', ',') + '×';
-      tempoSlider.title = 'Geschwindigkeit des Lieds (0,5× bis 2,0× vom Original)';
-    }else{
-      tempoReadoutEl.textContent = (1000/durations().move).toFixed(1) + '/s';
-      tempoSlider.title = '';
+    var song = !!(state.song && state.song.url);
+    if(document.activeElement !== tempoInputEl){
+      tempoInputEl.value = song ? formatDecimal(songRate(), 2) : formatDecimal(1000/durations().move, 1);
     }
+    tempoUnitEl.textContent = song ? '×' : '/s';
+    tempoSlider.title = song ? 'Geschwindigkeit des Lieds (0,5× bis 2,0× vom Original)' : '';
+    tempoInputEl.title = song ? 'Geschwindigkeit des Lieds eingeben (0,5 bis 2,0)' : 'Bilder pro Sekunde eingeben (0,5 bis 2,0)';
     syncMusicRate(); // js/music.js
+  }
+
+  function formatDecimal(v, digits){ return v.toFixed(digits).replace('.', ','); }
+
+  // Inverses of the two readouts, for typing a value instead of dragging (both clamp to the
+  // slider's range): songRate() above, and Bilder/s = 1000/durations().move with
+  // move = 2200 - 17·tempo.
+  function songTempoForRate(r){
+    r = Math.min(2, Math.max(0.5, r));
+    return r <= 1 ? (r - 0.5)*100 : 50 + (r - 1)*50;
+  }
+  function bilderTempoForRate(r){
+    return Math.round(Math.min(100, Math.max(0, (2200 - 1000/r)/17)));
+  }
+
+  // The Tempo readouts are text fields: Enter or leaving the field applies the typed value (comma or
+  // point), Escape keeps the old one. An untouched field applies nothing, so tabbing through doesn't
+  // round the tempo to what the readout shows. apply(rate) gets a number ≥ 0 (0 = slowest).
+  function wireTempoInput(input, apply){
+    var before = '', cancelled = false;
+    input.addEventListener('focus', function(){ before = input.value; cancelled = false; input.select(); });
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){ e.preventDefault(); input.blur(); }
+      else if(e.key === 'Escape'){ e.stopPropagation(); cancelled = true; input.blur(); } // don't close the dialog too
+    });
+    input.addEventListener('blur', function(){
+      var r = parseFloat(input.value.trim().replace(',', '.'));
+      if(!cancelled && input.value !== before && isFinite(r) && r >= 0) apply(r);
+      applyTempo(); // shows the clamped value, or the old one again
+    });
   }
 
   // Every Tempo control funnels through these. The song's speed is tab-local (no saveState(), so

@@ -28,7 +28,7 @@
   var musicNoMarkersHint = document.getElementById('musicNoMarkersHint');
   var musicPrerollInput = document.getElementById('musicPrerollInput');
   var musicRateSlider = document.getElementById('musicRateSlider');
-  var musicRateReadout = document.getElementById('musicRateReadout');
+  var musicRateInput = document.getElementById('musicRateInput');
   var musicRateResetBtn = document.getElementById('musicRateResetBtn');
 
   var musicOnlyActive = false;
@@ -186,14 +186,15 @@
     });
   }
 
-  // The dialog covers the playbar, so it carries its own copy of the Tempo slider: same songTempo,
-  // same songRate() mapping. applyTempo() (js/playback.js) calls this after every change, from
-  // either slider or a song being loaded/removed.
+  // The dialog covers the playbar, so it carries its own copy of the Tempo slider and field: same
+  // songTempo, same songRate() mapping. applyTempo() (js/playback.js) calls this after every change,
+  // from either control or a song being loaded/removed.
   function syncMusicRate(){
     musicRateSlider.value = songTempo;
-    musicRateReadout.textContent = songRate().toFixed(2).replace('.', ',') + '×';
+    if(document.activeElement !== musicRateInput) musicRateInput.value = formatDecimal(songRate(), 2);
   }
   musicRateSlider.addEventListener('input', function(){ setSongTempo(+musicRateSlider.value); });
+  wireTempoInput(musicRateInput, function(r){ setSongTempo(songTempoForRate(r)); });
   musicRateResetBtn.addEventListener('click', function(){ setSongTempo(50); });
 
   function openMusicModal(){

@@ -771,6 +771,14 @@ body.roster-open .roster{display:flex;}
 .progress-fill.indeterminate{width:35% !important;animation:progress-indeterminate 1.1s linear infinite;}
 @keyframes progress-indeterminate{0%{transform:translateX(-100%);}100%{transform:translateX(300%);}}
 .tempo-control{display:flex;align-items:center;gap:.55rem;flex:none;margin-left:auto;}
+.tempo-caption{display:inline-flex;align-items:center;gap:.2rem;cursor:text;}
+.tempo-input{
+  width:calc(4ch + .7rem);height:24px;padding:0 .35rem;
+  border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--ink-2);
+  font-family:var(--font-mono);font-size:.7rem;font-weight:500;text-align:right;font-variant-numeric:tabular-nums;
+}
+.tempo-input:hover{border-color:var(--line-strong);}
+.tempo-input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent;background:var(--panel);color:var(--ink);}
 .music-only-btn{flex:none;font-size:.74rem;}
 .playbar .music-only-btn.active{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-ink);}
 
@@ -1203,6 +1211,9 @@ body.roster-open .roster{display:flex;}
   .film-card{width:80px;}
   .playbar{gap:.45rem;}
   input[type="range"]{width:70px;}
+  .tempo-control{gap:.3rem;}
+  .tempo-control input[type="range"]{width:56px;}
+  .tempo-input{padding:0 .25rem;width:calc(4ch + .5rem);}
 }
 
 /* Touch: nichts darf nur per Hover erreichbar sein */
@@ -1218,6 +1229,7 @@ body.roster-open .roster{display:flex;}
   .btn-icon{width:40px;height:40px;}
   .btn-play{width:46px;height:46px;}
   .context-idle span:nth-child(2),.context-idle span:nth-child(4){display:none;}
+  .tempo-input{height:32px;font-size:16px;} /* below 16px iOS zooms in on focus */
 }
 
 @media (prefers-reduced-motion:reduce){

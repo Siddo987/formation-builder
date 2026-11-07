@@ -155,6 +155,7 @@
   prevBtn.addEventListener('click', function(){ selectFormation(Math.max(0, state.activeIndex-1)); });
   nextBtn.addEventListener('click', function(){ selectFormation(Math.min(state.formations.length-1, state.activeIndex+1)); });
   tempoSlider.addEventListener('input', function(){ setTempo(+tempoSlider.value); });
+  wireTempoInput(tempoInputEl, function(r){ setTempo(state.song && state.song.url ? songTempoForRate(r) : bilderTempoForRate(r)); });
 
   /* ---------- init ---------- */
 

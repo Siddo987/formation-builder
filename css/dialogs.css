@@ -112,7 +112,8 @@
 .modal .music-preroll input{width:56px;text-align:center;}
 .music-rate-row{flex-wrap:nowrap;}
 .music-rate-row input[type="range"]{flex:1;min-width:0;width:auto;}
-.music-rate-readout{flex:none;min-width:3.4em;text-align:right;}
+.music-rate-readout{flex:none;display:flex;align-items:center;gap:.25rem;}
+.modal .music-rate-input{width:calc(4ch + 1.2rem);font-family:var(--font-mono);text-align:right;font-variant-numeric:tabular-nums;}
 .modal .music-only-btn.active{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-ink);}
 
 /* Vorlagen / Figuren */
