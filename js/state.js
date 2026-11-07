@@ -68,11 +68,6 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     if(typeof v !== 'number' || !isFinite(v) || v <= 0 || v >= 1) return null;
     return Math.min(0.9999, Math.max(0.0001, Math.round(v * 10000) / 10000));
   }
-  // How a move runs through its Zwischenpositionen (a per-Bild setting, like the betweens list it
-  // belongs to): 'corner' = straight legs that turn sharply at each one, 'smooth' = one rounded,
-  // flowing curve through all of them (see smoothLeg below). Unknown/missing means 'corner', which is
-  // how every move played before the setting existed.
-  function sanitizeBetweenPath(v){ return v === 'smooth' ? 'smooth' : 'corner'; }
   // Geschwindigkeitsverlauf (a per-Bild setting for the move *out of* this Bild, like betweens):
   // SPEED_SAMPLES relative speeds at evenly spaced points from start to finish of the move, drawn in
   // the graph popover (see formations.js). Only the shape counts — speedEase normalizes it, so the
@@ -178,7 +173,6 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       e = span < 1e-9 ? 1 : Math.min(1, Math.max(0, (eAll - anchors[legIdx]) / span));
     }
     var a = pts[legIdx], b = pts[legIdx + 1];
-    var smooth = legCount > 1 && sanitizeBetweenPath(fromF.betweenPath) === 'smooth';
     var ZERO = {x:0, y:0, rot:0};
     // Where pos key `k` is at a stop — a Follow whose couple is closed there is on the couple's dot.
     function spot(w, k){ return w[k] || w[baseDancerId(k)] || ZERO; }
@@ -186,10 +180,6 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     function place(k){
       var pa = spot(a, k), pb = spot(b, k);
       interp[k] = { x: lerp(pa.x, pb.x, e), y: lerp(pa.y, pb.y, e), rot: lerpAngle(pa.rot||0, pb.rot||0, e) };
-      if(smooth){
-        var c = smoothLeg(pts.map(function(w){ return spot(w, k); }), legIdx, e, anchors);
-        interp[k].x = clampGrid(c.x); interp[k].y = clampGrid(c.y);
-      }
     }
     // Every dot, plus the Follow of a couple that is split at either end of this leg — stepping out
     // of the dot, back into it, or from one spot of its own to the next.
@@ -207,12 +197,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     var turns = sanitizeCoupleTurns(leaving.coupleTurns), spins = sanitizeSpins(leaving.spins);
     function turnOf(lk){ return turns && typeof turns[lk] === 'number' ? turns[lk] : null; }
     function centre(lk, fk){
-      var mids = pts.map(function(w){
-        var l = spot(w, lk), f = spot(w, fk);
-        return {x: (l.x+f.x)/2, y: (l.y+f.y)/2};
-      });
-      if(smooth) return smoothLeg(mids, legIdx, e, anchors);
-      return {x: lerp(mids[legIdx].x, mids[legIdx+1].x, e), y: lerp(mids[legIdx].y, mids[legIdx+1].y, e)};
+      var la = spot(a, lk), fa = spot(a, fk), lb = spot(b, lk), fb = spot(b, fk);
+      return {x: lerp((la.x+fa.x)/2, (lb.x+fb.x)/2, e), y: lerp((la.y+fa.y)/2, (lb.y+fb.y)/2, e)};
     }
     state.dancers.forEach(function(dd){
       var lk = dd.id, fk = followKey(lk);
@@ -239,34 +225,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     });
     return interp;
   }
-  // "Abgerundet" (betweenPath 'smooth'): a Hermite spline through all waypoints of the move. The
-  // two legs meeting at a Zwischenposition share one tangent there, so the dancer passes through it
-  // without a corner or a jump in speed. `anchors` (see betweenAnchors) are when each waypoint is
-  // reached — tangents are velocities per unit of that progress, so a short leg in the time doesn't
-  // overshoot; without them every leg gets the same share. The tangent is the usual Catmull-Rom one,
-  // shortened next to a leg that is much slower than the other so the curve can't overshoot or loop
-  // — down to zero when the dancer stands still for a leg.
-  function smoothLeg(points, legIdx, t, anchors){
-    var n = points.length - 1;
-    function dur(i){ return anchors ? Math.max(1e-6, anchors[i+1] - anchors[i]) : 1; }
-    function tangent(i){
-      if(i === 0) return {x: (points[1].x - points[0].x) / dur(0), y: (points[1].y - points[0].y) / dur(0)};
-      if(i === n) return {x: (points[n].x - points[n-1].x) / dur(n-1), y: (points[n].y - points[n-1].y) / dur(n-1)};
-      var p = points[i-1], q = points[i], r = points[i+1], h1 = dur(i-1), h2 = dur(i);
-      var v1 = Math.hypot(q.x-p.x, q.y-p.y) / h1, v2 = Math.hypot(r.x-q.x, r.y-q.y) / h2;
-      var damp = Math.max(v1, v2) < 1e-6 ? 0 : Math.min(1, 3 * Math.min(v1, v2) / Math.max(v1, v2));
-      return {x: (r.x-p.x) / (h1+h2) * damp, y: (r.y-p.y) / (h1+h2) * damp};
-    }
-    var h = dur(legIdx);
-    var p0 = points[legIdx], p1 = points[legIdx+1], m0 = tangent(legIdx), m1 = tangent(legIdx+1);
-    var t2 = t*t, t3 = t2*t;
-    var h00 = 2*t3 - 3*t2 + 1, h10 = (t3 - 2*t2 + t) * h, h01 = 3*t2 - 2*t3, h11 = (t3 - t2) * h;
-    return {x: h00*p0.x + h10*m0.x + h01*p1.x + h11*m1.x, y: h00*p0.y + h10*m0.y + h01*p1.y + h11*m1.y};
-  }
   // The couple's midpoint `c` — the axis they turn around, already worked out for this moment by
-  // the caller (straight between the two ends' middles, or rounded through Zwischenpositionen) —
-  // while the Follow→Lead vector rotates around it the short way and its length eases from the old
-  // spacing (la/fa) to the new one (lb/fb). A couple that only moves (no change of direction
+  // the caller (straight between the two ends' middles) — while the Follow→Lead vector rotates
+  // around it the short way and its length eases from the old spacing (la/fa) to the new one (lb/fb). A couple that only moves (no change of direction
   // between them) ends up exactly on the straight lines; one that swaps sides turns around its
   // moving middle instead of running through each other.
   // With a set Drehung (`turn`, see sanitizeCoupleTurns) the axis — and both partners' facing —
@@ -379,8 +340,6 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     play: '<path d="M7 4.5v15l12.5-7.5Z" fill="currentColor"/>',
     'chevron-right': '<path d="m9 18 6-6-6-6"/>',
     'chevron-down': '<path d="m6 9 6 6 6-6"/>',
-    'path-corner': '<path d="M3 17 9 7l6 10 6-10"/>',
-    'path-smooth': '<path d="M3 17C5 10 7 7 9 7s4 10 6 10 4-3 6-10"/>',
     speed: '<path d="M3 20h18"/><path d="M3 16c4 0 5-10 9-10s5 10 9 10"/>',
     turn: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>'
   };
@@ -548,7 +507,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         }
         // migration: older saves predate Zwischenpositionen entirely — see interpolateThroughBetweens()
         f.betweens = sanitizeBetweens(f.betweens, parsed.dancers);
-        f.betweenPath = sanitizeBetweenPath(f.betweenPath);
+        // The rounded-path option ("Weg abgerundet") is gone again — every move runs straight
+        // through its Zwischenpositionen, so a leftover setting is just dropped.
+        delete f.betweenPath;
         // migration: older saves predate Geschwindigkeitsverläufe — see speedEase()
         f.speedCurve = sanitizeSpeedCurve(f.speedCurve);
         // migration: older saves predate set Drehungen im Paar — see turnCouple()

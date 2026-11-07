@@ -188,12 +188,6 @@
       line.textContent = 'grau x ' + fmtSigned(bp.x) + ' y ' + fmtSigned(bp.y) + ' · ' + (b.name ? b.name : ('Zwischenposition ' + (i+1)));
       info.appendChild(line);
     });
-    if(betweens.length){
-      var pathLine = document.createElement('p');
-      pathLine.className = 'step-between-line';
-      pathLine.textContent = sanitizeBetweenPath(formation.betweenPath) === 'smooth' ? 'Weg abgerundet, fließend' : 'Weg eckig, direkt durch die Punkte';
-      info.appendChild(pathLine);
-    }
 
     // Set Drehungen im Paar (keyed by the couple's Lead, see setCoupleTurn in js/stage.js) and
     // Eigendrehungen (by the person's own pos key), leg by leg: out of the Bild, then out of each

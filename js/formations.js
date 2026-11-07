@@ -331,7 +331,6 @@
     addBtn.addEventListener('click', function(){ addBetween(idx); });
 
     wrap.appendChild(chips);
-    if((f.betweens || []).length) wrap.appendChild(buildBetweenPathToggle(f, next));
     wrap.appendChild(addBtn);
     wrap.appendChild(buildSpeedCurveButton(f, next));
     if(turns) wrap.appendChild(buildCoupleTurnBadge(turns, next));
@@ -585,32 +584,9 @@
     redraw();
   }
 
-  // Eckig ↔ abgerundet: whether the move runs in straight legs through its Zwischenpositionen or
-  // in one flowing curve (see betweenPath / smoothLeg in state.js). Only shown once there is at
-  // least one Zwischenposition — without any, the move is a single straight leg either way.
-  function buildBetweenPathToggle(f, next){
-    var smooth = sanitizeBetweenPath(f.betweenPath) === 'smooth';
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'film-between-path' + (smooth ? ' smooth' : '');
-    btn.setAttribute('aria-pressed', smooth ? 'true' : 'false');
-    btn.setAttribute('aria-label', 'Weg abgerundet');
-    btn.appendChild(svgIcon(smooth ? 'path-smooth' : 'path-corner', 14));
-    btn.title = (smooth
-      ? 'Weg abgerundet — fließend durch die Zwischenpositionen'
-      : 'Weg eckig — direkt von Punkt zu Punkt durch die Zwischenpositionen')
-      + ' auf dem Weg zu „' + (next ? next.name : '?') + '“ (klicken zum Umschalten)';
-    btn.addEventListener('click', function(){
-      f.betweenPath = smooth ? 'corner' : 'smooth';
-      saveState();
-      renderFilmstrip();
-    });
-    return btn;
-  }
-
   // New Zwischenposition's starting pose: exactly what playback shows at the moment it will be
   // reached (after the last one so far, untimed, so spread like the others — see betweenAnchors),
-  // split couples, path shape and speed curve included — just a seed the user then poses properly by
+  // split couples and speed curve included — just a seed the user then poses properly by
   // dragging on the stage, same as a freshly duplicated Bild's pos. A Drehung im Paar or
   // Eigendrehung set on the leg it lands in is shared out between the two legs it now makes, so the
   // move still turns as far in total.

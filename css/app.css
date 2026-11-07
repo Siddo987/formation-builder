@@ -929,16 +929,6 @@ body.roster-open .roster{display:flex;}
 }
 .film-connector:hover .film-between-add,.film-between-add:focus-visible{opacity:1;}
 .film-between-add:hover{border-color:var(--pair);color:var(--pair);}
-/* Eckig/abgerundet-Schalter für den Weg durch die Zwischenpositionen */
-.film-between-path{
-  width:20px;height:20px;
-  display:flex;align-items:center;justify-content:center;
-  border:1px solid var(--line-strong);border-radius:5px;background:transparent;
-  color:var(--ink-3);padding:0;
-  transition:border-color .12s ease,color .12s ease,background .12s ease;
-}
-.film-between-path:hover{border-color:var(--pair);color:var(--pair);}
-.film-between-path.smooth{border-color:var(--pair);color:var(--pair);background:var(--pair-wash);}
 /* Geschwindigkeitsverlauf der Bewegung zum nächsten Bild */
 .film-between-speed{
   width:20px;height:20px;
