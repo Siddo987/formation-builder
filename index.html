@@ -417,11 +417,8 @@ if ('serviceWorker' in navigator) {
         <p class="settings-hint" id="exportEmptyHint" hidden>Video und Schritte-PDF gibt es, sobald Tänzer angelegt sind.</p>
       </section>
       <section class="settings-section" id="exportWhoSection" hidden>
-        <h3><label for="exportWhoSelect">Wer?</label></h3>
-        <div class="export-who-select-wrap">
-          <select id="exportWhoSelect"></select>
-          <span class="export-who-select-arrow" aria-hidden="true"></span>
-        </div>
+        <h3 id="exportWhoTitle">Wer?</h3>
+        <div class="export-who-list" id="exportWhoList" role="group" aria-labelledby="exportWhoTitle"></div>
         <p class="settings-hint" id="exportWhoHint"></p>
       </section>
       <section class="settings-section" id="exportOptionsSection" hidden>

@@ -4,24 +4,18 @@
 
   var stepsPrintArea = document.getElementById('stepsPrintArea');
 
-  // Appends the "Wer?" choices of the Exportieren dialog (js/export.js): every dancer ('d:<id>'),
-  // then every complete pair ('p:<id>').
-  function fillStepsWhoOptions(selectEl){
-    state.dancers.forEach(function(d){
-      var opt = document.createElement('option');
-      opt.value = 'd:' + d.id;
-      opt.textContent = d.name;
-      selectEl.appendChild(opt);
-    });
+  // The "Wer?" choices of the Exportieren dialog (js/export.js): every complete pair ('p:<id>'),
+  // then every dancer ('d:<id>') — any number of them can be ticked at once.
+  function stepsWhoChoices(){
+    var choices = [];
     state.pairs.forEach(function(p){
       var a = state.dancers.find(function(d){ return d.id === p.memberIds[0]; });
       var b = state.dancers.find(function(d){ return d.id === p.memberIds[1]; });
       if(!a || !b) return;
-      var opt = document.createElement('option');
-      opt.value = 'p:' + p.id;
-      opt.textContent = '⚭ ' + (p.name ? p.name : (a.name + ' & ' + b.name));
-      selectEl.appendChild(opt);
+      choices.push({value: 'p:' + p.id, label: '⚭ ' + (p.name ? p.name : (a.name + ' & ' + b.name))});
     });
+    state.dancers.forEach(function(d){ choices.push({value: 'd:' + d.id, label: d.name}); });
+    return choices;
   }
 
   // A couple that's split into Lead & Follow in at least one Bild or Zwischenposition gets one sheet
@@ -65,6 +59,16 @@
     var b = state.dancers.find(function(d){ return d.id === pair2.memberIds[1]; });
     if(!a || !b) return [];
     return sheetsForDancer(a, b).concat(sheetsForDancer(b, a));
+  }
+
+  // Several "Wer?" values at once: their sheets without doubles (a dancer ticked on their own and as
+  // part of their pair), in the same "erst Paar 1, dann Paar 2" order as getAllStepsSheets().
+  function getStepsSheetsFor(vals){
+    var wanted = {};
+    vals.forEach(function(v){
+      getStepsSheets(v).forEach(function(sh){ wanted[sh.primary.id + ':' + sh.role] = true; });
+    });
+    return getAllStepsSheets().filter(function(sh){ return wanted[sh.primary.id + ':' + sh.role]; });
   }
 
   function fmtSigned(v){

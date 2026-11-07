@@ -308,7 +308,7 @@
   var exportFormatInputs = Array.prototype.slice.call(document.querySelectorAll('input[name="exportFormat"]'));
   var exportEmptyHint = document.getElementById('exportEmptyHint');
   var exportWhoSection = document.getElementById('exportWhoSection');
-  var exportWhoSelect = document.getElementById('exportWhoSelect');
+  var exportWhoList = document.getElementById('exportWhoList');
   var exportWhoHint = document.getElementById('exportWhoHint');
   var exportOptionsSection = document.getElementById('exportOptionsSection');
   var exportContextOption = document.getElementById('exportContextOption');
@@ -320,6 +320,9 @@
   var filenameExt = document.getElementById('filenameExt');
   // Kept across openings, so a second video right after the first needs one click.
   var exportFormat = 'stg';
+  // Wer?: the ticked steps.js values ('d:<id>' dancer, 'p:<id>' pair), in list order; none = alle.
+  // Kept across openings too.
+  var exportWho = [];
   // Once the name is typed by hand it stays put when switching format/Wer; until then it follows them.
   var filenameEdited = false;
 
@@ -333,10 +336,43 @@
     return '.' + exportFormat;
   }
 
-  // Wer?: '' = alle, otherwise a steps.js value ('d:<id>' dancer, 'p:<id>' pair).
+  // One name group per ticked entry ("Anna & Ben, Clara & Dirk"); '' for alle.
   function exportWhoLabel(){
-    var who = exportWhoSelect.value;
-    return who ? sheetsLabel(getStepsSheets(who)) : '';
+    var labels = [];
+    exportWho.forEach(function(v){
+      var label = sheetsLabel(getStepsSheets(v));
+      if(label && labels.indexOf(label) === -1) labels.push(label);
+    });
+    return labels.join(', ');
+  }
+
+  function exportWhoInputs(){ return Array.prototype.slice.call(exportWhoList.querySelectorAll('input')); }
+
+  // "Alle" first, then the pairs, then (on a line of their own) the single dancers.
+  function fillExportWhoList(){
+    var choices = stepsWhoChoices();
+    exportWho = exportWho.filter(function(v){ return choices.some(function(c){ return c.value === v; }); });
+    exportWhoList.innerHTML = '';
+    var prevKind = null;
+    [{value: '', label: 'Alle'}].concat(choices).forEach(function(c){
+      var kind = c.value.slice(0,1);
+      if(prevKind !== null && kind !== prevKind){
+        var br = document.createElement('span');
+        br.className = 'export-who-break';
+        exportWhoList.appendChild(br);
+      }
+      prevKind = kind;
+      var item = document.createElement('label');
+      item.className = 'export-who-item';
+      var inp = document.createElement('input');
+      inp.type = 'checkbox';
+      inp.value = c.value;
+      var text = document.createElement('span');
+      text.textContent = c.label;
+      item.appendChild(inp);
+      item.appendChild(text);
+      exportWhoList.appendChild(item);
+    });
   }
 
   function exportDefaultName(){
@@ -354,11 +390,15 @@
     });
     exportEmptyHint.hidden = !noDancers;
     var media = exportNeedsDancers(exportFormat);
-    var who = exportWhoSelect.value;
+    var who = exportWho.length > 0;
+    exportWhoInputs().forEach(function(inp){
+      inp.checked = inp.value ? exportWho.indexOf(inp.value) !== -1 : !who;
+    });
     exportWhoSection.hidden = !media;
     if(exportFormat === 'pdf'){
       exportWhoHint.textContent = (who
-        ? 'Pro Bild eine Karte mit großer, gut lesbarer Koordinatenangabe.'
+        ? (exportWho.length > 1 ? 'Ein Dokument mit den Blättern aller Gewählten, Paar für Paar. ' : '') +
+          'Pro Bild eine Karte mit großer, gut lesbarer Koordinatenangabe.'
         : 'Ein Dokument mit den Blättern aller Tänzer – erst Paar 1, dann Paar 2 usw.') +
         ' Ist ein Paar in einem Bild in Lead & Follow geteilt, gibt es je ein Blatt für Lead und Follow.';
     } else {
@@ -379,11 +419,7 @@
 
   function openExportDialog(){
     if(exportState) return;
-    var prevWho = exportWhoSelect.value;
-    exportWhoSelect.innerHTML = '<option value="">Alle</option>';
-    fillStepsWhoOptions(exportWhoSelect);
-    exportWhoSelect.value = prevWho;
-    if(exportWhoSelect.selectedIndex < 0) exportWhoSelect.value = '';
+    fillExportWhoList();
     if((!state.dancers.length || !state.formations.length) && exportNeedsDancers(exportFormat)) exportFormat = 'stg';
     filenameEdited = false;
     syncExportDialog();
@@ -410,7 +446,6 @@
   function confirmExport(){
     if(exportBackdrop.hidden) return;
     var base = sanitizeFilename(filenameInput.value);
-    var who = exportWhoSelect.value;
     if(exportFormat === 'stg' || exportFormat === 'auf'){
       closeExportDialog();
       if(exportFormat === 'stg') saveProjectFile(base + '.stg', buildStgBlob);
@@ -418,8 +453,8 @@
       return;
     }
     if(!state.dancers.length || !state.formations.length) return;
-    var sheets = who ? getStepsSheets(who) : null;
-    if(who && !sheets.length) return;
+    var sheets = exportWho.length ? getStepsSheetsFor(exportWho) : null;
+    if(sheets && !sheets.length) return;
     var showContext = !exportContextOption.hidden && exportContextToggle.checked;
     closeExportDialog();
     if(exportFormat === 'video'){
@@ -441,7 +476,13 @@
       syncExportDialog();
     });
   });
-  exportWhoSelect.addEventListener('change', syncExportDialog);
+  // Ticking "Alle" (or unticking the last one) clears the rest; ticking anyone else unticks "Alle".
+  exportWhoList.addEventListener('change', function(e){
+    exportWho = !e.target.value ? [] : exportWhoInputs().filter(function(inp){
+      return inp.value && inp.checked;
+    }).map(function(inp){ return inp.value; });
+    syncExportDialog();
+  });
   filenameInput.addEventListener('input', function(){ filenameEdited = true; });
   exportBackdrop.addEventListener('keydown', function(e){
     if(e.key !== 'Enter' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
