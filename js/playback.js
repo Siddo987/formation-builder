@@ -13,9 +13,36 @@
     var f = currentFormation();
     activeNameEl.textContent = f.name;
     activeReadoutEl.textContent = String(state.activeIndex+1).padStart(2,'0') + ' / ' + String(state.formations.length).padStart(2,'0');
+    if(!playing && !pausedAt) updateProgress(idleTimelinePct());
   }
 
-  function updateProgress(pct){ progressFillEl.style.width = pct + '%'; }
+  // The playbar timeline (#playScrub) spans the whole choreo, not just the current move: with sync
+  // playback the song from 0:00 to its end, otherwise the chain of moves from the first Bild to the
+  // last, one equal stretch per move (Bild i sits at i/(n-1)). Dragging it seeks — see scrubTo().
+  var timelinePct = 0;
+  function updateProgress(pct){
+    timelinePct = pct;
+    progressFillEl.style.width = pct + '%';
+    scrubThumbEl.style.left = pct + '%';
+    playScrubEl.setAttribute('aria-valuenow', String(Math.round(pct)));
+    var dur = songDurationSec();
+    playScrubEl.setAttribute('aria-valuetext', isSyncActive() && dur
+      ? formatTime(pct/100*dur) + ' von ' + formatTime(dur)
+      : 'Bild ' + (state.activeIndex+1) + ' von ' + state.formations.length);
+  }
+  function songDurationSec(){
+    var d = songAudioEl.duration;
+    return isFinite(d) && d > 0 ? d : 0;
+  }
+  // Where the timeline stands while nothing plays or is held: at the selected Bild.
+  function idleTimelinePct(){
+    var n = state.formations.length;
+    if(isSyncActive()){
+      var dur = songDurationSec();
+      return dur ? Math.min(100, playbackStartTime()/dur*100) : 0;
+    }
+    return n > 1 ? state.activeIndex/(n-1)*100 : 0;
+  }
 
   // With a song loaded, the Tempo slider sets how fast the song itself plays (songTempo, see
   // js/state.js): 0,5× to 2,0× of the original, 1,0× in the middle. Sync playback follows the song's
@@ -96,17 +123,23 @@
   // Bild 1 — one move per Bild, so the song is where it would be had playback run up to this Bild
   // (it used to restart the song at 0:00 from any Bild of a project without markers).
   function playbackStartTime(){
-    var own = formationTime(state.formations[state.activeIndex]);
-    if(own !== null) return own;
-    var base = 0, baseIdx = 0;
-    for(var i = state.activeIndex - 1; i >= 0; i--){
+    if(!isSyncActive()) return freeSongTimeAt(state.activeIndex, 0);
+    for(var i = state.activeIndex; i >= 0; i--){
       var t = formationTime(state.formations[i]);
-      if(t !== null){ base = t; baseIdx = i; break; }
+      if(t !== null) return t;
     }
-    if(isSyncActive()) return base;
-    var at = base + (state.activeIndex - baseIdx) * moveDurationMs()/1000 * songRate();
-    var dur = songAudioEl.duration;
-    return isFinite(dur) && dur > 0 ? Math.min(at, dur) : at;
+    return 0;
+  }
+  // Song position of free playback at fraction t of the move from Bild idx to idx+1.
+  function freeSongTimeAt(idx, t){
+    var base = 0, baseIdx = 0;
+    for(var i = idx; i >= 0; i--){
+      var m = formationTime(state.formations[i]);
+      if(m !== null){ base = m; baseIdx = i; break; }
+    }
+    var at = base + (idx - baseIdx + t) * moveDurationMs()/1000 * songRate();
+    var dur = songDurationSec();
+    return dur ? Math.min(at, dur) : at;
   }
 
   // Where the play button last paused: the stage keeps showing the positions mid-move and the next
@@ -200,18 +233,16 @@
     syncActive = false;
     cancelAnimationFrame(rafId);
     positionMarkers(currentFormation().pos);
-    updateProgress(0);
+    updateProgress(idleTimelinePct());
     songAudioEl.pause();
     updatePlayButton();
   }
 
-  function syncTick(){
-    if(!playing || !syncActive) return;
+  // What sync playback shows at song time ct: the positions, and the Bild that counts as current.
+  // null with fewer than two marked Bilder.
+  function syncFrameAt(ct){
     var pts = syncWaypoints();
-    if(pts.length < 2){ pausePlayback(); return; }
-    var ct = songAudioEl.currentTime;
-    var totalDur = songAudioEl.duration;
-
+    if(pts.length < 2) return null;
     var k = 0;
     while(k < pts.length-1 && ct >= pts[k+1].time) k++;
     var p0 = pts[k], p1 = pts[Math.min(k+1, pts.length-1)];
@@ -229,15 +260,24 @@
       posMap = interpolateThroughBetweens(p0.idx, p1.idx, t);
       activeIdx = t >= 1 ? p1.idx : p0.idx;
     }
-    positionMarkers(posMap);
-    if(activeIdx !== state.activeIndex){
-      state.activeIndex = activeIdx;
+    return {pos: posMap, idx: activeIdx};
+  }
+
+  function syncTick(){
+    if(!playing || !syncActive) return;
+    var ct = songAudioEl.currentTime;
+    var fr = syncFrameAt(ct);
+    if(!fr){ pausePlayback(); return; }
+    positionMarkers(fr.pos);
+    if(fr.idx !== state.activeIndex){
+      state.activeIndex = fr.idx;
       renderFilmstripActiveOnly();
       refreshRosterCoords();
       updatePlaybarInfo();
       resetLayoutGhost();
     }
-    if(isFinite(totalDur) && totalDur > 0) updateProgress(Math.min(100, (ct/totalDur)*100));
+    var totalDur = songDurationSec();
+    if(totalDur) updateProgress(Math.min(100, (ct/totalDur)*100));
     if(playing && syncActive) rafId = requestAnimationFrame(syncTick);
   }
 
@@ -252,7 +292,7 @@
     // poses on fromIdx's own betweens list — total duration unchanged, divided at the times set on
     // them (evenly where none is set) — instead of a single straight fromPos->toPos interpolation.
     positionMarkers(interpolateThroughBetweens(fromIdx, toIdx, t));
-    updateProgress(t*100);
+    updateProgress((fromIdx + t)/(state.formations.length - 1)*100);
     if(t >= 1){
       state.activeIndex = toIdx;
       positionMarkers(state.formations[toIdx].pos);
@@ -282,3 +322,113 @@
       card.classList.toggle('active', idx === state.activeIndex);
     });
   }
+
+  // Seeks the playbar timeline to frac (0…1) and holds there like the play button's pause, so the
+  // next play carries on from exactly that spot (resumePaused). Landing right on a Bild just selects
+  // it — play then starts there the regular way.
+  // snap: how close (in Bild intervals) to a whole Bild counts as that Bild instead of a spot between.
+  function scrubTo(frac, snap){
+    var n = state.formations.length;
+    if(n < 2) return;
+    frac = Math.min(1, Math.max(0, frac));
+    var idx, posMap, hold = null;
+    if(isSyncActive()){
+      var dur = songDurationSec();
+      if(!dur) return;
+      var ct = frac*dur;
+      var fr = syncFrameAt(ct);
+      if(!fr) return;
+      songAudioEl.currentTime = ct;
+      idx = fr.idx; posMap = fr.pos;
+      hold = {sync: true, songTime: ct};
+    }else{
+      var x = frac*(n-1);
+      var from = Math.min(n-2, Math.floor(x)), t = x - from;
+      snap = Math.max(0.001, snap || 0);
+      if(t < snap || t > 1 - snap){
+        idx = t > 1 - snap ? from + 1 : from;
+        posMap = state.formations[idx].pos;
+      }else{
+        idx = from;
+        posMap = interpolateThroughBetweens(from, from + 1, t);
+        hold = {sync: false, fromIdx: from, toIdx: from + 1, t: t, songTime: freeSongTimeAt(from, t)};
+      }
+    }
+    var changed = idx !== state.activeIndex;
+    state.activeIndex = idx;
+    positionMarkers(posMap); // drops any earlier hold
+    if(changed){
+      renderFilmstripActiveOnly();
+      refreshRosterCoords();
+      updatePlaybarInfo();
+      resetLayoutGhost();
+      renderOnionSkin();
+    }
+    pausedAt = hold;
+    updateProgress(frac*100);
+  }
+
+  // Drag or click the timeline to seek; running playback pauses while the pointer is down and
+  // carries on from the new spot once it lets go. Arrow keys step a Bild (with a song in sync:
+  // 5 s), Home/End jump to the start/end.
+  (function(){
+    var dragging = false, resumeAfter = false;
+    function scrubAt(e){
+      var r = playScrubEl.getBoundingClientRect(), n = state.formations.length;
+      if(!(r.width > 0)) return;
+      // Within 4px of a Bild the pointer picks that Bild.
+      scrubTo((e.clientX - r.left)/r.width, Math.min(0.25, 4*(n-1)/r.width));
+    }
+    function begin(){
+      if(typeof stopMusicOnly === 'function') stopMusicOnly(); // js/music.js
+      if(editingBetween){ editingBetween = null; updateBetweenEditBanner(); }
+      resumeAfter = playing;
+      if(playing) playPause();
+    }
+    function finish(){
+      // Dragged right onto the last Bild: nothing left to play (play would start over at Bild 1).
+      var atEnd = !pausedAt && state.activeIndex === state.formations.length - 1;
+      if(resumeAfter && !playing && !atEnd) playPause();
+      resumeAfter = false;
+      if(!playing) saveState(); // remember the selected Bild, as picking it in the list would
+    }
+    playScrubEl.addEventListener('pointerdown', function(e){
+      if(e.button !== 0 || state.formations.length < 2) return;
+      e.preventDefault();
+      // Focus for the arrow keys; not on touch, where it would only leave a focus ring behind.
+      if(e.pointerType !== 'touch') playScrubEl.focus({preventScroll: true, focusVisible: false});
+      begin();
+      dragging = true;
+      playScrubEl.setPointerCapture(e.pointerId);
+      playScrubEl.classList.add('dragging');
+      scrubAt(e);
+    });
+    playScrubEl.addEventListener('pointermove', function(e){ if(dragging) scrubAt(e); });
+    function end(){
+      if(!dragging) return;
+      dragging = false;
+      playScrubEl.classList.remove('dragging');
+      finish();
+    }
+    playScrubEl.addEventListener('pointerup', end);
+    playScrubEl.addEventListener('pointercancel', end);
+    playScrubEl.addEventListener('lostpointercapture', end);
+    playScrubEl.addEventListener('keydown', function(e){
+      var n = state.formations.length;
+      if(n < 2 || e.ctrlKey || e.metaKey || e.altKey) return;
+      var dur = songDurationSec(), bySong = isSyncActive() && dur > 0;
+      var dir = e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : 0;
+      var to, x = timelinePct/100*(n-1);
+      if(e.key === 'Home') to = 0;
+      else if(e.key === 'End') to = 1;
+      else if(!dir) return;
+      else if(bySong) to = timelinePct/100 + dir*5/dur;
+      // By Bild: always onto the neighbouring whole Bild, also from a spot between two.
+      else to = (dir < 0 ? Math.ceil(x - 0.001) - 1 : Math.floor(x + 0.001) + 1)/(n-1);
+      e.preventDefault();
+      begin();
+      scrubTo(to);
+      finish();
+    });
+  })();
+  songAudioEl.addEventListener('loadedmetadata', function(){ if(!playing && !pausedAt) updateProgress(idleTimelinePct()); });

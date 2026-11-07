@@ -227,7 +227,10 @@ if ('serviceWorker' in navigator) {
         </div>
         <div class="playinfo">
           <span class="formation-name-live" id="activeName">–</span>
-          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="scrub" id="playScrub" role="slider" tabindex="0" aria-label="Position in der Choreo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+            <span class="scrub-thumb" id="scrubThumb" aria-hidden="true"></span>
+          </div>
         </div>
         <div class="tempo-control">
           <label class="caption tempo-caption"><span class="tempo-word">Tempo </span><input type="text" id="tempoInput" class="tempo-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Tempo als Zahl"><span id="tempoUnit">/s</span></label>
