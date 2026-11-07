@@ -76,7 +76,7 @@
     if(state.logo && state.logo.url) URL.revokeObjectURL(state.logo.url);
     state.logo = { name:file.name, mime:file.type || 'image/png', blob:file, url:URL.createObjectURL(file), opacity:18 };
     idbHydrationGen++;
-    idbPut('logo', { name:state.logo.name, mime:state.logo.mime, blob:state.logo.blob, opacity:state.logo.opacity });
+    idbPut(idbBlobKey('logo'), { name:state.logo.name, mime:state.logo.mime, blob:state.logo.blob, opacity:state.logo.opacity });
     updateStageLogo();
     updateLogoSettingsUI();
     saveState();
@@ -86,7 +86,7 @@
     if(state.logo && state.logo.url) URL.revokeObjectURL(state.logo.url);
     state.logo = null;
     idbHydrationGen++;
-    idbDelete('logo');
+    idbDelete(idbBlobKey('logo'));
     updateStageLogo();
     updateLogoSettingsUI();
     saveState();
@@ -95,7 +95,7 @@
     if(!state.logo) return;
     state.logo.opacity = +e.target.value;
     document.getElementById('logoOpacityReadout').textContent = state.logo.opacity + '%';
-    idbPut('logo', { name:state.logo.name, mime:state.logo.mime, blob:state.logo.blob, opacity:state.logo.opacity });
+    idbPut(idbBlobKey('logo'), { name:state.logo.name, mime:state.logo.mime, blob:state.logo.blob, opacity:state.logo.opacity });
     updateStageLogo();
     saveStateDebounced();
   });
@@ -132,7 +132,7 @@
     var mime = file.type || (/\.(mp4|m4a)$/i.test(file.name) ? 'audio/mp4' : 'audio/mpeg');
     state.song = { name:file.name, mime:mime, blob:file, url:URL.createObjectURL(file) };
     idbHydrationGen++;
-    idbPut('song', { name:state.song.name, mime:state.song.mime, blob:state.song.blob });
+    idbPut(idbBlobKey('song'), { name:state.song.name, mime:state.song.mime, blob:state.song.blob });
     applySongSource();
     updateSongSettingsUI();
     saveState();
@@ -142,7 +142,7 @@
     if(state.song && state.song.url) URL.revokeObjectURL(state.song.url);
     state.song = null;
     idbHydrationGen++;
-    idbDelete('song');
+    idbDelete(idbBlobKey('song'));
     applySongSource();
     updateSongSettingsUI();
     saveState();
@@ -171,10 +171,13 @@
   document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
   applySongSource();
 
+  var openingShareLink = /[?&]share=/.test(location.search);
   loadSharedProjectFromUrl();
   // With a ?share= link, js/share.js re-keys the history to the share id once the project loads;
   // otherwise start it now against the local project.
-  if(!/[?&]share=/.test(location.search) && typeof initHistory === 'function') initHistory();
+  if(!openingShareLink && typeof initHistory === 'function') initHistory();
+  // A share link brings its own project (new localId), so only check right away without one.
+  startTabProjectGuard(!openingShareLink);
   ensureFiguresLoaded();
   ensureLayoutsLoaded();
 

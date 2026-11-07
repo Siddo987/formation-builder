@@ -470,9 +470,20 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     };
   }
 
+  // Every tab works on its own project: the save lives under projectStorageKey(localId), and
+  // sessionStorage (per tab, survives a reload) remembers which one this tab has open — so a reload
+  // brings back this tab's project, not whichever tab saved last. STORAGE_KEY itself stays a copy of
+  // the latest save: what a fresh tab opens, and where saves from before per-tab projects live.
+  var TAB_PROJECT_KEY = 'aufstellung-tab-project';
+  var PROJECT_INDEX_KEY = 'aufstellung-projects'; // localIds, most recently saved first
+  var MAX_LOCAL_PROJECTS = 12;
+  function projectStorageKey(id){ return STORAGE_KEY + ':' + id; }
+
   function loadState(){
     try{
-      var raw = localStorage.getItem(STORAGE_KEY);
+      var tabId = null;
+      try{ tabId = sessionStorage.getItem(TAB_PROJECT_KEY); }catch(e){}
+      var raw = (tabId && localStorage.getItem(projectStorageKey(tabId))) || localStorage.getItem(STORAGE_KEY);
       if(!raw) return defaultState();
       var parsed = JSON.parse(raw);
       if(!parsed || !parsed.dancers || !parsed.formations || !parsed.formations.length) return defaultState();
@@ -543,9 +554,13 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       return parsed;
     }catch(e){ return defaultState(); }
   }
-  function saveState(){
+  // Writes this tab's project to localStorage (its own key plus the STORAGE_KEY copy) and marks it as
+  // the one this tab has open. No share push or history entry — saveState() adds those.
+  function writeLocalProject(){
+    var id = state.localId, json;
+    try{ sessionStorage.setItem(TAB_PROJECT_KEY, id); }catch(e){}
     try{
-      var toSave = {
+      json = JSON.stringify({
         projectName: state.projectName,
         dancers: state.dancers,
         formations: state.formations,
@@ -559,10 +574,41 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         sharedId: state.sharedId,
         shareEditToken: state.shareEditToken,
         shareReadOnly: state.shareReadOnly,
-        localId: state.localId
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-    }catch(e){}
+        localId: id
+      });
+    }catch(e){ return; }
+    var index = readProjectIndex();
+    if(index[0] !== id){
+      index = [id].concat(index.filter(function(other){ return other !== id; }));
+      while(index.length > MAX_LOCAL_PROJECTS) dropLocalProject(index.pop());
+      writeProjectIndex(index);
+    }
+    // Storage full: give up the oldest other projects one by one until this one fits.
+    for(;;){
+      try{ localStorage.setItem(projectStorageKey(id), json); break; }catch(e){}
+      if(index.length < 2) return;
+      dropLocalProject(index.pop());
+      writeProjectIndex(index);
+    }
+    try{ localStorage.setItem(STORAGE_KEY, json); }catch(e){}
+  }
+  function readProjectIndex(){
+    try{
+      var index = JSON.parse(localStorage.getItem(PROJECT_INDEX_KEY));
+      return Array.isArray(index) ? index.filter(function(id){ return typeof id === 'string' && id; }) : [];
+    }catch(e){ return []; }
+  }
+  function writeProjectIndex(index){
+    try{ localStorage.setItem(PROJECT_INDEX_KEY, JSON.stringify(index)); }catch(e){}
+  }
+  function dropLocalProject(id){
+    try{ localStorage.removeItem(projectStorageKey(id)); }catch(e){}
+    idbDelete(idbBlobKey('logo', id));
+    idbDelete(idbBlobKey('song', id));
+  }
+
+  function saveState(){
+    writeLocalProject();
     // Every mutation in the app funnels through saveState() (directly or via saveStateDebounced),
     // so this is the one choke point that guarantees "bound to a live share -> every edit
     // propagates" without every individual call site needing to know about sharing. Soft dependency
@@ -623,15 +669,44 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     }).catch(function(){ return null; });
   }
 
+  // Logo and song are filed per project (kind 'logo' / 'song' + localId), like the localStorage save.
+  function idbBlobKey(kind, id){ return kind + ':' + (id || state.localId); }
+
+  // Before per-tab projects there was one logo/song for everyone, under plain 'logo' / 'song' — the
+  // first tab to load afterwards hands them over to its project. The flag is set up front so a second
+  // tab loading at the same time doesn't claim them too.
+  var BLOBS_PER_PROJECT_KEY = 'aufstellung-blobs-per-project';
+  function idbGetProjectBlob(kind, migrate, myGen){
+    var id = state.localId, key = idbBlobKey(kind, id);
+    return idbGet(key).then(function(rec){
+      if(rec || !migrate) return rec;
+      return idbGet(kind).then(function(old){
+        if(!old) return null;
+        // Removed or replaced in this very project meanwhile: the old record is stale. (If another
+        // project took over the tab — share link, import — it still belongs to the one loaded here.)
+        if(idbHydrationGen !== myGen && state.localId === id){ idbDelete(kind); return null; }
+        return idbPut(key, old).then(function(){ return idbGet(key); }).then(function(copied){
+          if(copied) idbDelete(kind);
+          return old;
+        });
+      });
+    });
+  }
+
   function hydrateBlobsFromIdb(){
     var myGen = idbHydrationGen;
-    idbGet('logo').then(function(rec){
+    var migrate = false;
+    try{
+      migrate = !localStorage.getItem(BLOBS_PER_PROJECT_KEY);
+      if(migrate) localStorage.setItem(BLOBS_PER_PROJECT_KEY, '1');
+    }catch(e){}
+    idbGetProjectBlob('logo', migrate, myGen).then(function(rec){
       if(!rec || !rec.blob || idbHydrationGen !== myGen) return;
       state.logo = { name:rec.name, mime:rec.mime, blob:rec.blob, url:URL.createObjectURL(rec.blob), opacity:rec.opacity||18 };
       updateStageLogo();
       if(!settingsBackdrop.hidden) updateLogoSettingsUI();
     });
-    idbGet('song').then(function(rec){
+    idbGetProjectBlob('song', migrate, myGen).then(function(rec){
       if(!rec || !rec.blob || idbHydrationGen !== myGen) return;
       state.song = { name:rec.name, mime:rec.mime, blob:rec.blob, url:URL.createObjectURL(rec.blob) };
       applySongSource();
@@ -644,13 +719,61 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // handlers above (which keep IndexedDB in sync themselves).
   function syncBlobsToIdb(){
     idbHydrationGen++;
-    if(state.logo && state.logo.blob) idbPut('logo', { name:state.logo.name, mime:state.logo.mime, blob:state.logo.blob, opacity:state.logo.opacity });
-    else idbDelete('logo');
-    if(state.song && state.song.blob) idbPut('song', { name:state.song.name, mime:state.song.mime, blob:state.song.blob });
-    else idbDelete('song');
+    if(state.logo && state.logo.blob) idbPut(idbBlobKey('logo'), { name:state.logo.name, mime:state.logo.mime, blob:state.logo.blob, opacity:state.logo.opacity });
+    else idbDelete(idbBlobKey('logo'));
+    if(state.song && state.song.blob) idbPut(idbBlobKey('song'), { name:state.song.name, mime:state.song.mime, blob:state.song.blob });
+    else idbDelete(idbBlobKey('song'));
+  }
+
+  // Two tabs on the same project would keep overwriting each other's saves. That happens when a tab
+  // is duplicated (sessionStorage comes along) or a fresh tab opens the STORAGE_KEY copy while the
+  // tab that saved it is still open. So each tab asks the others whether its project is already open
+  // — at startup and whenever it comes back into view — and if one answers, carries on with its own
+  // copy under a new localId. Called from js/main.js once every script has loaded.
+  var tabChannel = null;
+  var tabInstanceId = uid('tab');
+  function startTabProjectGuard(askNow){
+    if(typeof BroadcastChannel !== 'function') return;
+    tabChannel = new BroadcastChannel('aufstellung-tabs');
+    tabChannel.onmessage = function(e){
+      var m = e.data || {};
+      if(m.type === 'who' && m.from !== tabInstanceId && m.id === state.localId){
+        tabChannel.postMessage({type:'mine', id:m.id, to:m.from});
+      }else if(m.type === 'mine' && m.to === tabInstanceId && m.id === state.localId){
+        forkTabProject();
+      }
+    };
+    if(askNow) askWhoHasTabProject();
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) askWhoHasTabProject(); });
+    window.addEventListener('pageshow', function(e){ if(e.persisted) askWhoHasTabProject(); });
+  }
+  function askWhoHasTabProject(){
+    if(tabChannel) tabChannel.postMessage({type:'who', id:state.localId, from:tabInstanceId});
+  }
+  function forkTabProject(){
+    var oldId = state.localId, newId = uid('proj'), myGen = idbHydrationGen;
+    state.localId = newId;
+    ['logo', 'song'].forEach(function(kind){
+      idbGet(idbBlobKey(kind, oldId)).then(function(rec){
+        if(rec && idbHydrationGen === myGen) idbPut(idbBlobKey(kind, newId), rec);
+      });
+    });
+    writeLocalProject();
+    // A share-bound project stays one project across tabs (both sync through the share), so neither
+    // a separate history nor the note applies there.
+    if(state.sharedId) return;
+    if(typeof initHistory === 'function') initHistory();
+    var banner = document.getElementById('tabCopyBanner');
+    if(!banner) return;
+    banner.hidden = false;
+    document.getElementById('tabCopyBannerClose').onclick = function(){ banner.hidden = true; };
   }
 
   var state = loadState();
+  // A save from before per-tab projects, or a brand-new project: file it under this tab right away,
+  // so a reload before the first edit still finds it.
+  try{ if(!localStorage.getItem(projectStorageKey(state.localId))) writeLocalProject(); }catch(e){}
+  try{ sessionStorage.setItem(TAB_PROJECT_KEY, state.localId); }catch(e){}
   hydrateBlobsFromIdb();
   var selectedDancerId = null;
   // dancerIds chosen via Strg/Cmd-Klick (or auto-populated with a saved pair's members on a plain
