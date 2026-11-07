@@ -318,14 +318,6 @@ body.share-readonly #historyRedoBtn{display:none;}
   max-width:15rem;line-height:1.25;flex:none;
 }
 
-.export-menu-wrap{position:relative;}
-.export-menu{
-  position:absolute;top:calc(100% + 6px);right:0;z-index:40;
-  min-width:250px;padding:.25rem;
-  display:flex;flex-direction:column;gap:2px;
-  background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;
-  box-shadow:0 16px 36px -12px var(--shadow);
-}
 .export-menu-item{
   display:flex;flex-direction:column;align-items:flex-start;gap:.05rem;
   width:100%;text-align:left;
@@ -334,7 +326,6 @@ body.share-readonly #historyRedoBtn{display:none;}
 }
 .export-menu-item:hover,.export-menu-item:focus-visible{background:var(--panel-3);}
 .export-menu-item strong{font-size:.8rem;color:var(--ink);}
-#exportMenu .export-menu-item strong{font-family:var(--font-mono);}
 .export-menu-item span{font-size:.72rem;color:var(--ink-3);}
 
 #markerBtn.has-warning{position:relative;}
@@ -1151,10 +1142,6 @@ body.roster-open .roster{display:flex;}
   .topbar-actions .lbl,.topbar-actions .tb-collapse .lbl{display:inline;}
   .topbar-actions .btn-ghost.danger:hover{color:var(--danger);}
   .topbar-actions .btn-ghost.danger:hover svg{color:var(--danger);}
-  .topbar-actions .export-menu{
-    position:static;min-width:0;margin:2px 0 .3rem 1.9rem;padding:2px;
-    border:none;border-left:2px solid var(--line);border-radius:0;box-shadow:none;background:transparent;
-  }
   #markerBtn.has-warning::after{top:12px;left:22px;right:auto;}
   body.menu-open .menu-scrim{display:block;position:fixed;inset:0;z-index:35;background:rgba(8,8,12,.18);}
 

@@ -282,18 +282,6 @@
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
   }
 
-  /* ---------- filename dialog (used before every export) ---------- */
-
-  var filenameBackdrop = document.getElementById('filenameBackdrop');
-  var filenameInput = document.getElementById('filenameInput');
-  var filenameExt = document.getElementById('filenameExt');
-  var filenameCloseBtn = document.getElementById('filenameCloseBtn');
-  var filenameCancelBtn = document.getElementById('filenameCancelBtn');
-  var filenameConfirmBtn = document.getElementById('filenameConfirmBtn');
-  var filenameGhostOption = document.getElementById('filenameGhostOption');
-  var filenameGhostToggle = document.getElementById('filenameGhostToggle');
-  var filenamePending = null;
-
   function sanitizeFilename(name){
     name = (name || '').trim();
     name = name.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
@@ -302,36 +290,6 @@
     return name || 'aufstellung';
   }
 
-  // showGhostOption: only the video exports pass true — reveals the "Herkunfts-/Zielpunkte"
-  // checkbox, whose state is handed back to onConfirm as opts.includeGhosts.
-  function askFilename(ext, defaultName, onConfirm, showGhostOption){
-    filenamePending = { ext: ext, onConfirm: onConfirm };
-    filenameExt.textContent = ext;
-    filenameInput.value = defaultName;
-    filenameGhostOption.hidden = !showGhostOption;
-    filenameBackdrop.hidden = false;
-    requestAnimationFrame(function(){ filenameInput.focus(); filenameInput.select(); });
-  }
-
-  function closeFilenameDialog(){ filenameBackdrop.hidden = true; filenamePending = null; }
-
-  function confirmFilename(){
-    if(!filenamePending) return;
-    var filename = sanitizeFilename(filenameInput.value) + filenamePending.ext;
-    var onConfirm = filenamePending.onConfirm;
-    var opts = { includeGhosts: !filenameGhostOption.hidden && filenameGhostToggle.checked };
-    closeFilenameDialog();
-    onConfirm(filename, opts);
-  }
-
-  filenameCloseBtn.addEventListener('click', closeFilenameDialog);
-  filenameCancelBtn.addEventListener('click', closeFilenameDialog);
-  filenameConfirmBtn.addEventListener('click', confirmFilename);
-  filenameBackdrop.addEventListener('click', function(e){ if(e.target === filenameBackdrop) closeFilenameDialog(); });
-  filenameInput.addEventListener('keydown', function(e){
-    if(e.key === 'Enter'){ e.preventDefault(); confirmFilename(); }
-  });
-
   function revokeStateBlobs(s){
     if(s.logo && s.logo.url) URL.revokeObjectURL(s.logo.url);
     if(s.song && s.song.url) URL.revokeObjectURL(s.song.url);
@@ -339,49 +297,151 @@
 
   /* ---------- save / open / reset ---------- */
 
-  var exportMenu = document.getElementById('exportMenu');
-  var exportStgBtn = document.getElementById('exportStgBtn');
-  var exportAufBtn = document.getElementById('exportAufBtn');
+  /* ---------- Exportieren: one dialog for every output (.stg, .auf, Video, Schritte-PDF) ---------- */
 
-  function closeExportMenu(){
-    exportMenu.hidden = true;
-    exportBtn.setAttribute('aria-expanded', 'false');
-  }
-  function toggleExportMenu(){
-    var willOpen = exportMenu.hidden;
-    exportMenu.hidden = !willOpen;
-    exportBtn.setAttribute('aria-expanded', String(willOpen));
-  }
-  exportBtn.addEventListener('click', function(e){
-    e.stopPropagation();
-    toggleExportMenu();
-  });
-  document.addEventListener('click', function(e){
-    if(!exportMenu.hidden && !exportMenu.contains(e.target) && e.target !== exportBtn) closeExportMenu();
-  });
-  document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape' && !exportMenu.hidden) closeExportMenu();
-  });
+  var exportBackdrop = document.getElementById('exportBackdrop');
+  var exportCloseBtn = document.getElementById('exportCloseBtn');
+  var exportCancelBtn = document.getElementById('exportCancelBtn');
+  var exportConfirmBtn = document.getElementById('exportConfirmBtn');
+  var exportFormatInputs = Array.prototype.slice.call(document.querySelectorAll('input[name="exportFormat"]'));
+  var exportEmptyHint = document.getElementById('exportEmptyHint');
+  var exportWhoSection = document.getElementById('exportWhoSection');
+  var exportWhoSelect = document.getElementById('exportWhoSelect');
+  var exportWhoHint = document.getElementById('exportWhoHint');
+  var exportOptionsSection = document.getElementById('exportOptionsSection');
+  var exportContextOption = document.getElementById('exportContextOption');
+  var exportContextToggle = document.getElementById('exportContextToggle');
+  var exportGhostOption = document.getElementById('exportGhostOption');
+  var exportGhostToggle = document.getElementById('exportGhostToggle');
+  var exportPdfHint = document.getElementById('exportPdfHint');
+  var filenameInput = document.getElementById('filenameInput');
+  var filenameExt = document.getElementById('filenameExt');
+  // Kept across openings, so a second video right after the first needs one click.
+  var exportFormat = 'stg';
+  // Once the name is typed by hand it stays put when switching format/Wer; until then it follows them.
+  var filenameEdited = false;
 
-  // Runs the shared "ask filename, show a saving state on the button, build+download, restore
-  // button" flow for either export format.
-  function runExport(ext, buildBlobFn){
-    closeExportMenu();
-    askFilename(ext, filenameBase(), function(filename){
-      var originalHtml = exportBtn.innerHTML;
-      exportBtn.disabled = true;
-      exportBtn.textContent = 'Wird gespeichert…';
-      Promise.resolve(buildBlobFn(state)).then(function(blob){
-        downloadBlob(blob, filename);
-      }).catch(function(err){
-        console.error(err);
-      }).then(function(){ exportBtn.disabled = false; exportBtn.innerHTML = originalHtml; });
+  var EXPORT_CONFIRM_LABELS = {stg: 'Speichern', auf: 'Speichern', video: 'Video rendern', pdf: 'PDF erstellen'};
+
+  function exportNeedsDancers(fmt){ return fmt === 'video' || fmt === 'pdf'; }
+
+  function exportExt(){
+    if(exportFormat === 'video') return bestVideoMime().ext;
+    if(exportFormat === 'pdf') return '.pdf';
+    return '.' + exportFormat;
+  }
+
+  // Wer?: '' = alle, otherwise a steps.js value ('d:<id>' dancer, 'p:<id>' pair).
+  function exportWhoLabel(){
+    var who = exportWhoSelect.value;
+    return who ? sheetsLabel(getStepsSheets(who)) : '';
+  }
+
+  function exportDefaultName(){
+    var label = exportWhoLabel();
+    if(exportFormat === 'pdf') return (state.projectName || 'Aufstellung') + ' — Schritte — ' + (label || 'Alle');
+    if(exportFormat === 'video' && label) return filenameBase() + '-' + label.replace(/[^\w-]+/g,'_');
+    return filenameBase();
+  }
+
+  function syncExportDialog(){
+    var noDancers = !state.dancers.length || !state.formations.length;
+    exportFormatInputs.forEach(function(inp){
+      inp.disabled = noDancers && exportNeedsDancers(inp.value);
+      inp.checked = inp.value === exportFormat;
+    });
+    exportEmptyHint.hidden = !noDancers;
+    var media = exportNeedsDancers(exportFormat);
+    var who = exportWhoSelect.value;
+    exportWhoSection.hidden = !media;
+    if(exportFormat === 'pdf'){
+      exportWhoHint.textContent = (who
+        ? 'Pro Bild eine Karte mit großer, gut lesbarer Koordinatenangabe.'
+        : 'Ein Dokument mit den Blättern aller Tänzer – erst Paar 1, dann Paar 2 usw.') +
+        ' Ist ein Paar in einem Bild in Lead & Follow geteilt, gibt es je ein Blatt für Lead und Follow.';
+    } else {
+      exportWhoHint.textContent = who ? 'Das Video zeigt nur die Gewählten.' : 'Die ganze Choreo mit allen Tänzern.';
+    }
+    // On a video of everyone there are no "other couples" to grey out; on the PDF every sheet has them.
+    exportContextOption.hidden = !media || (exportFormat === 'video' && !who);
+    exportGhostOption.hidden = exportFormat !== 'video';
+    exportOptionsSection.hidden = exportContextOption.hidden && exportGhostOption.hidden;
+    exportPdfHint.hidden = exportFormat !== 'pdf';
+    filenameExt.textContent = exportExt();
+    if(!filenameEdited) filenameInput.value = exportDefaultName();
+    exportConfirmBtn.textContent = EXPORT_CONFIRM_LABELS[exportFormat];
+  }
+
+  function openExportDialog(){
+    if(exportState) return;
+    var prevWho = exportWhoSelect.value;
+    exportWhoSelect.innerHTML = '<option value="">Alle</option>';
+    fillStepsWhoOptions(exportWhoSelect);
+    exportWhoSelect.value = prevWho;
+    if(exportWhoSelect.selectedIndex < 0) exportWhoSelect.value = '';
+    if((!state.dancers.length || !state.formations.length) && exportNeedsDancers(exportFormat)) exportFormat = 'stg';
+    filenameEdited = false;
+    syncExportDialog();
+    exportBackdrop.hidden = false;
+    requestAnimationFrame(function(){
+      var checked = exportFormatInputs.find(function(inp){ return inp.checked; });
+      if(checked) checked.focus();
     });
   }
+  function closeExportDialog(){ exportBackdrop.hidden = true; }
 
-  exportStgBtn.addEventListener('click', function(){ runExport('.stg', buildStgBlob); });
-  exportAufBtn.addEventListener('click', function(){
-    runExport('.auf', function(s){ return new Blob([buildAufText(s)], {type:'text/plain'}); });
+  // Shows a saving state on the button while the (possibly song-sized) file is built.
+  function saveProjectFile(filename, buildBlobFn){
+    var originalHtml = exportBtn.innerHTML;
+    exportBtn.disabled = true;
+    exportBtn.textContent = 'Wird gespeichert…';
+    Promise.resolve(buildBlobFn(state)).then(function(blob){
+      downloadBlob(blob, filename);
+    }).catch(function(err){
+      console.error(err);
+    }).then(function(){ exportBtn.disabled = false; exportBtn.innerHTML = originalHtml; });
+  }
+
+  function confirmExport(){
+    if(exportBackdrop.hidden) return;
+    var base = sanitizeFilename(filenameInput.value);
+    var who = exportWhoSelect.value;
+    if(exportFormat === 'stg' || exportFormat === 'auf'){
+      closeExportDialog();
+      if(exportFormat === 'stg') saveProjectFile(base + '.stg', buildStgBlob);
+      else saveProjectFile(base + '.auf', function(s){ return new Blob([buildAufText(s)], {type:'text/plain'}); });
+      return;
+    }
+    if(!state.dancers.length || !state.formations.length) return;
+    var sheets = who ? getStepsSheets(who) : null;
+    if(who && !sheets.length) return;
+    var showContext = !exportContextOption.hidden && exportContextToggle.checked;
+    closeExportDialog();
+    if(exportFormat === 'video'){
+      startVideoExport(base + bestVideoMime().ext, sheets ? stepsFocusIds(sheets) : null, exportGhostToggle.checked, showContext);
+    } else {
+      printStepsSheets(sheets || getAllStepsSheets(), base, showContext);
+    }
+  }
+
+  exportBtn.addEventListener('click', openExportDialog);
+  exportCloseBtn.addEventListener('click', closeExportDialog);
+  exportCancelBtn.addEventListener('click', closeExportDialog);
+  exportConfirmBtn.addEventListener('click', confirmExport);
+  exportBackdrop.addEventListener('click', function(e){ if(e.target === exportBackdrop) closeExportDialog(); });
+  exportFormatInputs.forEach(function(inp){
+    inp.addEventListener('change', function(){
+      if(!inp.checked) return;
+      exportFormat = inp.value;
+      syncExportDialog();
+    });
+  });
+  exportWhoSelect.addEventListener('change', syncExportDialog);
+  filenameInput.addEventListener('input', function(){ filenameEdited = true; });
+  exportBackdrop.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+    e.preventDefault();
+    confirmExport();
   });
 
   function showImportError(){
@@ -591,7 +651,6 @@
     exportBtn.disabled = active;
     importBtn.disabled = active;
     resetBtn.disabled = active;
-    videoExportBtn.disabled = active;
     settingsBtn.disabled = active;
     playBtn.disabled = active || state.formations.length < 2;
   }
@@ -933,13 +992,6 @@
     return {mime:'', ext:'.webm'};
   }
 
-  videoExportBtn.addEventListener('click', function(){
-    if(exportState) return;
-    if(!state.dancers.length || !state.formations.length) return;
-    askFilename(bestVideoMime().ext, filenameBase(), function(filename, opts){
-      startVideoExport(filename, null, opts && opts.includeGhosts);
-    }, true);
-  });
   videoCancelBtn.addEventListener('click', function(){
     if(exportState) exportState.cancelled = true;
   });
@@ -1071,7 +1123,7 @@
 
   function recordSegments(segments, totalDuration, tracks, manualCaptureTrack, canvas, ctx, W, H, logoImg, exportAudioEl, audioCtx, filename, focusIds){
     var combinedStream = new MediaStream(tracks);
-    var mimeType = bestVideoMime().mime; // MP4/H.264 where supported, else WebM — matches the extension picked at askFilename time
+    var mimeType = bestVideoMime().mime; // MP4/H.264 where supported, else WebM — matches the extension shown in the Exportieren dialog
     var recorder = new MediaRecorder(combinedStream, mimeType ? {mimeType:mimeType, videoBitsPerSecond:6000000} : undefined);
     var chunks = [];
     recorder.ondataavailable = function(e){ if(e.data && e.data.size) chunks.push(e.data); };

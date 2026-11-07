@@ -17,7 +17,7 @@
     if(!settingsBackdrop.hidden) closeSettings();
     if(!openBackdrop.hidden) closeOpenProjectsModal();
     if(!videoBackdrop.hidden && exportState) exportState.cancelled = true;
-    if(!filenameBackdrop.hidden) closeFilenameDialog();
+    if(!exportBackdrop.hidden) closeExportDialog();
     if(!markerBackdrop.hidden) closeMarkerModal();
     if(!musicBackdrop.hidden) closeMusicModal();
     if(!addBildBackdrop.hidden) closeAddBildModal();
@@ -240,10 +240,10 @@
     document.addEventListener('keydown', function(e){
       if(e.key === 'Escape' && document.body.classList.contains('menu-open')) setMenu(false);
     });
-    // Jede Aktion schließt das Menü — außer „Exportieren“, das nur sein Untermenü aufklappt.
+    // Jede Aktion schließt das Menü.
     menu.addEventListener('click', function(e){
       var btn = e.target.closest('button');
-      if(!btn || btn.id === 'exportBtn') return;
+      if(!btn) return;
       setMenu(false);
     });
   })();

@@ -897,7 +897,6 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var importErrorEl = document.getElementById('importError');
   var resetBtn = document.getElementById('resetBtn');
   var projectNameInput = document.getElementById('projectNameInput');
-  var videoExportBtn = document.getElementById('videoExportBtn');
   var settingsBtn = document.getElementById('settingsBtn');
   var settingsBackdrop = document.getElementById('settingsBackdrop');
   var settingsCloseBtn = document.getElementById('settingsCloseBtn');

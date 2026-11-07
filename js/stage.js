@@ -1141,8 +1141,6 @@
     if(!pairSelection.length && selectedDancerId == null) return;
     if(document.querySelector('.modal-backdrop:not([hidden])')) return;
     if(document.body.classList.contains('menu-open')) return;
-    var em = document.getElementById('exportMenu');
-    if(em && !em.hidden) return;
     if(document.querySelector('.speed-curve-popover')) return;
     var ae = document.activeElement;
     if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;

@@ -65,6 +65,9 @@
 .filename-field:focus-within{outline:2px solid var(--accent);border-color:transparent;}
 .modal .filename-input{flex:1;min-width:0;height:38px;border:none;padding:0;background:transparent;font-weight:600;}
 .modal .filename-input:focus{outline:none;}
+/* In .filename-field trägt der Rahmen den Fokusring – muss .modal input[type="text"] schlagen. */
+.modal .filename-field .filename-input{height:38px;border:none;padding:0;background:transparent;}
+.modal .filename-field .filename-input:focus{outline:none;}
 .filename-ext{font-family:var(--font-mono);font-size:.8rem;color:var(--ink-3);}
 .filename-actions{display:flex;justify-content:flex-end;gap:.5rem;}
 
@@ -142,11 +145,27 @@
 .figure-form-triplet .coord-input{width:66px;}
 .figure-form-partner + .figure-form-partner{border-top:1px solid var(--line);padding-top:.7rem;}
 
-/* Schritte-PDF: Wer? */
-.steps-who-label{font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);}
-.steps-who-select-wrap{position:relative;}
-.modal #stepsWhoSelect{appearance:none;-webkit-appearance:none;width:100%;height:38px;padding:0 2.1rem 0 .7rem;font-weight:600;}
-.steps-who-select-arrow{
+/* Exportieren */
+.export-formats{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;}
+.export-format{
+  position:relative;display:flex;flex-direction:column;gap:.15rem;
+  padding:.55rem .65rem;border:1px solid var(--line-strong);border-radius:9px;background:var(--panel);cursor:pointer;
+}
+.export-format input{position:absolute;opacity:0;pointer-events:none;}
+.export-format-head{display:flex;align-items:center;gap:.4rem;color:var(--ink-2);}
+.export-format strong{font-size:.82rem;color:var(--ink);}
+.export-format code{font-family:var(--font-mono);font-size:.76rem;}
+.export-format > span:last-child{font-size:.72rem;line-height:1.35;color:var(--ink-3);}
+.export-format:hover{background:var(--panel-3);}
+.export-format:has(input:checked){border-color:var(--accent);background:var(--accent-wash);}
+.export-format:has(input:checked) .export-format-head{color:var(--accent-ink);}
+.export-format:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:1px;}
+.export-format:has(input:disabled){opacity:.45;cursor:default;}
+.export-format:has(input:disabled):hover{background:var(--panel);}
+#exportOptionsSection > div{display:flex;flex-direction:column;gap:.3rem;}
+.export-who-select-wrap{position:relative;}
+.modal #exportWhoSelect{appearance:none;-webkit-appearance:none;width:100%;height:38px;padding:0 2.1rem 0 .7rem;font-weight:600;}
+.export-who-select-arrow{
   position:absolute;right:.85rem;top:50%;width:8px;height:8px;pointer-events:none;
   border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);
   transform:translateY(-70%) rotate(45deg);

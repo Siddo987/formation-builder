@@ -81,33 +81,13 @@ if ('serviceWorker' in navigator) {
           <span class="lbl">Öffnen</span>
         </button>
         <input type="file" id="importInput" accept=".stg,.auf" hidden>
-        <div class="export-menu-wrap">
-          <button class="btn-ghost" id="exportBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Speichern">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
-            <span class="lbl">Speichern</span>
-          </button>
-          <div class="export-menu" id="exportMenu" hidden>
-            <button type="button" class="export-menu-item" id="exportStgBtn">
-              <strong>.stg</strong>
-              <span>Alles – Lied, Logo, Bilder, Paare</span>
-            </button>
-            <button type="button" class="export-menu-item" id="exportAufBtn">
-              <strong>.auf</strong>
-              <span>Nur Positionen, Namen, Zeiten, Drehungen</span>
-            </button>
-          </div>
-        </div>
+        <button class="btn-ghost" id="exportBtn" type="button" aria-haspopup="dialog" title="Speichern &amp; exportieren (.stg, .auf, Video, Schritte-PDF)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+          <span class="lbl">Exportieren</span>
+        </button>
       </div>
 
       <div class="tb-group">
-        <button class="btn-ghost tb-collapse" id="videoExportBtn" type="button" title="Video exportieren">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          <span class="lbl">Video</span>
-        </button>
-        <button class="btn-ghost tb-collapse" id="stepsBtn" type="button" title="Schritte-PDF">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4v-4H4v4Z"/><path d="M10 20h4v-9h-4v9Z"/><path d="M16 20h4V4h-4v16Z"/></svg>
-          <span class="lbl">Schritte</span>
-        </button>
         <button class="btn-ghost tb-collapse" id="markerBtn" type="button" title="Musik &amp; Marker">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
           <span class="lbl">Marker</span>
@@ -403,27 +383,62 @@ if ('serviceWorker' in navigator) {
   </div>
 </div>
 
-<div class="modal-backdrop" id="filenameBackdrop" hidden>
-  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="filenameTitle">
+<div class="modal-backdrop" id="exportBackdrop" hidden>
+  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
     <div class="modal-header">
-      <h2 id="filenameTitle">Datei speichern</h2>
-      <button class="modal-close" id="filenameCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      <h2 id="exportTitle">Exportieren</h2>
+      <button class="modal-close" id="exportCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
     <div class="modal-body">
-      <div class="settings-section">
-        <h3>Dateiname</h3>
+      <section class="settings-section">
+        <h3 id="exportFormatLabel">Was?</h3>
+        <div class="export-formats" role="radiogroup" aria-labelledby="exportFormatLabel">
+          <label class="export-format"><input type="radio" name="exportFormat" value="stg" checked>
+            <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/></svg><strong>Projekt <code>.stg</code></strong></span>
+            <span>Alles – Lied, Logo, Bilder, Paare</span>
+          </label>
+          <label class="export-format"><input type="radio" name="exportFormat" value="auf">
+            <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg><strong>Aufstellung <code>.auf</code></strong></span>
+            <span>Nur Positionen, Namen, Zeiten, Drehungen</span>
+          </label>
+          <label class="export-format"><input type="radio" name="exportFormat" value="video">
+            <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg><strong>Video</strong></span>
+            <span>Die Choreo als Animation, mit Lied</span>
+          </label>
+          <label class="export-format"><input type="radio" name="exportFormat" value="pdf">
+            <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4v-4H4v4Z"/><path d="M10 20h4v-9h-4v9Z"/><path d="M16 20h4V4h-4v16Z"/></svg><strong>Schritte-PDF</strong></span>
+            <span>Blätter zum Ausdrucken, pro Bild eine Karte</span>
+          </label>
+        </div>
+        <p class="settings-hint" id="exportEmptyHint" hidden>Video und Schritte-PDF gibt es, sobald Tänzer angelegt sind.</p>
+      </section>
+      <section class="settings-section" id="exportWhoSection" hidden>
+        <h3><label for="exportWhoSelect">Wer?</label></h3>
+        <div class="export-who-select-wrap">
+          <select id="exportWhoSelect"></select>
+          <span class="export-who-select-arrow" aria-hidden="true"></span>
+        </div>
+        <p class="settings-hint" id="exportWhoHint"></p>
+      </section>
+      <section class="settings-section" id="exportOptionsSection" hidden>
+        <h3>Optionen</h3>
+        <label class="toggle-label" id="exportContextOption"><input type="checkbox" id="exportContextToggle"> Andere Paare hellgrau einblenden</label>
+        <div id="exportGhostOption">
+          <label class="toggle-label"><input type="checkbox" id="exportGhostToggle"> Herkunfts- und Zielpunkte einblenden</label>
+          <p class="settings-hint">Graue Punkte (Position im vorigen Bild) und blasse farbige Punkte (nächstes Bild) – wie die Geister-Punkte im Editor.</p>
+        </div>
+      </section>
+      <section class="settings-section">
+        <h3><label for="filenameInput">Dateiname</label></h3>
         <div class="filename-field">
-          <input type="text" id="filenameInput" class="filename-input" maxlength="120" autocomplete="off" spellcheck="false" aria-label="Dateiname">
+          <input type="text" id="filenameInput" class="filename-input" maxlength="120" autocomplete="off" spellcheck="false">
           <span class="filename-ext" id="filenameExt">.stg</span>
         </div>
-      </div>
-      <div class="settings-section" id="filenameGhostOption" hidden>
-        <label class="toggle-label"><input type="checkbox" id="filenameGhostToggle"> Herkunfts- und Zielpunkte einblenden</label>
-        <p class="settings-hint">Graue Punkte (Position im vorigen Bild) und blasse farbige Punkte (nächstes Bild) mit ins Video rendern – wie die Geister-Punkte im Editor.</p>
-      </div>
+        <p class="settings-hint" id="exportPdfHint" hidden>Öffnet den Druckdialog – dort als Ziel „Als PDF speichern“ wählen.</p>
+      </section>
       <div class="filename-actions">
-        <button class="btn-ghost" id="filenameCancelBtn" type="button">Abbrechen</button>
-        <button class="btn-ghost" id="filenameConfirmBtn" type="button">Speichern</button>
+        <button class="btn-ghost" id="exportCancelBtn" type="button">Abbrechen</button>
+        <button class="btn-ghost" id="exportConfirmBtn" type="button">Speichern</button>
       </div>
     </div>
   </div>
@@ -644,41 +659,6 @@ if ('serviceWorker' in navigator) {
             <button class="btn-ghost" id="cfSaveBtn" type="button">Figur speichern</button>
           </div>
         </div>
-      </section>
-    </div>
-  </div>
-</div>
-
-<div class="modal-backdrop" id="stepsBackdrop" hidden>
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="stepsTitle">
-    <div class="modal-header">
-      <h2 id="stepsTitle">Schritte exportieren</h2>
-      <button class="modal-close" id="stepsCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-    </div>
-    <div class="modal-body">
-      <section class="settings-section">
-        <label class="steps-who-label" for="stepsWhoSelect">Wer?</label>
-        <div class="steps-who-select-wrap">
-          <select id="stepsWhoSelect"></select>
-          <span class="steps-who-select-arrow" aria-hidden="true"></span>
-        </div>
-        <p class="settings-hint" id="stepsEmptyHint" hidden>Noch keine Tänzer angelegt.</p>
-        <p class="settings-hint">
-          Video zeigt nur das gewählte Paar. PDF zeigt zusätzlich pro Bild eine große, gut lesbare
-          Koordinatenangabe zum Ausdrucken. Ist das Paar in einem Bild in Lead &amp; Follow geteilt,
-          gibt es je ein Blatt für Lead und Follow — die Position des anderen steht klein als
-          Referenz mit dabei.
-        </p>
-        <label class="toggle-label"><input type="checkbox" id="stepsContextToggle"> Andere Paare hellgrau einblenden (Video &amp; PDF)</label>
-        <div class="filename-actions">
-          <button class="btn-ghost" id="stepsVideoBtn" type="button">Als Video exportieren</button>
-          <button class="btn-ghost" id="stepsPdfBtn" type="button">Als PDF exportieren</button>
-        </div>
-      </section>
-      <section class="settings-section">
-        <h3>Alle auf einmal</h3>
-        <p class="settings-hint">Ein einziges PDF mit den Blättern aller Paare — erst alle Blätter von Paar 1, dann Paar 2 usw. (geteilte Paare mit je einem Blatt für Lead und Follow).</p>
-        <button class="btn-ghost" id="stepsAllPdfBtn" type="button">Alle als PDF (ein Dokument)</button>
       </section>
     </div>
   </div>

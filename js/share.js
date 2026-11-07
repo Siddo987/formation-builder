@@ -475,7 +475,7 @@ function pollApplyBlocked(){
   if(haveLocalPendingEdits()) return true;
   var ae = document.activeElement;
   if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return true;
-  var m = [shareBackdrop, settingsBackdrop, markerBackdrop, filenameBackdrop, videoBackdrop, addBildBackdrop, stepsBackdrop, mergeBackdrop, historyBackdrop, document.getElementById('resetBackdrop')];
+  var m = [shareBackdrop, settingsBackdrop, markerBackdrop, exportBackdrop, videoBackdrop, addBildBackdrop, mergeBackdrop, historyBackdrop, document.getElementById('resetBackdrop')];
   for(var i=0;i<m.length;i++){ if(m[i] && !m[i].hidden) return true; }
   return false;
 }

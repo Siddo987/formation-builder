@@ -2,24 +2,16 @@
 
 /* ---------- "Schritte": per-dancer/per-pair step export (focused video + printable PDF) ---------- */
 
-  var stepsBtn = document.getElementById('stepsBtn');
-  var stepsBackdrop = document.getElementById('stepsBackdrop');
-  var stepsCloseBtn = document.getElementById('stepsCloseBtn');
-  var stepsWhoSelect = document.getElementById('stepsWhoSelect');
-  var stepsEmptyHint = document.getElementById('stepsEmptyHint');
-  var stepsVideoBtn = document.getElementById('stepsVideoBtn');
-  var stepsPdfBtn = document.getElementById('stepsPdfBtn');
-  var stepsAllPdfBtn = document.getElementById('stepsAllPdfBtn');
   var stepsPrintArea = document.getElementById('stepsPrintArea');
-  var stepsContextToggle = document.getElementById('stepsContextToggle');
 
-  function renderStepsWhoOptions(){
-    stepsWhoSelect.innerHTML = '';
+  // Appends the "Wer?" choices of the Exportieren dialog (js/export.js): every dancer ('d:<id>'),
+  // then every complete pair ('p:<id>').
+  function fillStepsWhoOptions(selectEl){
     state.dancers.forEach(function(d){
       var opt = document.createElement('option');
       opt.value = 'd:' + d.id;
       opt.textContent = d.name;
-      stepsWhoSelect.appendChild(opt);
+      selectEl.appendChild(opt);
     });
     state.pairs.forEach(function(p){
       var a = state.dancers.find(function(d){ return d.id === p.memberIds[0]; });
@@ -28,25 +20,9 @@
       var opt = document.createElement('option');
       opt.value = 'p:' + p.id;
       opt.textContent = '⚭ ' + (p.name ? p.name : (a.name + ' & ' + b.name));
-      stepsWhoSelect.appendChild(opt);
+      selectEl.appendChild(opt);
     });
-    var empty = !state.dancers.length;
-    stepsEmptyHint.hidden = !empty;
-    stepsWhoSelect.hidden = empty;
-    stepsVideoBtn.disabled = empty;
-    stepsPdfBtn.disabled = empty;
-    if(stepsAllPdfBtn) stepsAllPdfBtn.disabled = empty;
   }
-
-  function openStepsModal(){
-    renderStepsWhoOptions();
-    stepsBackdrop.hidden = false;
-  }
-  function closeStepsModal(){ stepsBackdrop.hidden = true; }
-
-  stepsBtn.addEventListener('click', openStepsModal);
-  stepsCloseBtn.addEventListener('click', closeStepsModal);
-  stepsBackdrop.addEventListener('click', function(e){ if(e.target === stepsBackdrop) closeStepsModal(); });
 
   // A couple that's split into Lead & Follow in at least one Bild or Zwischenposition gets one sheet
   // per role: the Follow's sheet follows the Follow's own spot wherever the couple is split (and the
@@ -66,11 +42,10 @@
     return names.join(' & ');
   }
 
-  // Resolves the current dropdown value into the "sheets" to produce — a lone dancer (with their
+  // Resolves a "Wer?" value into the "sheets" to produce — a lone dancer (with their
   // saved partner, if any, along for reference) or, for a pair, one sheet per partner so "für
   // jedes Paar und auch jeden Tänzer einzeln" always comes down to an individual view.
-  function getStepsSheets(){
-    var val = stepsWhoSelect.value;
+  function getStepsSheets(val){
     if(!val) return [];
     var kind = val.slice(0,1), id = val.slice(2);
     if(kind === 'd'){
@@ -101,19 +76,11 @@
 
   /* ---------- video: reuses the existing video pipeline, filtered to just this sheet's dancer(s) --------- */
 
-  stepsVideoBtn.addEventListener('click', function(){
-    if(exportState) return;
-    var sheets = getStepsSheets();
-    if(!sheets.length || !state.formations.length) return;
+  function stepsFocusIds(sheets){
     var ids = {};
     sheets.forEach(function(sh){ ids[sh.primary.id] = true; if(sh.secondary) ids[sh.secondary.id] = true; });
-    var focusIds = Object.keys(ids);
-    var label = sheetsLabel(sheets);
-    closeStepsModal();
-    askFilename(bestVideoMime().ext, filenameBase() + '-' + label.replace(/[^\w-]+/g,'_'), function(filename, opts){
-      startVideoExport(filename, focusIds, opts && opts.includeGhosts, stepsContextToggle.checked);
-    }, true);
-  });
+    return Object.keys(ids);
+  }
 
   /* ---------- PDF: a printable step sheet per dancer, one card per Bild --------- */
 
@@ -280,7 +247,7 @@
 
   // Every dancer's own sheet, pair by pair (each getStepsSheets()-style pair still produces one
   // sheet per partner) then any dancer with no saved partner — "erst alles von Paar 1, dann Paar 2
-  // usw." — for the "Alle als PDF" button below, which puts them all in one print job/document
+  // usw." — for "Wer? Alle" in the Exportieren dialog, which puts them all in one print job/document
   // instead of one at a time.
   function getAllStepsSheets(){
     var sheets = [];
@@ -299,9 +266,8 @@
     return sheets;
   }
 
-  function buildStepsPrintDocument(sheets){
+  function buildStepsPrintDocument(sheets, showContext){
     stepsPrintArea.innerHTML = '';
-    var showContext = stepsContextToggle.checked;
     sheets.forEach(function(sheet, sheetIdx){
       var title = document.createElement('h2');
       title.className = 'step-sheet-title';
@@ -321,36 +287,21 @@
     });
   }
 
-  // Shared by both PDF buttons below: builds the print document, swaps in a filename-friendly
-  // document.title (restored on 'afterprint' rather than right after calling print() — modern
-  // Chrome's print dialog is asynchronous, print() returns immediately and the preview renders
-  // afterward, so restoring on a fixed timer could win the race and hand the dialog the old title
-  // back before it ever reads the new one), and opens the print dialog.
-  function printStepsSheets(sheets, titleWho){
-    buildStepsPrintDocument(sheets);
-    closeStepsModal();
+  // Builds the print document, swaps in the dialog's filename as document.title (that's what the
+  // browser offers as the PDF's name; restored on 'afterprint' rather than right after calling
+  // print() — modern Chrome's print dialog is asynchronous, print() returns immediately and the
+  // preview renders afterward, so restoring on a fixed timer could win the race and hand the dialog
+  // the old title back before it ever reads the new one), and opens the print dialog.
+  function printStepsSheets(sheets, title, showContext){
+    buildStepsPrintDocument(sheets, showContext);
     var prevTitle = document.title;
-    document.title = (state.projectName || 'Aufstellung') + ' — Schritte — ' + titleWho;
+    document.title = title;
     window.addEventListener('afterprint', function restoreTitle(){
       window.removeEventListener('afterprint', restoreTitle);
       document.title = prevTitle;
     });
-    // Printable view is built into #stepsPrintArea (hidden outside @media print — see
-    // css/modals.css); window.print() is the vanilla, no-dependency way to get to a PDF ("Als PDF
+    // Printable view is built into #stepsPrintArea (hidden outside @media print);
+    // window.print() is the vanilla, no-dependency way to get to a PDF ("Als PDF
     // speichern" in the browser's print destination picker), no server round-trip needed.
     setTimeout(function(){ window.print(); }, 50);
-  }
-
-  stepsPdfBtn.addEventListener('click', function(){
-    var sheets = getStepsSheets();
-    if(!sheets.length || !state.formations.length) return;
-    printStepsSheets(sheets, sheetsLabel(sheets));
-  });
-
-  if(stepsAllPdfBtn){
-    stepsAllPdfBtn.addEventListener('click', function(){
-      var sheets = getAllStepsSheets();
-      if(!sheets.length || !state.formations.length) return;
-      printStepsSheets(sheets, 'Alle');
-    });
   }
