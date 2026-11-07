@@ -117,16 +117,16 @@
     saveState();
   }
 
-  // Song position playback should begin at, given the currently selected Bild: its own time marker
-  // if it has one. Otherwise sync playback (the stage follows the song, unmarked Bilder never show)
-  // starts at the last marked Bild before it; free playback counts on from there — or from 0:00 at
-  // Bild 1 — one move per Bild, so the song is where it would be had playback run up to this Bild
-  // (it used to restart the song at 0:00 from any Bild of a project without markers).
+  // Song position playback should begin at, given the currently selected Bild: its place in the song
+  // under sync playback (syncTimes, js/stage.js — its own time marker, or where the unmarked ones
+  // get spread to; past the last marker with the song length still unknown, the last placed Bild
+  // before it). Free playback counts on from 0:00 at Bild 1, one move per Bild, so the song is where
+  // it would be had playback run up to this Bild.
   function playbackStartTime(){
     if(!isSyncActive()) return freeSongTimeAt(state.activeIndex, 0);
+    var times = syncTimes();
     for(var i = state.activeIndex; i >= 0; i--){
-      var t = formationTime(state.formations[i]);
-      if(t !== null) return t;
+      if(times[i] !== null) return times[i];
     }
     return 0;
   }
@@ -239,7 +239,7 @@
   }
 
   // What sync playback shows at song time ct: the positions, and the Bild that counts as current.
-  // null with fewer than two marked Bilder.
+  // null while fewer than two Bilder have a place in the song (syncWaypoints, js/stage.js).
   function syncFrameAt(ct){
     var pts = syncWaypoints();
     if(pts.length < 2) return null;
@@ -254,9 +254,9 @@
     }else{
       var span = p1.time - p0.time;
       t = span > 0 ? Math.min(1, Math.max(0, (ct - p0.time)/span)) : 1;
-      // Zwischenpositionen (interpolateThroughBetweens, state.js) only chain in when p1 is literally
-      // p0+1 — a marked Bild further out just means the ones in between (unmarked, so skipped by
-      // syncWaypoints()) never show at all, betweens included.
+      // Zwischenpositionen (interpolateThroughBetweens, state.js) chain in between neighbouring
+      // Bilder — every Bild has a place now, so p1 is p0+1 unless time markers are out of order
+      // (the in-between Bilder then don't show at all, betweens included).
       posMap = interpolateThroughBetweens(p0.idx, p1.idx, t);
       activeIdx = t >= 1 ? p1.idx : p0.idx;
     }

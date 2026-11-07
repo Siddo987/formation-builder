@@ -6,7 +6,8 @@
     return (typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) ? f.time : null;
   }
 
-  function syncWaypoints(){
+  // The Bilder with a time marker of their own, in song order.
+  function markerWaypoints(){
     var pts = [];
     state.formations.forEach(function(f, idx){
       var t = formationTime(f);
@@ -16,6 +17,40 @@
     return pts;
   }
 
+  // Each Bild's place in the song (seconds) for sync playback: its own time marker, otherwise spread
+  // evenly over the stretch it sits in — between the marked Bilder around it, before the first
+  // marker from 0:00 (Bild 1 starts with the song), after the last one up to the song's end (the
+  // last Bild lands there); without any marker the whole choreo spans the whole song. dur: the
+  // song's length, the loaded song's by default; while it is unknown, Bilder after the last marker
+  // get null.
+  function syncTimes(dur){
+    if(dur === undefined) dur = songDurationSec(); // js/playback.js
+    var n = state.formations.length, times = [], anchors = [];
+    state.formations.forEach(function(f, idx){
+      var t = formationTime(f);
+      times.push(t);
+      if(t !== null) anchors.push(idx);
+    });
+    if(!n) return times;
+    if(times[0] === null){ times[0] = 0; anchors.unshift(0); }
+    if(times[n-1] === null && dur > times[anchors[anchors.length-1]]){ times[n-1] = dur; anchors.push(n-1); }
+    for(var k = 0; k < anchors.length-1; k++){
+      var a = anchors[k], b = anchors[k+1];
+      for(var i = a+1; i < b; i++) times[i] = times[a] + (i-a)/(b-a)*(times[b] - times[a]);
+    }
+    return times;
+  }
+
+  // What sync playback follows: every Bild with a place in the song (syncTimes), in song order.
+  function syncWaypoints(dur){
+    var pts = [];
+    syncTimes(dur).forEach(function(t, idx){ if(t !== null) pts.push({ idx: idx, time: t }); });
+    pts.sort(function(a, b){ return a.time - b.time || a.idx - b.idx; });
+    return pts;
+  }
+
+  // With a song loaded, playback follows it as soon as two Bilder have a place in it — once its
+  // length is known, or earlier with a time marker after Bild 1.
   function isSyncActive(){
     return !!(state.song && state.song.url) && syncWaypoints().length >= 2;
   }

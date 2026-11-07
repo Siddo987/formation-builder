@@ -882,6 +882,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   songAudioEl.preload = 'auto';
   songAudioEl.addEventListener('ended', function(){
     if(!syncActive) return;
+    syncTick(); // the closing frame — a Bild spread to the song's end only lands on it here
     playing = false;
     cancelAnimationFrame(rafId);
     updatePlayButton();

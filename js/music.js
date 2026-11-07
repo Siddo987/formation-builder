@@ -54,14 +54,14 @@
   // First marker strictly after t (small epsilon so starting exactly on a marker doesn't
   // immediately count that same marker as "the next one").
   function nextMarkerAfter(t){
-    var pts = syncWaypoints();
+    var pts = markerWaypoints();
     for(var i = 0; i < pts.length; i++) if(pts[i].time > t + 0.05) return pts[i].time;
     return null;
   }
 
   // The Bild whose section the song is currently in — the last marker at or before ct.
   function markerIdxAt(ct){
-    var pts = syncWaypoints(), idx = -1;
+    var pts = markerWaypoints(), idx = -1;
     for(var i = 0; i < pts.length; i++){ if(pts[i].time <= ct + 0.05) idx = pts[i].idx; else break; }
     return idx;
   }
@@ -139,7 +139,7 @@
     var dur = songDuration();
     musicTimelineFlags.innerHTML = '';
     if(dur <= 0) return;
-    syncWaypoints().forEach(function(p){
+    markerWaypoints().forEach(function(p){
       var flag = document.createElement('div');
       flag.className = 'timeline-flag';
       flag.style.left = Math.min(100, (p.time/dur)*100) + '%';
@@ -151,7 +151,7 @@
 
   // Only marked Bilder, in song order — an unmarked Bild has no place in the song to start from.
   function renderMusicMarkerList(){
-    var pts = syncWaypoints();
+    var pts = markerWaypoints();
     musicMarkerList.innerHTML = '';
     musicNoMarkersHint.hidden = pts.length > 0;
     pts.forEach(function(p){

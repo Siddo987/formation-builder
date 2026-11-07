@@ -1174,7 +1174,7 @@
     });
   }
 
-  // syncPts: syncWaypoints() when the video follows the song's markers, else null.
+  // syncPts: syncWaypoints(songDuration) when the video follows the song, else null.
   function buildVideoSegments(syncPts, songDuration, rate){
     if(syncPts && songDuration > 0) return buildSyncSegments(syncPts, songDuration, rate);
     var d = durations();
@@ -1368,8 +1368,8 @@
     return Promise.all([loadMp4Muxer(), songPromise]).then(function(loaded){
       if(exportState.cancelled) return;
       var Mp4 = loaded[0], song = loaded[1];
-      var pts = syncWaypoints();
-      var segments = buildVideoSegments(song && pts.length >= 2 ? pts : null, song ? song.duration : 0, rate);
+      var pts = song ? syncWaypoints(song.duration) : [];
+      var segments = buildVideoSegments(pts.length >= 2 ? pts : null, song ? song.duration : 0, rate);
       var totalDuration = segmentsDuration(segments);
       var totalFrames = Math.max(1, Math.ceil(totalDuration*FAST_VIDEO_FPS/1000));
       // Like the real-time recording, the sound ends with the picture (or earlier, with the song).
@@ -1477,12 +1477,11 @@
 
     var exportAudioEl = (state.song && state.song.url) ? new Audio(state.song.url) : null;
     if(exportAudioEl) applySongRate(exportAudioEl);
-    var pts = syncWaypoints();
-    var useSync = exportAudioEl && pts.length >= 2;
-    var durationPromise = useSync ? getAudioDuration(exportAudioEl) : Promise.resolve(0);
+    var durationPromise = exportAudioEl ? getAudioDuration(exportAudioEl) : Promise.resolve(0);
 
     durationPromise.then(function(songDuration){
-      var segments = buildVideoSegments(useSync ? pts : null, songDuration, songRate());
+      var pts = exportAudioEl ? syncWaypoints(songDuration) : [];
+      var segments = buildVideoSegments(pts.length >= 2 ? pts : null, songDuration, songRate());
       var totalDuration = segmentsDuration(segments);
 
       // Manual capture mode when the browser supports it (Chrome/Edge): the canvas only emits a

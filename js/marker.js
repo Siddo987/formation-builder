@@ -53,8 +53,11 @@
     var bad = {};
     issues.forEach(function(is){ bad[is.idx] = true; });
     if(markerListEl){
+      // Unmarked Bilder show in grey where sync playback spreads them to (syncTimes, js/stage.js).
+      var times = isSyncActive() ? syncTimes() : [];
       Array.prototype.forEach.call(markerListEl.children, function(row, i){
         row.classList.toggle('marker-row--warn', !!bad[i]);
+        row.querySelector('.marker-time-input').placeholder = times[i] != null ? formatTime(times[i]) : 'mm:ss';
       });
     }
     if(markerBtn){
@@ -174,6 +177,7 @@
   songAudioEl.addEventListener('loadedmetadata', function(){
     updateMarkerPlayheadUI();
     renderMarkerTimeline();
+    updateMarkerWarnings(); // the song length places the Bilder after the last marker
   });
   songAudioEl.addEventListener('play', function(){ if(!markerBackdrop.hidden){ markerIconPlay.hidden = true; markerIconPause.hidden = false; } });
   songAudioEl.addEventListener('pause', function(){ if(!markerBackdrop.hidden){ markerIconPlay.hidden = false; markerIconPause.hidden = true; } });
