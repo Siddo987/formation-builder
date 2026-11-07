@@ -899,7 +899,7 @@
           var pos = f.pos[k];
           if(!pos) return;
           var dot = document.createElement('span');
-          dot.className = k === d.id ? 'film-dot' : 'film-dot film-dot-follow';
+          dot.className = k === d.id ? (f.pos[followKey(d.id)] ? 'film-dot film-dot-split' : 'film-dot') : 'film-dot film-dot-split film-dot-follow';
           dot.style.left = gridToPercent(pos.x) + '%';
           dot.style.top = gridToPercent(pos.y) + '%';
           dot.style.background = d.color;

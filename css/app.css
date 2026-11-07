@@ -745,7 +745,6 @@ body.roster-open .roster{display:flex;}
 .dancer.is-split .initials,.dancer.follow .initials{font-size:.42rem;}
 .dancer.is-split:not(.selected):not(.pair-selected),
 .dancer.follow:not(.selected):not(.pair-selected){box-shadow:0 0 0 2px var(--split),0 2px 6px rgba(0,0,0,.45);}
-.film-dot-follow{box-shadow:0 0 0 1.5px var(--split);}
 
 .split-btn{
   flex:none;height:20px;border:1px solid color-mix(in srgb,var(--split) 45%,transparent);border-radius:5px;
@@ -843,10 +842,13 @@ body.roster-open .roster{display:flex;}
   position:relative;overflow:hidden;cursor:pointer;
 }
 .film-dot{
-  position:absolute;width:6px;height:6px;border-radius:50%;
+  position:absolute;width:max(3px,6.5%);height:max(3px,6.5%);border-radius:50%;
   transform:translate(-50%,-50%);
-  box-shadow:0 0 0 1px rgba(255,255,255,.65);
+  box-shadow:0 0 0 .5px rgba(255,255,255,.6);
 }
+/* getrennte Lead/Follow-Punkte deutlich kleiner als Paar-Punkte */
+.film-dot-split{width:max(2px,4.5%);height:max(2px,4.5%);}
+.film-dot-follow{box-shadow:0 0 0 .75px var(--split);}
 .film-index{
   flex:none;align-self:center;margin-right:.15rem;
   font-family:var(--font-mono);font-size:.56rem;font-weight:700;line-height:1.3;color:var(--ink-3);
