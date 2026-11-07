@@ -841,6 +841,7 @@ function reconstructSharedState(payload){
     formations: formations,
     axes: Array.isArray(payload.axes) ? payload.axes : [],
     showAxes: payload.showAxes !== false,
+    showFacing: payload.showFacing !== false,
     roomLabels: {
       top: (payload.roomLabels && typeof payload.roomLabels.top === 'string') ? payload.roomLabels.top : 'WAND',
       right: (payload.roomLabels && typeof payload.roomLabels.right === 'string') ? payload.roomLabels.right : 'SPIEGEL',

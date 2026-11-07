@@ -134,6 +134,7 @@
       }),
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
+      showFacing: s.showFacing !== false,
       roomLabels: {
         top: (s.roomLabels && s.roomLabels.top) || '',
         right: (s.roomLabels && s.roomLabels.right) || '',
@@ -248,6 +249,7 @@
       formations: formations,
       axes: Array.isArray(header.axes) ? header.axes : [],
       showAxes: header.showAxes !== false,
+      showFacing: header.showFacing !== false,
       roomLabels: {
         top: (header.roomLabels && typeof header.roomLabels.top === 'string') ? header.roomLabels.top : 'WAND',
         right: (header.roomLabels && typeof header.roomLabels.right === 'string') ? header.roomLabels.right : 'SPIEGEL',
@@ -937,7 +939,7 @@
       var cy = gy(pos.y);
       var rot = pos.rot || 0;
 
-      if(showFacing){
+      if(state.showFacing !== false){
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(rot*Math.PI/180);
@@ -1505,6 +1507,7 @@
     projectNameInput.value = state.projectName || '';
     document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
     applySongSource();
+    if(typeof applyFacingVisibility === 'function') applyFacingVisibility();
     if(!settingsBackdrop.hidden){
       updateLogoSettingsUI();
       updateSongSettingsUI();

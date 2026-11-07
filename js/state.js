@@ -3,10 +3,10 @@
 var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96b3f','#a688c9'];
   var STORAGE_KEY = 'aufstellung-choreo-v2';
   var prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // Blickrichtungs-Pfeile an den Punkten (Bühne und Video) — a choice per device, not part of the project.
-  var FACING_KEY = 'aufstellung.showFacing';
-  var showFacing = true;
-  try{ showFacing = localStorage.getItem(FACING_KEY) !== '0'; }catch(e){}
+  // Blickrichtungs-Pfeile an den Punkten (Bühne und Video) are state.showFacing, saved with the
+  // project. They used to be a per-device choice under this key, which now only seeds projects
+  // saved before that (see loadState()).
+  var LEGACY_FACING_KEY = 'aufstellung.showFacing';
 
   var GRID_MIN = -7, GRID_MAX = 7, GRID_SPAN = 14, GRID_INSET = 6;
   var SVG_NS = 'http://www.w3.org/2000/svg';
@@ -411,6 +411,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       ],
       axes: [],
       showAxes: true,
+      showFacing: true,
       roomLabels: {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'},
       pairs: [],
       customFigures: [],
@@ -463,6 +464,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(typeof parsed.projectName !== 'string' || !parsed.projectName.trim()) parsed.projectName = 'Meine Formation';
       if(!Array.isArray(parsed.axes)) parsed.axes = [];
       if(typeof parsed.showAxes !== 'boolean') parsed.showAxes = true;
+      if(typeof parsed.showFacing !== 'boolean'){
+        parsed.showFacing = true;
+        try{ parsed.showFacing = localStorage.getItem(LEGACY_FACING_KEY) !== '0'; }catch(e){}
+      }
       // migration: older saves predate editable room-orientation labels entirely
       var defaultRoomLabels = {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'};
       if(!parsed.roomLabels || typeof parsed.roomLabels !== 'object') parsed.roomLabels = {};
@@ -539,6 +544,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         formations: state.formations,
         axes: state.axes,
         showAxes: state.showAxes,
+        showFacing: state.showFacing !== false,
         roomLabels: state.roomLabels,
         pairs: state.pairs,
         customFigures: state.customFigures,

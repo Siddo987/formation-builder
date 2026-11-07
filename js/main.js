@@ -151,13 +151,13 @@
 
   var facingToggle = document.getElementById('facingToggle');
   function applyFacingVisibility(){
-    document.body.classList.toggle('hide-facing', !showFacing);
-    facingToggle.checked = showFacing;
+    document.body.classList.toggle('hide-facing', state.showFacing === false);
+    facingToggle.checked = state.showFacing !== false;
   }
   facingToggle.addEventListener('change', function(){
-    showFacing = facingToggle.checked;
-    try{ localStorage.setItem(FACING_KEY, showFacing ? '1' : '0'); }catch(e){}
+    state.showFacing = facingToggle.checked;
     applyFacingVisibility();
+    saveState();
   });
   applyFacingVisibility();
 

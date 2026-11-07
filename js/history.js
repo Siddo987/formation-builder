@@ -33,6 +33,7 @@
     m.set('meta/projectName', s.projectName || '');
     m.set('meta/tempo', typeof s.tempo === 'number' ? s.tempo : 50);
     m.set('meta/showAxes', s.showAxes !== false);
+    m.set('meta/showFacing', s.showFacing !== false);
     var rl = s.roomLabels || {};
     ['top','right','bottom','left'].forEach(function(side){ m.set('room/' + side, rl[side] || ''); });
 
@@ -170,6 +171,7 @@
       formations: formations.length ? formations : [{id: uid('f'), name: 'Bild 1', pos: {}, showAxes: true, localAxes: [], category: '', startPos: {}, betweens: []}],
       axes: axes,
       showAxes: get('meta/showAxes', true) !== false,
+      showFacing: get('meta/showFacing', true) !== false,
       roomLabels: rl,
       pairs: pairs,
       customFigures: customFigures,
@@ -234,6 +236,7 @@
     if(path === 'meta/projectName') return 'Projektname: „' + before + '“ → „' + after + '“';
     if(path === 'meta/tempo') return 'Tempo: ' + before + ' → ' + after;
     if(path === 'meta/showAxes') return after ? 'Achsen global eingeblendet' : 'Achsen global ausgeblendet';
+    if(path === 'meta/showFacing') return after ? 'Blickrichtungen eingeblendet' : 'Blickrichtungen ausgeblendet';
     if(parts[0] === 'room') return 'Bühnenrand ' + parts[1] + ': „' + (before || '') + '“ → „' + (after || '') + '“';
     if(path === 'order/dancers') return 'Tänzer-Reihenfolge geändert';
     if(path === 'order/formations') return 'Bild-Reihenfolge geändert';
