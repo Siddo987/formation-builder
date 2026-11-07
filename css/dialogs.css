@@ -267,9 +267,14 @@
   .step-dot{position:absolute; width:18px; height:18px; border-radius:50%; transform:translate(-50%,-50%);}
   .step-dot-primary{background:#d99a34; border:2px solid #fff; box-shadow:0 0 0 1px #d99a34;}
   .step-dot-secondary{background:#fff; border:2px solid #bbb;}
-  /* Paar in diesem Bild in Lead & Follow geteilt: beide Punkte kleiner, Follow gestrichelt */
-  .step-dot-split{width:11px; height:11px;}
-  .step-dot-role{background:#fff; border:2px solid #d99a34;}
+  /* Paar in diesem Bild in Lead & Follow geteilt: beide Punkte mit L/F beschriftet, Follow gestrichelt */
+  .step-dot-split{
+    width:15px; height:15px;
+    font-family:var(--font-mono); font-size:.5rem; font-weight:800; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .step-dot-primary.step-dot-split{color:#fff;}
+  .step-dot-role{background:#fff; border:2px solid #d99a34; color:#a8701a;}
   .step-dot-follow{border-style:dashed;}
   /* „Andere Paare hellgrau einblenden“: die übrigen Paare nur als Kontext */
   .step-dot-context{width:10px; height:10px; background:#e4e1ea; border:1px solid #cdc8d6;}
@@ -284,6 +289,13 @@
   .step-info{flex:1; min-width:0;}
   .step-info h3{margin:0 0 .25rem; font-family:var(--font-display); font-weight:400; font-size:1.4rem; letter-spacing:.03em; color:#8a7c9c;}
   .step-coords{font-size:2rem; font-weight:800; letter-spacing:.02em; margin-bottom:.35rem; font-family:var(--font-mono);}
+  .step-role-tag{
+    display:inline-block; vertical-align:middle; margin-right:.6rem;
+    padding:.15rem .5rem; border:2px solid #d99a34; border-radius:999px;
+    font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:#a8701a;
+  }
+  .step-role-tag-follow{border-style:dashed;}
+  .step-legend{margin:-.6rem 0 1rem; font-size:.8rem; color:#6b6178;}
   .step-between-line{margin:.15rem 0 0; font-size:.78rem; font-style:italic; color:#999;}
   .step-secondary{margin:.3rem 0 0; font-size:.8rem; font-style:italic; color:#999;}
 

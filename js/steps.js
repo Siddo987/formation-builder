@@ -94,8 +94,9 @@
   // app grew out of already used, just with a number instead of a bare ring since there can be more
   // than one.
   // rolePos: the couple's other role (Lead or Follow) where it's split in this Bild — then both
-  // dots are drawn smaller, the Follow dashed, same as on the stage. contextPositions: every other
-  // couple's spot in this Bild ("Andere Paare hellgrau einblenden"), drawn as small light-gray dots.
+  // dots are drawn smaller and lettered L/F, the Follow dashed, same as the stage's role badges.
+  // contextPositions: every other couple's spot in this Bild ("Andere Paare hellgrau einblenden"),
+  // drawn as small light-gray dots.
   function buildStepDiagram(primaryPos, secondaryPos, betweenPositions, rolePos, primaryIsFollow, contextPositions){
     var diagram = document.createElement('div');
     diagram.className = 'step-diagram';
@@ -117,22 +118,38 @@
     var cross = document.createElement('span');
     cross.className = 'step-cross';
     room.appendChild(cross);
-    function addDot(pos, cls, label){
+    function addDot(pos, cls, label, at){
       if(!pos) return;
       var dot = document.createElement('span');
       dot.className = 'step-dot ' + cls;
-      dot.style.left = gridToPercent(pos.x) + '%';
-      dot.style.top = gridToPercent(pos.y) + '%';
+      dot.style.left = (at ? at.x : gridToPercent(pos.x)) + '%';
+      dot.style.top = (at ? at.y : gridToPercent(pos.y)) + '%';
       if(label !== undefined) dot.textContent = label;
       room.appendChild(dot);
+    }
+    // A split couple's Lead and Follow usually stand a step or less apart — closer than two dots
+    // are wide at this scale, so one hid half of the other. The other role's dot is pushed away on
+    // paper only, along the line between them (Lead left of Follow where they coincide); this
+    // sheet's own dot and all printed coordinates stay exact.
+    var roleAt = null;
+    if(primaryPos && rolePos){
+      var MIN_SPLIT_GAP = 13; // % of the room — a little more than one lettered dot
+      var px = gridToPercent(primaryPos.x), py = gridToPercent(primaryPos.y);
+      var dx = gridToPercent(rolePos.x) - px, dy = gridToPercent(rolePos.y) - py;
+      var dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < MIN_SPLIT_GAP){
+        if(dist < 0.01){ dx = primaryIsFollow ? -1 : 1; dy = 0; dist = 1; }
+        roleAt = {x: px + dx/dist*MIN_SPLIT_GAP, y: py + dy/dist*MIN_SPLIT_GAP};
+      }
     }
     (contextPositions || []).forEach(function(cp){ addDot(cp, 'step-dot-context'); });
     // Between-dots first so the main/partner dots (added after, further down) paint on top of them
     // where positions happen to overlap.
     (betweenPositions || []).forEach(function(bp, i){ addDot(bp, 'step-dot-between', String(i+1)); });
-    addDot(rolePos, 'step-dot-role step-dot-split' + (primaryIsFollow ? '' : ' step-dot-follow'));
     addDot(secondaryPos, 'step-dot-secondary');
-    addDot(primaryPos, 'step-dot-primary' + (rolePos ? ' step-dot-split' : '') + (primaryIsFollow ? ' step-dot-follow' : ''));
+    addDot(rolePos, 'step-dot-role step-dot-split' + (primaryIsFollow ? '' : ' step-dot-follow'), primaryIsFollow ? 'L' : 'F', roleAt);
+    addDot(primaryPos, 'step-dot-primary' + (rolePos ? ' step-dot-split' : '') + (primaryIsFollow ? ' step-dot-follow' : ''),
+      rolePos ? (primaryIsFollow ? 'F' : 'L') : undefined);
     diagram.appendChild(room);
     return diagram;
   }
@@ -176,7 +193,15 @@
     if(primaryPos){
       var coords = document.createElement('div');
       coords.className = 'step-coords';
-      coords.textContent = 'X ' + fmtSigned(primaryPos.x) + '   Y ' + fmtSigned(primaryPos.y);
+      // Where the couple stands apart, say whose spot the big numbers are, in the same words as the
+      // L/F letters in the sketch.
+      if(rolePos){
+        var tag = document.createElement('span');
+        tag.className = 'step-role-tag' + (ownIsFollow ? ' step-role-tag-follow' : '');
+        tag.textContent = ownIsFollow ? 'Follow' : 'Lead';
+        coords.appendChild(tag);
+      }
+      coords.appendChild(document.createTextNode('X ' + fmtSigned(primaryPos.x) + '   Y ' + fmtSigned(primaryPos.y)));
       info.appendChild(coords);
     }
 
@@ -215,7 +240,7 @@
       var roleLine = document.createElement('p');
       roleLine.className = 'step-secondary';
       roleLine.textContent = rolePos
-        ? (ownIsFollow ? 'Lead' : 'Follow') + ': x ' + fmtSigned(rolePos.x) + ' y ' + fmtSigned(rolePos.y)
+        ? (ownIsFollow ? 'Lead (L)' : 'Follow (F)') + ': x ' + fmtSigned(rolePos.x) + ' y ' + fmtSigned(rolePos.y)
         : 'Lead & Follow zusammen';
       info.appendChild(roleLine);
     }
@@ -273,6 +298,16 @@
         (sheet.role ? ' (' + ROLE_LABELS[sheet.role] + ')' : '') +
         (sheet.secondary ? ' (Partner: ' + sheet.secondary.name + ')' : '');
       stepsPrintArea.appendChild(title);
+      // Role sheets come in Lead/Follow twins that look alike at a glance — spell out whose this
+      // is and how the sketch tells the two apart.
+      if(sheet.role){
+        var legend = document.createElement('p');
+        legend.className = 'step-legend';
+        legend.textContent = 'Blatt für ' + (sheet.role === 'follow' ? 'den Follow' : 'den Lead') +
+          '. Wo ihr getrennt steht, zeigt die Skizze beide: L = Lead, F = Follow (gestrichelt), ' +
+          'deine Position ist orange gefüllt.';
+        stepsPrintArea.appendChild(legend);
+      }
       var lastCategory = null;
       state.formations.forEach(function(f, idx){
         var cat = categoryLabelAt(idx);
