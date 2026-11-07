@@ -91,16 +91,22 @@
   }
 
   // Song position playback should begin at, given the currently selected Bild: its own time marker
-  // if it has one, else the last marked Bild before it (so playing from an unmarked Bild still lands
-  // in roughly the right place), else the start of the song.
+  // if it has one. Otherwise sync playback (the stage follows the song, unmarked Bilder never show)
+  // starts at the last marked Bild before it; free playback counts on from there — or from 0:00 at
+  // Bild 1 — one move per Bild, so the song is where it would be had playback run up to this Bild
+  // (it used to restart the song at 0:00 from any Bild of a project without markers).
   function playbackStartTime(){
     var own = formationTime(state.formations[state.activeIndex]);
     if(own !== null) return own;
+    var base = 0, baseIdx = 0;
     for(var i = state.activeIndex - 1; i >= 0; i--){
       var t = formationTime(state.formations[i]);
-      if(t !== null) return t;
+      if(t !== null){ base = t; baseIdx = i; break; }
     }
-    return 0;
+    if(isSyncActive()) return base;
+    var at = base + (state.activeIndex - baseIdx) * moveDurationMs()/1000 * songRate();
+    var dur = songAudioEl.duration;
+    return isFinite(dur) && dur > 0 ? Math.min(at, dur) : at;
   }
 
   // Where the play button last paused: the stage keeps showing the positions mid-move and the next
