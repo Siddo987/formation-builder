@@ -373,13 +373,123 @@
      it) is per-session/transient, never saved in state, and resets whenever the active Bild
      changes (a fresh reference point for whichever Bild you're now positioning). Each layout also
      carries an admin-settable "Orientierungspunkt" (origin) — the rotation pivot, rendered as its
-     own distinct, grabbable ghost point (see activeLayoutOrigin/layoutPointToStage). ---------- */
+     own distinct, grabbable ghost point (see activeLayoutOrigin/layoutPointToStage). Next to the
+     admin ones the client brings its own Grundformen (LAYOUT_SHAPES), generated fresh for however
+     many pairs the choreo has, so they always fit exactly. ---------- */
 
   var layoutsCatalog = null; // null until first fetch resolves
   var layoutsFetchPromise = null;
   var activeLayoutId = null;
   var activeLayoutOffset = {x:0, y:0}; // where the shape's own Orientierungspunkt currently sits on stage
   var activeLayoutRotateDeg = 0; // rotation around that same Orientierungspunkt, applied before the offset
+
+  // Grundformen for n pairs, centered around (0,0), +y = front (towards the audience). Spacing
+  // shrinks once a shape would leave the -7..7 stage.
+  function rowPoints(n, len){
+    var s = n > 1 ? Math.min(3, len/(n-1)) : 0, pts = [];
+    for(var i=0; i<n; i++) pts.push({x: (i-(n-1)/2)*s, y: 0});
+    return pts;
+  }
+  function ringPoints(n, cx, r){
+    var pts = [];
+    for(var i=0; i<n; i++){
+      var a = -Math.PI/2 + i/n*Math.PI*2;
+      pts.push(n === 1 ? {x: cx, y: 0} : {x: cx + Math.cos(a)*r, y: Math.sin(a)*r});
+    }
+    return pts;
+  }
+  function gridRows(counts, s, rowGap){ // rows from front to back, each centered
+    var pts = [];
+    counts.forEach(function(c, r){
+      for(var i=0; i<c; i++) pts.push({x: (i-(c-1)/2)*s, y: -r*rowGap});
+    });
+    return pts;
+  }
+  var LAYOUT_SHAPES = [
+    {id:'form-reihe', name:'Reihe', points: function(n){ return rowPoints(n, 14); }},
+    {id:'form-doppelreihe', name:'Doppelreihe (versetzt)', points: function(n){
+      var f = Math.ceil(n/2), b = n-f, s = f > 1 ? Math.min(3, 12/(f-1)) : 3, pts = [];
+      for(var i=0; i<f; i++) pts.push({x: (i-(f-1)/2)*s, y: 1.5});
+      for(var j=0; j<b; j++) pts.push({x: (j-(b-1)/2)*s + (b === f ? s/2 : 0), y: -1.5});
+      return pts;
+    }},
+    {id:'form-block', name:'Block', points: function(n){
+      var cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n/cols), counts = [];
+      for(var r=0; r<rows; r++) counts.push(Math.min(cols, n - r*cols));
+      var s = Math.min(3, cols > 1 ? 12/(cols-1) : 3, rows > 1 ? 12/(rows-1) : 3);
+      return gridRows(counts, s, s);
+    }},
+    {id:'form-keil', name:'Keil (Spitze vorn)', points: function(n){
+      var counts = [];
+      for(var k=1, left=n; left > 0; k++){ counts.push(Math.min(k, left)); left -= k; }
+      var s = Math.min(2.5, counts.length > 1 ? 12/(counts.length-1) : 2.5);
+      return gridRows(counts, s, Math.min(2, 12/Math.max(1, counts.length-1)));
+    }},
+    {id:'form-v', name:'V-Form (Spitze vorn)', points: function(n){
+      // odd: one pair on the tip; even: the V stays open at the front (first pair at x=±1)
+      var pts = [], odd = n % 2, steps = Math.max(1, Math.ceil(n/2)-1), x0 = odd ? 0 : 1;
+      var dx = Math.min(2, (6.5-x0)/steps), dy = Math.min(2, 12/steps);
+      if(odd) pts.push({x: 0, y: 0});
+      for(var j=odd; pts.length < n; j++){
+        pts.push({x: -(x0 + j*dx), y: -j*dy}, {x: x0 + j*dx, y: -j*dy});
+      }
+      return pts;
+    }},
+    {id:'form-kreis', name:'Kreis', points: function(n){
+      return ringPoints(n, 0, Math.max(2.5, Math.min(6, n*3/(2*Math.PI))));
+    }},
+    {id:'form-halbkreis', name:'Halbkreis (vorn offen)', points: function(n){
+      var r = Math.max(3, Math.min(6.5, (n-1)*3/Math.PI)), pts = [];
+      for(var i=0; i<n; i++){
+        var a = Math.PI + (n > 1 ? i/(n-1) : 0.5)*Math.PI;
+        pts.push({x: Math.cos(a)*r, y: Math.sin(a)*r});
+      }
+      return pts;
+    }},
+    {id:'form-zwei-kreise', name:'Zwei Kreise', points: function(n){
+      var a = Math.ceil(n/2), r = function(c){ return Math.max(1.5, Math.min(3, c*2.5/(2*Math.PI))); };
+      return ringPoints(a, -3.5, r(a)).concat(ringPoints(n-a, 3.5, r(n-a)));
+    }},
+    {id:'form-diagonale', name:'Diagonale', points: function(n){
+      return rowPoints(n, 17).map(function(p){ return {x: p.x/Math.SQRT2, y: p.x/Math.SQRT2}; });
+    }},
+    {id:'form-kolonne', name:'Kolonne (hintereinander)', points: function(n){
+      return rowPoints(n, 14).map(function(p){ return {x: 0, y: -p.x}; });
+    }},
+    {id:'form-gasse', name:'Gasse', points: function(n){
+      var a = Math.ceil(n/2);
+      return rowPoints(a, 14).map(function(p){ return {x: -3, y: -p.x}; })
+        .concat(rowPoints(n-a, 14).map(function(p){ return {x: 3, y: -p.x}; }));
+    }},
+    {id:'form-zickzack', name:'Zickzack', points: function(n){
+      return rowPoints(n, 14).map(function(p, i){ return {x: p.x, y: i % 2 ? -1.5 : 1.5}; });
+    }}
+  ];
+  // The old seeded catalog rows (schema.sql) — the Grundformen above replace them.
+  var LAYOUT_SEED_IDS = ['lay-reihe', 'lay-kreis', 'lay-v-form', 'lay-doppelreihe'];
+
+  // One ghost point per pair: every dot is a couple, except the Follow of an older saved pair.
+  function layoutUnits(){
+    return state.dancers.filter(function(d){ return dancerRole(d.id) !== 'follow'; });
+  }
+
+  // The active Vorlage as {positions, origin}: a Grundform generated for the current pair count
+  // (bounding box centered on its origin), or an admin layout as stored. null when none is picked.
+  function activeLayout(){
+    if(!activeLayoutId) return null;
+    var shape = LAYOUT_SHAPES.find(function(l){ return l.id === activeLayoutId; });
+    if(shape){
+      var pts = shape.points(layoutUnits().length);
+      var xs = pts.map(function(p){ return p.x; }), ys = pts.map(function(p){ return p.y; });
+      var cx = (Math.min.apply(null, xs) + Math.max.apply(null, xs))/2 || 0;
+      var cy = (Math.min.apply(null, ys) + Math.max.apply(null, ys))/2 || 0;
+      return {positions: pts.map(function(p){ return {x: roundNum(p.x-cx), y: roundNum(p.y-cy)}; }), origin: {x:0, y:0}};
+    }
+    var layout = (layoutsCatalog || []).find(function(l){ return l.id === activeLayoutId; });
+    if(!layout || !Array.isArray(layout.positions)) return null;
+    // origin defaults to (0,0) for layouts saved before this field existed (see api/layouts.php)
+    return {positions: layout.positions, origin: {x: (layout.origin && layout.origin.x) || 0, y: (layout.origin && layout.origin.y) || 0}};
+  }
 
   function ensureLayoutsLoaded(){
     if(!layoutsFetchPromise){
@@ -396,18 +506,26 @@
     var wrap = document.getElementById('layoutSelectWrap');
     var select = document.getElementById('layoutSelect');
     if(!wrap || !select) return;
-    wrap.hidden = !(layoutsCatalog && layoutsCatalog.length);
+    wrap.hidden = false;
     select.innerHTML = '';
     var noneOpt = document.createElement('option');
     noneOpt.value = '';
     noneOpt.textContent = '— Keine Vorlage —';
     select.appendChild(noneOpt);
-    (layoutsCatalog || []).forEach(function(layout){
-      var opt = document.createElement('option');
-      opt.value = layout.id;
-      opt.textContent = layout.name;
-      select.appendChild(opt);
-    });
+    function addGroup(label, layouts){
+      if(!layouts.length) return;
+      var group = document.createElement('optgroup');
+      group.label = label;
+      layouts.forEach(function(layout){
+        var opt = document.createElement('option');
+        opt.value = layout.id;
+        opt.textContent = layout.name;
+        group.appendChild(opt);
+      });
+      select.appendChild(group);
+    }
+    addGroup('Formen (passend zur Paarzahl)', LAYOUT_SHAPES);
+    addGroup('Eigene Vorlagen', (layoutsCatalog || []).filter(function(l){ return LAYOUT_SEED_IDS.indexOf(l.id) === -1; }));
     select.value = activeLayoutId || '';
     updateLayoutRotateFieldVisibility();
   }
@@ -424,13 +542,10 @@
     stageEl.appendChild(layer);
   }
 
-  // The admin-settable "Orientierungspunkt" — the rotation pivot for the active layout, defaults
-  // to (0,0) for layouts saved before this field existed (see api/layouts.php).
+  // The "Orientierungspunkt" — the rotation pivot for the active layout.
   function activeLayoutOrigin(){
-    if(!activeLayoutId || !layoutsCatalog) return {x:0, y:0};
-    var layout = layoutsCatalog.find(function(l){ return l.id === activeLayoutId; });
-    if(!layout || !layout.origin) return {x:0, y:0};
-    return {x: layout.origin.x||0, y: layout.origin.y||0};
+    var layout = activeLayout();
+    return layout ? layout.origin : {x:0, y:0};
   }
 
   // Rotates a relative point around the shape's own Orientierungspunkt, then places it at
@@ -452,10 +567,9 @@
   var LAYOUT_SNAP_RADIUS = 0.75;
 
   function activeLayoutGhostPoints(){
-    if(!activeLayoutId || !layoutsCatalog) return [];
-    var layout = layoutsCatalog.find(function(l){ return l.id === activeLayoutId; });
-    if(!layout || !Array.isArray(layout.positions)) return [];
-    var n = Math.min(layout.positions.length, state.dancers.length);
+    var layout = activeLayout();
+    if(!layout) return [];
+    var n = Math.min(layout.positions.length, layoutUnits().length);
     var pts = [];
     for(var i=0; i<n; i++) pts.push(layoutPointToStage(layout.positions[i]));
     return pts;
@@ -479,17 +593,17 @@
     var layer = document.getElementById('layoutGhostLayer');
     if(!layer) return;
     layer.innerHTML = '';
-    if(!activeLayoutId || !layoutsCatalog) return;
-    var layout = layoutsCatalog.find(function(l){ return l.id === activeLayoutId; });
-    if(!layout || !Array.isArray(layout.positions)) return;
-    var n = Math.min(layout.positions.length, state.dancers.length);
+    var layout = activeLayout();
+    if(!layout) return;
+    var units = layoutUnits();
+    var n = Math.min(layout.positions.length, units.length);
     for(var i=0; i<n; i++){
       var stagePos = layoutPointToStage(layout.positions[i]);
       var dot = document.createElement('span');
       dot.className = 'layout-ghost-dot';
       dot.style.left = gridToPercent(stagePos.x) + '%';
       dot.style.top = gridToPercent(stagePos.y) + '%';
-      dot.style.borderColor = state.dancers[i].color;
+      dot.style.borderColor = units[i].color;
       dot.title = 'Ziehen zum Verschieben der ganzen Vorlage';
       attachLayoutGhostDragEvents(dot);
       layer.appendChild(dot);
@@ -514,9 +628,8 @@
   // drops its capture, so only the very first tiny move before the first re-render ever registered.
   function repositionLayoutGhostDots(){
     var layer = document.getElementById('layoutGhostLayer');
-    if(!layer || !activeLayoutId || !layoutsCatalog) return;
-    var layout = layoutsCatalog.find(function(l){ return l.id === activeLayoutId; });
-    if(!layout || !Array.isArray(layout.positions)) return;
+    var layout = activeLayout();
+    if(!layer || !layout) return;
     var dots = layer.querySelectorAll('.layout-ghost-dot');
     for(var i=0; i<dots.length; i++){
       var stagePos = layoutPointToStage(layout.positions[i]);

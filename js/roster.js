@@ -394,6 +394,7 @@
     positionMarkers(currentFormation().pos);
     renderRoster();
     renderFilmstrip();
+    renderLayoutGhost(); // a Grundform is regenerated for the new pair count
   }
 
   function removeDancer(id){
@@ -431,6 +432,7 @@
     ensureMarkers();
     renderRoster();
     renderFilmstrip();
+    renderLayoutGhost();
   }
 
   function renameDancer(id, name){

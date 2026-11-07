@@ -39,7 +39,7 @@ function db(): PDO {
 
 /** MySQL/MariaDB table layout, mirroring schema.sql (keep both in sync). db_ensure_schema_mysql()
  *  creates a missing table from it and adds any column an existing table lacks. Starter rows
- *  (figures/layouts seeds) stay in schema.sql only. */
+ *  (figures seeds) stay in schema.sql only. */
 const DB_MYSQL_TABLES = [
     'shares' => [
         'columns' => [

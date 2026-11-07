@@ -112,13 +112,7 @@ ALTER TABLE layouts ADD COLUMN IF NOT EXISTS origin_y FLOAT NOT NULL DEFAULT 0;
 -- turns the shape around, and rendered client-side as its own distinct, grabbable ghost point
 -- alongside the per-dancer ones. Defaults to (0,0), matching the previous fixed pivot exactly, so
 -- existing rows/behavior are unaffected until an admin deliberately repositions it.
-INSERT INTO layouts (id, name, description, positions_json, origin_x, origin_y, sort_order) VALUES
-  ('lay-reihe', 'Reihe', 'Eine gerade Linie.',
-   '[{"x":-7,"y":0},{"x":-5,"y":0},{"x":-3,"y":0},{"x":-1,"y":0},{"x":1,"y":0},{"x":3,"y":0},{"x":5,"y":0},{"x":7,"y":0}]', 0, 0, 1),
-  ('lay-kreis', 'Kreis', 'Gleichmäßig auf einem Kreis verteilt.',
-   '[{"x":0,"y":-4.5},{"x":3.2,"y":-3.2},{"x":4.5,"y":0},{"x":3.2,"y":3.2},{"x":0,"y":4.5},{"x":-3.2,"y":3.2},{"x":-4.5,"y":0},{"x":-3.2,"y":-3.2}]', 0, 0, 2),
-  ('lay-v-form', 'V-Form', 'Spitze nach vorn, nach hinten geöffnet.',
-   '[{"x":0,"y":4},{"x":-2,"y":2},{"x":2,"y":2},{"x":-4,"y":0},{"x":4,"y":0},{"x":-6,"y":-2},{"x":6,"y":-2},{"x":0,"y":-4}]', 0, 0, 3),
-  ('lay-doppelreihe', 'Doppelreihe', 'Zwei versetzte Reihen hintereinander.',
-   '[{"x":-6,"y":1.5},{"x":-3,"y":1.5},{"x":0,"y":1.5},{"x":3,"y":1.5},{"x":6,"y":1.5},{"x":-4.5,"y":-1.5},{"x":-1.5,"y":-1.5},{"x":1.5,"y":-1.5},{"x":4.5,"y":-1.5}]', 0, 0, 4)
-ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+-- No seed rows: the Grundformen (Reihe, Kreis, V-Form, …) are generated client-side for the
+-- choreo's pair count (LAYOUT_SHAPES in js/stage.js). This table only holds admin-made Vorlagen;
+-- the client hides the old seed ids lay-reihe/lay-kreis/lay-v-form/lay-doppelreihe if still present.
