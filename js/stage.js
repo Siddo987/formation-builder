@@ -115,9 +115,14 @@
     });
   }
 
+  // The positions the stage shows right now — not always the Bild's own: playback and a held
+  // pause/scrub (pausedAt) show in-between positions.
+  var shownPosMap = null;
+
   function positionMarkers(posMap){
     // The stage shows something else now – a held pause (playback.js) can't resume from there.
     if(!playing && pausedAt){ pausedAt = null; updateProgress(idleTimelinePct()); }
+    shownPosMap = posMap;
     function place(el, pos){
       el.style.left = gridToPercent(pos.x) + '%';
       el.style.top = gridToPercent(pos.y) + '%';
@@ -189,10 +194,10 @@
         var p = currentFormation().pos[id];
         startPositions[id] = {x: p.x, y: p.y};
       });
-      var grabStart = {
-        x: percentToGrid(parseFloat(marker.style.left)),
-        y: percentToGrid(parseFloat(marker.style.top))
-      };
+      // The group's centroid in the Bild itself (where the cross sits unless a held pause shows
+      // in-between positions): the first move then puts that centroid right under the pointer.
+      var grabStart = {x: 0, y: 0};
+      groupIds.forEach(function(id){ grabStart.x += startPositions[id].x/groupIds.length; grabStart.y += startPositions[id].y/groupIds.length; });
       function onMove(ev){
         var rect = stageEl.getBoundingClientRect();
         var px = ((ev.clientX-rect.left)/rect.width)*100;
@@ -747,7 +752,9 @@
   }
 
   function updatePairRotateUI(){
-    updatePairMidpointMarker(currentFormation().pos);
+    // While paused mid-move the markers stand between two Bilder — the cross has to sit between
+    // them there too, not at the Bild's own positions.
+    updatePairMidpointMarker(pausedAt && shownPosMap || currentFormation().pos);
     updatePairTurnUI();
     updatePairSpinUI();
     // "Paar lösen/koppeln" is offered for exactly one saved pair, or one partner of a split pair.
