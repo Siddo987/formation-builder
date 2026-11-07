@@ -400,7 +400,7 @@
      ========================================================================================== */
 
   var HIST_CAP = 80;
-  var histEntries = [];   // [{ts, author, snapshot, summary}]  oldest -> newest
+  var histEntries = [];   // [{ts, author, snapshot, view, viewOnly, summary}]  oldest -> newest
   var histPointer = -1;   // index of the entry that equals the current live state
   var histKey = null;     // per-project key
   var histLoaded = false;
@@ -461,22 +461,64 @@
       // made in another tab / before history existed).
       var snap = serializableState(state);
       if(!histEntries.length || !hEq(stripVolatile(histEntries[histPointer] && histEntries[histPointer].snapshot), stripVolatile(snap))){
-        histEntries.push({ts: Date.now(), author: currentAuthor(), snapshot: snap, summary: histEntries.length ? 'Stand beim Öffnen' : 'Ausgangsstand'});
-        if(histEntries.length > HIST_CAP) histEntries = histEntries.slice(-HIST_CAP);
+        histEntries.push({ts: Date.now(), author: currentAuthor(), snapshot: snap, view: histSelection(), summary: histEntries.length ? 'Stand beim Öffnen' : 'Ausgangsstand'});
+        histTrim();
         histPointer = histEntries.length - 1;
         histPersist();
+      }else{
+        // Bild and selection are this session's — the first click mustn't be measured against a stale one.
+        histEntries[histPointer].snapshot.activeIndex = state.activeIndex;
+        histEntries[histPointer].view = histSelection();
       }
       histLoaded = true;
       updateHistoryUI();
     });
   }
 
-  // activeIndex is view state, not content — never let it alone trigger a history entry.
+  // activeIndex is view state, not content — compared separately (histView), so content diffs ignore it.
   function stripVolatile(snap){
     if(!snap) return snap;
     var c = hClone(snap);
     c.activeIndex = 0;
     return c;
+  }
+
+  // The view — shown Bild + selected dancers — is an undo step of its own (#2020), kept next to the
+  // snapshot because the selection isn't part of the project.
+  function histSelection(){ return {sel: selectedDancerId, ps: pairSelection.slice()}; }
+  function histView(){ var v = histSelection(); v.i = state.activeIndex; return v; }
+  function entryView(e){
+    var v = e.view || {sel: null, ps: []};
+    return {sel: v.sel, ps: v.ps, i: e.snapshot.activeIndex || 0};
+  }
+  function viewSummary(a, b){
+    var parts = [];
+    if(a.i !== b.i) parts.push('Zu ' + bildLabel(state, (state.formations[b.i] || {}).id) + ' gewechselt');
+    if(a.sel !== b.sel || !hEq(a.ps, b.ps)){
+      var ids = b.ps.length ? b.ps : (b.sel == null ? [] : [b.sel]);
+      parts.push(!ids.length ? 'Auswahl aufgehoben'
+        : 'Ausgewählt: ' + ids.slice(0, 3).map(markerDisplayName).join(', ') + (ids.length > 3 ? ' + ' + (ids.length - 3) + ' weitere' : ''));
+    }
+    return parts.join(' · ');
+  }
+  // Oldest view steps go first, so clicking around doesn't push the actual edits out of reach.
+  function histTrim(){
+    while(histEntries.length > HIST_CAP){
+      var i = histEntries.findIndex(function(e, k){ return e.viewOnly && k < histEntries.length - 1; });
+      histEntries.splice(Math.max(i, 0), 1);
+    }
+  }
+
+  // Called from updatePairRotateUI (js/stage.js), which every Bild switch and selection change
+  // runs through: records the new view right away, unless an edit is still pending (its entry
+  // then takes the view along), playback is running or the playbar is being dragged.
+  function noteHistoryView(){
+    if(suppressHistoryCapture || !histLoaded || playing || playScrubEl.classList.contains('dragging')) return;
+    var cur = histEntries[histPointer];
+    if(hEq(entryView(cur), histView())) return;
+    if(!hEq(stripVolatile(cur.snapshot), stripVolatile(serializableState(state)))) return;
+    clearTimeout(histCaptureTimer);
+    captureHistory();
   }
 
   function captureHistorySoon(){
@@ -489,14 +531,15 @@
     histCaptureTimer = null;
     if(suppressHistoryCapture || !histLoaded) return;
     var snap = serializableState(state);
-    var cur = histEntries[histPointer] && histEntries[histPointer].snapshot;
-    if(cur && hEq(stripVolatile(cur), stripVolatile(snap))) return;
-    var changes = diffStates(cur, snap);
-    if(!changes.length) return;
+    var curEntry = histEntries[histPointer];
+    var cur = curEntry && curEntry.snapshot;
+    var changes = cur && hEq(stripVolatile(cur), stripVolatile(snap)) ? [] : diffStates(cur, snap);
+    var summary = changes.length ? summarizeDiff(changes) : (cur && !playing ? viewSummary(entryView(curEntry), histView()) : '');
+    if(!summary) return;
     // drop any redo tail, then append
     if(histPointer < histEntries.length - 1) histEntries = histEntries.slice(0, histPointer + 1);
-    histEntries.push({ts: Date.now(), author: currentAuthor(), snapshot: snap, summary: summarizeDiff(changes)});
-    if(histEntries.length > HIST_CAP) histEntries = histEntries.slice(-HIST_CAP);
+    histEntries.push({ts: Date.now(), author: currentAuthor(), snapshot: snap, view: histSelection(), viewOnly: !changes.length, summary: summary});
+    histTrim();
     histPointer = histEntries.length - 1;
     histPersist();
     updateHistoryUI();
@@ -504,24 +547,42 @@
 
   function historyCanUndo(){ return histLoaded && histPointer > 0; }
   function historyCanRedo(){ return histLoaded && histPointer < histEntries.length - 1; }
-  // Short label of the most recent change — js/share.js uses it as a commit note.
-  function lastEditSummary(){ return (histEntries[histPointer] && histEntries[histPointer].summary) || ''; }
+  // Short label of the most recent change — js/share.js uses it as a commit note (view steps don't count).
+  function lastEditSummary(){
+    for(var i = histPointer; i >= 0; i--) if(!histEntries[i].viewOnly) return histEntries[i].summary || '';
+    return '';
+  }
 
   function historyGoto(index){
     if(!histLoaded || index < 0 || index >= histEntries.length || index === histPointer) return;
     histPointer = index;
     clearTimeout(histCaptureTimer); histCaptureTimer = null;
     suppressHistoryCapture = true;
+    var e = histEntries[index], v = entryView(e);
     try{
-      applyState(hClone(histEntries[index].snapshot), {keepBinding: true, keepBlobs: true});
+      // A step that only changed the view mustn't re-render everything (and reload the song).
+      if(hEq(stripVolatile(e.snapshot), stripVolatile(serializableState(state)))){
+        if(v.i !== state.activeIndex) selectFormation(Math.min(v.i, state.formations.length - 1));
+      }else{
+        applyState(hClone(e.snapshot), {keepBinding: true, keepBlobs: true});
+      }
+      selectedDancerId = v.sel;
+      pairSelection = v.ps.slice();
+      ensureMarkers();
+      updatePairRotateUI();
     }finally{
       suppressHistoryCapture = false;
     }
     histPersist();
     updateHistoryUI();
   }
-  function historyUndo(){ if(historyCanUndo()) historyGoto(histPointer - 1); }
-  function historyRedo(){ if(historyCanRedo()) historyGoto(histPointer + 1); }
+  // An edit still in a save/capture debounce becomes its entry first, so undo takes back exactly it.
+  function flushHistoryCapture(){
+    saveStateDebounced.flush();
+    if(histCaptureTimer){ clearTimeout(histCaptureTimer); captureHistory(); }
+  }
+  function historyUndo(){ flushHistoryCapture(); if(historyCanUndo()) historyGoto(histPointer - 1); }
+  function historyRedo(){ flushHistoryCapture(); if(historyCanRedo()) historyGoto(histPointer + 1); }
 
   /* ---------- author nickname (per browser, editable) ---------- */
 

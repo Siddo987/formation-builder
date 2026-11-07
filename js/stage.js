@@ -916,6 +916,7 @@
   }
 
   function updatePairRotateUI(){
+    if(typeof noteHistoryView === 'function') noteHistoryView(); // a new Bild or selection is an undo step (js/history.js)
     // While paused mid-move the markers stand between two Bilder — the cross has to sit between
     // them there too, not at the Bild's own positions.
     updatePairMidpointMarker(pausedAt && shownPosMap || currentFormation().pos);
