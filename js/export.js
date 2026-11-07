@@ -792,17 +792,19 @@
       var cy = gy(pos.y);
       var rot = pos.rot || 0;
 
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(rot*Math.PI/180);
-      ctx.beginPath();
-      ctx.moveTo(-4, -r-2);
-      ctx.lineTo(4, -r-2);
-      ctx.lineTo(0, -r-9);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(255,255,255,.92)';
-      ctx.fill();
-      ctx.restore();
+      if(showFacing){
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rot*Math.PI/180);
+        ctx.beginPath();
+        ctx.moveTo(-4, -r-2);
+        ctx.lineTo(4, -r-2);
+        ctx.lineTo(0, -r-9);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,.92)';
+        ctx.fill();
+        ctx.restore();
+      }
 
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,.4)';

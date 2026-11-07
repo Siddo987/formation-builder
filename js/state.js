@@ -3,6 +3,10 @@
 var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96b3f','#a688c9'];
   var STORAGE_KEY = 'aufstellung-choreo-v2';
   var prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Blickrichtungs-Pfeile an den Punkten (Bühne und Video) — a choice per device, not part of the project.
+  var FACING_KEY = 'aufstellung.showFacing';
+  var showFacing = true;
+  try{ showFacing = localStorage.getItem(FACING_KEY) !== '0'; }catch(e){}
 
   var GRID_MIN = -7, GRID_MAX = 7, GRID_SPAN = 14, GRID_INSET = 6;
   var SVG_NS = 'http://www.w3.org/2000/svg';

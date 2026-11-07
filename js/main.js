@@ -148,6 +148,18 @@
     saveState();
   });
 
+  var facingToggle = document.getElementById('facingToggle');
+  function applyFacingVisibility(){
+    document.body.classList.toggle('hide-facing', !showFacing);
+    facingToggle.checked = showFacing;
+  }
+  facingToggle.addEventListener('change', function(){
+    showFacing = facingToggle.checked;
+    try{ localStorage.setItem(FACING_KEY, showFacing ? '1' : '0'); }catch(e){}
+    applyFacingVisibility();
+  });
+  applyFacingVisibility();
+
   /* ---------- wiring ---------- */
 
   addDancerBtn.addEventListener('click', addDancer);
