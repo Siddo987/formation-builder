@@ -193,7 +193,7 @@
   body.share-readonly .stage-area,
   body.share-readonly .roster,
   body.share-readonly .project-name-field{pointer-events:none;opacity:.94;}
-  body.share-readonly #resetBtn,
+  body.share-readonly #deleteChoreoBtn,
   body.share-readonly #importBtn,
   body.share-readonly #markerBtn,
   body.share-readonly #historyUndoBtn,

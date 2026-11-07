@@ -76,6 +76,10 @@ if ('serviceWorker' in navigator) {
     <!-- Desktop: Knopfleiste. Handy/Tablet hoch: Aufklappmenü hinter „Mehr“ -->
     <div class="topbar-actions" id="topbarMenu">
       <div class="tb-group">
+        <button class="btn-ghost btn-icon-only" id="newChoreoBtn" type="button" aria-label="Neue Choreo" title="Neue Choreo (die aktuelle bleibt unter „Öffnen“ gespeichert)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M12 12v6"/><path d="M9 15h6"/></svg>
+          <span class="lbl">Neue Choreo</span>
+        </button>
         <button class="btn-ghost" id="importBtn" type="button" title="Projekt öffnen">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
           <span class="lbl">Öffnen</span>
@@ -99,9 +103,9 @@ if ('serviceWorker' in navigator) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.830 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span class="lbl">Einstellungen</span>
         </button>
-        <button class="btn-ghost btn-icon-only danger" id="resetBtn" type="button" aria-label="Neues Projekt" title="Neues Projekt">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M12 12v6"/><path d="M9 15h6"/></svg>
-          <span class="lbl">Neues Projekt</span>
+        <button class="btn-ghost btn-icon-only danger" id="deleteChoreoBtn" type="button" aria-label="Choreo löschen" title="Choreo löschen">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          <span class="lbl">Choreo löschen</span>
         </button>
       </div>
     </div>
@@ -469,16 +473,16 @@ if ('serviceWorker' in navigator) {
 <div class="modal-backdrop" id="resetBackdrop" hidden>
   <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
     <div class="modal-header">
-      <h2 id="resetTitle">Choreografie wirklich zurücksetzen?</h2>
+      <h2 id="resetTitle">Choreo wirklich löschen?</h2>
       <button class="modal-close" id="resetCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
     <div class="modal-body">
-      <p class="settings-hint">Das löscht <strong>alle</strong> Tänzer, Bilder, das Logo und das Lied dieses Projekts und ersetzt sie durch ein leeres Beispielprojekt.</p>
-      <p class="settings-hint">Ein zurückgesetztes Projekt zählt als neu — der Verlauf (Rückgängig/Wiederherstellen) beginnt dann bei null und kann nicht mehr zum alten Stand zurück. Ein zuvor per Link geteiltes Projekt bleibt für alle, die den Link haben, unverändert erhalten — nur diese Ansicht hier wird zurückgesetzt.</p>
+      <p class="settings-hint">Das löscht diese Choreo mit <strong>allen</strong> Tänzern, Bildern, dem Logo und dem Lied von diesem Gerät — auch aus der Liste unter „Öffnen“. Danach geht ein leeres Beispielprojekt auf.</p>
+      <p class="settings-hint">Der Verlauf (Rückgängig/Wiederherstellen) kann nicht mehr zum gelöschten Stand zurück. Eine zuvor per Link geteilte Choreo bleibt für alle, die den Link haben, unverändert erhalten — nur die Kopie auf diesem Gerät wird gelöscht. Wenn du nur eine weitere Choreo anfangen willst, nimm stattdessen „Neue Choreo“.</p>
       <label class="toggle-label"><input type="checkbox" id="resetConfirmCheckbox"> Mir ist klar, dass das nicht rückgängig gemacht werden kann.</label>
       <div class="filename-actions">
         <button class="btn-ghost" id="resetCancelBtn" type="button">Abbrechen</button>
-        <button class="btn-ghost danger" id="resetConfirmBtn" type="button" disabled>Zurücksetzen</button>
+        <button class="btn-ghost danger" id="resetConfirmBtn" type="button" disabled>Löschen</button>
       </div>
     </div>
   </div>

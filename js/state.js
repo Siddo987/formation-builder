@@ -446,8 +446,13 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     try{
       var tabId = null, openId = null;
       try{ tabId = sessionStorage.getItem(TAB_PROJECT_KEY); }catch(e){}
-      // ?project=<localId>: the "Öffnen" list (js/export.js) reloads the page into that project.
-      try{ openId = new URLSearchParams(location.search).get('project'); }catch(e){}
+      // ?project=<localId>: the "Öffnen" list (js/export.js) reloads the page into that project;
+      // ?neu: „Neue Choreo“ does, into a fresh one.
+      try{
+        var params = new URLSearchParams(location.search);
+        if(params.has('neu')) return defaultState();
+        openId = params.get('project');
+      }catch(e){}
       var raw = (openId && localStorage.getItem(projectStorageKey(openId))) ||
         (tabId && localStorage.getItem(projectStorageKey(tabId))) || localStorage.getItem(STORAGE_KEY);
       if(!raw) return defaultState();
@@ -777,12 +782,13 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   }
 
   var state = loadState();
-  // ?project= has done its job once loadState() read it; a reload goes by sessionStorage again.
+  // ?project= / ?neu have done their job once loadState() read them; a reload goes by sessionStorage again.
   (function(){
     try{
       var params = new URLSearchParams(location.search);
-      if(!params.has('project')) return;
+      if(!params.has('project') && !params.has('neu')) return;
       params.delete('project');
+      params.delete('neu');
       var rest = params.toString();
       history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
     }catch(e){}
@@ -856,7 +862,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var importBtn = document.getElementById('importBtn');
   var importInput = document.getElementById('importInput');
   var importErrorEl = document.getElementById('importError');
-  var resetBtn = document.getElementById('resetBtn');
+  var newChoreoBtn = document.getElementById('newChoreoBtn');
+  var deleteChoreoBtn = document.getElementById('deleteChoreoBtn');
   var projectNameInput = document.getElementById('projectNameInput');
   var settingsBtn = document.getElementById('settingsBtn');
   var settingsBackdrop = document.getElementById('settingsBackdrop');

@@ -583,10 +583,19 @@
     e.target.value = '';
   });
 
-  // Resetting wipes the entire project (every Bild, dancer, axis, logo, song — replaced wholesale by
-  // defaultState()) and, unlike the app's other destructive actions, isn't really undoable: the
-  // fresh project gets its own localId, so js/history.js's undo/redo starts a brand new timeline
-  // rather than being able to step back into the one that just got replaced (see historyKeyFor()).
+  // „Neue Choreo“: the current one stays saved on this device (the „Öffnen“ list) and the page
+  // reloads into a fresh project (?neu, see loadState()) — not swapped in place, for the same
+  // reason as openLocalProject() above.
+  newChoreoBtn.addEventListener('click', function(){
+    saveStateDebounced.flush();
+    writeLocalProject();
+    location.assign(location.pathname + '?neu');
+  });
+
+  // „Choreo löschen“ wipes the entire project (every Bild, dancer, axis, logo, song — replaced
+  // wholesale by defaultState()) and, unlike the app's other destructive actions, isn't really
+  // undoable: the fresh project gets its own localId, so js/history.js's undo/redo starts a brand
+  // new timeline rather than being able to step back into the one that just got replaced (see historyKeyFor()).
   // That's a lot more consequential than the two-click arm-then-confirm pattern used for deleting
   // one dancer or one Bild, so this gets a real modal instead — explicit consequences spelled out,
   // and the confirm button stays disabled until a checkbox acknowledges there's no undoing it.
@@ -603,7 +612,7 @@
   }
   function closeResetModal(){ resetBackdrop.hidden = true; }
 
-  resetBtn.addEventListener('click', openResetModal);
+  deleteChoreoBtn.addEventListener('click', openResetModal);
   resetCloseBtn.addEventListener('click', closeResetModal);
   resetCancelBtn.addEventListener('click', closeResetModal);
   resetBackdrop.addEventListener('click', function(e){ if(e.target === resetBackdrop) closeResetModal(); });
@@ -650,7 +659,8 @@
     document.body.classList.toggle('exporting', active);
     exportBtn.disabled = active;
     importBtn.disabled = active;
-    resetBtn.disabled = active;
+    newChoreoBtn.disabled = active;
+    deleteChoreoBtn.disabled = active;
     settingsBtn.disabled = active;
     playBtn.disabled = active || state.formations.length < 2;
   }
