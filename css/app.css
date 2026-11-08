@@ -995,6 +995,9 @@ body.roster-open .roster{display:flex;}
   padding:0 .45rem;font-size:.78rem;text-align:center;
 }
 .between-rename-input:focus{outline:2px solid var(--accent);border-color:transparent;}
+.note-input{display:block;width:min(320px,calc(100vw - 2.5rem));border:1px solid var(--line);border-radius:6px;background:var(--panel-2);padding:.4rem .5rem;font:inherit;font-size:.82rem;resize:vertical;}
+.note-input:focus{outline:2px solid var(--accent);border-color:transparent;}
+.note-toggle.active{border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:var(--accent-wash);color:var(--accent-ink);}
 .speed-curve-popover{
   position:fixed;z-index:50;width:290px;max-width:calc(100vw - 16px);
   display:flex;flex-direction:column;gap:.4rem;

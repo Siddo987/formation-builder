@@ -307,6 +307,7 @@
   .step-dot-between.step-dot-follow{border-color:#8a7c9c;}
   .step-legend{margin:-.6rem 0 1rem; font-size:.8rem; color:#6b6178;}
   .step-between-line{margin:.15rem 0 0; font-size:.78rem; font-style:italic; color:#999;}
+  .step-note{margin:.25rem 0 0; padding-left:.4rem; border-left:2px solid #bbb; font-size:.8rem; color:#333; white-space:pre-wrap;}
   .step-secondary{margin:.3rem 0 0; font-size:.8rem; font-style:italic; color:#999;}
 
   @media print{

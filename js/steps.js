@@ -154,7 +154,7 @@
     return diagram;
   }
 
-  function buildStepCard(formationIdx, formation, primary, secondary, coupleSplits, showContext){
+  function buildStepCard(formationIdx, formation, primary, secondary, coupleSplits, showContext, showNotes){
     var card = document.createElement('div');
     card.className = 'step-card';
     var fk = followKey(primary.id);
@@ -209,6 +209,15 @@
       addCoords(info, primaryPos, coupleSplits ? 'Lead & Follow' : '', false);
     }
 
+    function addNote(text){
+      if(!text) return;
+      var note = document.createElement('p');
+      note.className = 'step-note';
+      note.textContent = text;
+      info.appendChild(note);
+    }
+    if(showNotes) addNote(formation.note);
+
     // Zwischenpositionen line up right under the main position, in the same order they play in —
     // same "grau x … y … · …" phrasing the source choreography PDF used for its own gray Zusatz-
     // positionen. Uses the between's own name (right-click a chip in the filmstrip to set one) when
@@ -222,6 +231,7 @@
         (fp ? ' · F x ' + fmtSigned(fp.x) + ' y ' + fmtSigned(fp.y) : '') +
         ' · ' + (b.name ? b.name : ('Zwischenposition ' + (i+1)));
       info.appendChild(line);
+      if(showNotes) addNote(b.note);
     });
 
     // Set Drehungen im Paar (keyed by the couple's Lead, see setCoupleTurn in js/stage.js) and
@@ -289,7 +299,7 @@
     return sheets;
   }
 
-  function buildStepsPrintDocument(sheets, showContext){
+  function buildStepsPrintDocument(sheets, showContext, showNotes){
     stepsPrintArea.innerHTML = '';
     sheets.forEach(function(sheet, sheetIdx){
       var title = document.createElement('h2');
@@ -311,7 +321,7 @@
           stepsPrintArea.appendChild(buildStepSectionHeader(cat));
           lastCategory = cat;
         }
-        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.split, showContext));
+        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.split, showContext, showNotes));
       });
     });
   }
@@ -321,8 +331,8 @@
   // print() — modern Chrome's print dialog is asynchronous, print() returns immediately and the
   // preview renders afterward, so restoring on a fixed timer could win the race and hand the dialog
   // the old title back before it ever reads the new one), and opens the print dialog.
-  function printStepsSheets(sheets, title, showContext){
-    buildStepsPrintDocument(sheets, showContext);
+  function printStepsSheets(sheets, title, showContext, showNotes){
+    buildStepsPrintDocument(sheets, showContext, showNotes);
     var prevTitle = document.title;
     document.title = title;
     window.addEventListener('afterprint', function restoreTitle(){

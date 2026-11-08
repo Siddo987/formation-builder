@@ -60,6 +60,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(spins) out.spins = spins;
       var orbits = sanitizeOrbits(b.orbits);
       if(orbits) out.orbits = orbits;
+      var note = sanitizeNote(b.note);
+      if(note) out.note = note;
       return out;
     });
   }
@@ -108,6 +110,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // that walk round their shared middle on the way to the next stop instead of straight, by `turn`
   // degrees (same sign and limits as a Drehung im Paar), while the middle itself walks straight.
   // A pos key belongs to one group at most.
+  // Notiz (#2055) on a Bild or a Zwischenposition, for the Schritte-PDF. '' = none.
+  var NOTE_MAX = 500;
+  function sanitizeNote(v){ return typeof v === 'string' && v.trim() ? v.slice(0, NOTE_MAX) : ''; }
   function sanitizeOrbits(v){
     if(!Array.isArray(v)) return null;
     var seen = {}, out = [];
@@ -578,6 +583,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         f.spins = sanitizeSpins(f.spins);
         // migration: older saves predate Kreisbahnen (#2067)
         f.orbits = sanitizeOrbits(f.orbits);
+        f.note = sanitizeNote(f.note);
         // migration: older saves predate temporarily split pairs ("Paar lösen") entirely
         f.splitPairs = sanitizeSplitPairs(f.splitPairs);
       });

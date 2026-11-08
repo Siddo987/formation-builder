@@ -839,6 +839,57 @@
     setBetweenAt(fIdx, bIdx, at);
   });
 
+  // Notiz (#2055) on what the stage shows — the Zwischenposition being edited, else the Bild — opened
+  // from the toolbar button, which is marked while there is one. Goes into the Schritte-PDF.
+  var noteBtn = document.getElementById('noteBtn');
+  var notePopoverEl = null;
+  function noteStop(){
+    if(editingBetween) return (state.formations[editingBetween.fIdx].betweens || [])[editingBetween.bIdx] || null;
+    return state.formations[state.activeIndex] || null;
+  }
+  function updateNoteBtn(){
+    var note = (noteStop() || {}).note;
+    noteBtn.classList.toggle('active', !!note);
+    noteBtn.title = note || 'Notiz zu diesem Bild – erscheint auf Wunsch in der Schritte-PDF';
+  }
+  function closeNotePopover(){
+    if(notePopoverEl){ notePopoverEl.remove(); notePopoverEl = null; }
+  }
+  // Keeps the textarea focused, so a click on the button while it's open closes it instead of
+  // closing (blur) and reopening.
+  noteBtn.addEventListener('mousedown', function(e){ if(notePopoverEl) e.preventDefault(); });
+  noteBtn.addEventListener('click', function(){
+    if(notePopoverEl){ notePopoverEl.querySelector('textarea').blur(); return; }
+    var stop = noteStop();
+    if(!stop) return;
+    var pop = document.createElement('div');
+    pop.className = 'between-rename-popover note-popover';
+    var area = document.createElement('textarea');
+    area.className = 'note-input';
+    area.maxLength = NOTE_MAX;
+    area.rows = 4;
+    area.value = stop.note || '';
+    area.placeholder = 'Notiz zu „' + currentFormation().name + '“';
+    area.setAttribute('aria-label', area.placeholder);
+    area.readOnly = !!state.shareReadOnly;
+    pop.appendChild(area);
+    document.body.appendChild(pop);
+    notePopoverEl = pop;
+    var rect = noteBtn.getBoundingClientRect(), w = pop.getBoundingClientRect().width;
+    pop.style.left = Math.min(Math.max(rect.left + rect.width / 2, w / 2 + 8), window.innerWidth - w / 2 - 8) + 'px';
+    pop.style.top = (rect.bottom + 8) + 'px';
+    area.focus();
+    area.addEventListener('input', function(){
+      if(area.value.trim()) stop.note = area.value; else delete stop.note;
+      saveState();
+      updateNoteBtn();
+    });
+    area.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); area.blur(); }
+    });
+    area.addEventListener('blur', closeNotePopover);
+  });
+
   var betweenEditDoneBtn = document.getElementById('betweenEditDoneBtn');
   if(betweenEditDoneBtn) betweenEditDoneBtn.addEventListener('click', exitBetweenEdit);
   // The pencil in the banner — renaming without a right-click, which touch devices don't have.
