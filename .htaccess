@@ -50,8 +50,8 @@
     </FilesMatch>
 
     # ...but a service worker script must NEVER be cached hard — the browser has to
-    # see a changed sw.js on its update check for the kill-switch worker to take
-    # effect. This runs after the .js rule above, so it wins for these names.
+    # see a changed sw.js on its update check for the new worker (offline cache,
+    # formerly the kill-switch) to take effect. This runs after the .js rule above, so it wins for these names.
     <FilesMatch "^(sw|service-worker)\.js$">
         Header set Cache-Control "no-cache, must-revalidate"
     </FilesMatch>

@@ -1,45 +1,56 @@
 /*
- * Kill-switch service worker.
+ * Offline support (#2058): keeps a copy of the app so Aufstellung also opens without a network.
+ * Network first — online, every request goes to the server exactly as before (deploys and ?v=
+ * bumps show up right away); the cache only answers when the network fails. Projects themselves
+ * already live in localStorage/IndexedDB. api/ (share sync) and uploads/ are never cached.
  *
- * An app deployed at this domain BEFORE Aufstellung (a login-screen SPA — "Willkommen
- * zurück / Bitte einloggen", built into /assets/*.js) registered a service worker on
- * this origin. That worker is still installed in visitors' browsers and keeps serving
- * its own cached app shell for every normal navigation — only a hard reload (Ctrl+F5)
- * bypasses it and reaches the real Aufstellung page on the server.
- *
- * This file replaces that worker. Browsers re-fetch the service-worker script on
- * navigation (and at least every 24h), notice these bytes differ, install this, and
- * then: it unregisters itself, deletes every Cache Storage entry the old worker left,
- * and reloads any open tabs against the live server.
- *
- * IMPORTANT: this only works if it sits at the SAME path the old worker was
- * registered at. Check DevTools -> Application -> Service Workers for the old script
- * URL; if it was e.g. /service-worker.js, copy this file to that name too.
- *
- * Keep this file in place (returning HTTP 200) for a good while — weeks — until
- * essentially every returning visitor has loaded the site once more. If the path
- * starts 404ing too early, browsers that haven't updated yet keep the old worker.
+ * This file used to be a kill-switch: an app that lived at this domain before Aufstellung (a
+ * login-screen SPA under /assets/) registered a worker at this path. Browsers that still have it
+ * update to this file, and activate below deletes every cache that isn't ours — its old shell too.
  */
 
-self.addEventListener('install', function () {
+var CACHE = 'aufstellung-shell-v1';
+
+self.addEventListener('install', function (event) {
   self.skipWaiting();
+  // Precache the shell on first install: index.html plus every local file it references.
+  event.waitUntil(caches.open(CACHE).then(function (cache) {
+    return fetch('./', { cache: 'no-cache' }).then(function (res) {
+      if (!res.ok) return;
+      return res.clone().text().then(function (html) {
+        var urls = [];
+        html.replace(/(?:src|href)="([^"#:]+)"/g, function (_m, u) { if (urls.indexOf(u) === -1) urls.push(u); });
+        return cache.put('./', res).then(function () {
+          return Promise.all(urls.map(function (u) { return cache.add(u).catch(function () {}); }));
+        });
+      });
+    });
+  }).catch(function () {}));
 });
 
 self.addEventListener('activate', function (event) {
-  event.waitUntil((async function () {
-    try { await self.registration.unregister(); } catch (e) {}
-    try {
-      var keys = await caches.keys();
-      await Promise.all(keys.map(function (k) { return caches.delete(k); }));
-    } catch (e) {}
-    try {
-      var clients = await self.clients.matchAll({ type: 'window' });
-      clients.forEach(function (client) {
-        try { client.navigate(client.url); } catch (e) {}
-      });
-    } catch (e) {}
-  })());
+  event.waitUntil(caches.keys().then(function (keys) {
+    return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+  }).then(function () { return self.clients.claim(); }));
 });
 
-// Nothing is served from cache anymore — every request goes straight to the network.
-self.addEventListener('fetch', function () {});
+self.addEventListener('fetch', function (event) {
+  var req = event.request;
+  var url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== location.origin || /\/(api|uploads)\//.test(url.pathname)) return;
+  // Every page of the app is index.html (?share=, ?neu …) — one cached copy serves them all.
+  var shell = req.mode === 'navigate' && /\/(index\.html)?$/.test(url.pathname);
+  var key = shell ? './' : req;
+  event.respondWith(fetch(req).then(function (res) {
+    if (res.ok && res.type === 'basic') {
+      var copy = res.clone();
+      caches.open(CACHE).then(function (c) {
+        // Only the newest ?v= of each file is kept.
+        return (shell ? Promise.resolve() : c.delete(req, { ignoreSearch: true })).then(function () { return c.put(key, copy); });
+      }).catch(function () {});
+    }
+    return res;
+  }).catch(function () {
+    return caches.match(key).then(function (hit) { return hit || Response.error(); });
+  }));
+});

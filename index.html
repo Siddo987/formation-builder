@@ -9,20 +9,10 @@
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <meta name="theme-color" content="#16161a">
 <script>
-/* Aufstellung ships no service worker. An app that lived at this domain before it did
-   (a login-screen SPA under /assets/) registered one, and a still-installed copy keeps
-   serving that old app's cached shell on normal reloads — only a hard refresh gets
-   through. See sw.js for the kill-switch that reaches other people's browsers; this
-   runs the moment the real page executes and tears down anything left behind here. */
+/* Offline support (#2058): sw.js keeps a copy of the app for use without a network. Registering
+   it at the root scope also replaces the worker an earlier app at this domain left behind. */
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function (regs) {
-    regs.forEach(function (r) { r.unregister(); });
-  }).catch(function () {});
-  if (window.caches && caches.keys) {
-    caches.keys().then(function (keys) {
-      keys.forEach(function (k) { caches.delete(k); });
-    }).catch(function () {});
-  }
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
 }
 </script>
 <!-- ?v= cache-busts these behind Cloudflare's edge cache (js/css get a 4h max-age there, keyed
