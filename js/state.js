@@ -884,7 +884,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // so a reload before the first edit still finds it.
   try{ if(!localStorage.getItem(projectStorageKey(state.localId))) writeLocalProject(); }catch(e){}
   try{ sessionStorage.setItem(TAB_PROJECT_KEY, state.localId); }catch(e){}
-  hydrateBlobsFromIdb();
+  // Once every script is in: a fast IndexedDB answer could otherwise land before main.js defines
+  // applySongSource (or stage.js updateStageLogo).
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hydrateBlobsFromIdb);
+  else hydrateBlobsFromIdb();
   var selectedDancerId = null;
   // dancerIds chosen via Strg/Cmd-Klick (or auto-populated with a saved pair's members on a plain
   // click) — rotated together around their centroid.
