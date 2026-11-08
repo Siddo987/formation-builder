@@ -661,13 +661,17 @@
   function renderHistoryList(){
     if(!histListEl) return;
     histListEl.innerHTML = '';
+    // Only real changes are listed (#2045) — view steps stay for undo; the current one is the last real change.
+    var cur = histPointer;
+    while(cur > 0 && histEntries[cur].viewOnly) cur--;
     for(var i = histEntries.length - 1; i >= 0; i--){
+      if(i && histEntries[i].viewOnly) continue;
       (function(i){
         var e = histEntries[i];
         var row = document.createElement('button');
         row.type = 'button';
         row.className = 'history-row'
-          + (i === histPointer ? ' history-row--current' : '')
+          + (i === cur ? ' history-row--current' : '')
           + (i === histSelected ? ' history-row--selected' : '')
           + (i > histPointer ? ' history-row--future' : '');
         var t = document.createElement('span');
