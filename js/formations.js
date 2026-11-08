@@ -1053,6 +1053,9 @@
       if(i + 1 < n - 1 && formationTime(next) === null) next.time = snapTime(songTimes[i + 1]);
       f.time = snapTime(paused.songTime);
     }
+    // Default names follow the position: the new one is "Bild i+2", the untouched "Bild N" after it move up one
+    state.formations.forEach(function(g, k){ if(k > i && g.name === 'Bild ' + (k + 1)) g.name = 'Bild ' + (k + 2); });
+    f.name = 'Bild ' + (i + 2);
     state.formations.splice(i + 1, 0, f);
     state.activeIndex = i + 1;
   }
