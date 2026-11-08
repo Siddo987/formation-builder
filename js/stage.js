@@ -930,24 +930,6 @@
         if(canCoupleSplit(dancerId)){ e.preventDefault(); toggleCoupleSplit(dancerId); }
         return;
       }
-      var pos = currentFormation().pos[dancerId];
-      if(!pos) return;
-      var step = e.shiftKey ? 0.5 : 1;
-      var dx = 0, dy = 0, handled = true;
-      if(e.key === 'ArrowLeft') dx = -step;
-      else if(e.key === 'ArrowRight') dx = step;
-      else if(e.key === 'ArrowUp') dy = -step;
-      else if(e.key === 'ArrowDown') dy = step;
-      else handled = false;
-      if(!handled) return;
-      e.preventDefault();
-      dragGroupFor(dancerId).forEach(function(id){
-        var p = currentFormation().pos[id];
-        if(p) setDancerPos(id, p.x+dx, p.y+dy);
-      });
-      selectedDancerId = dancerId;
-      ensureMarkers();
-      saveState();
     });
   }
 
@@ -1380,14 +1362,46 @@
       return;
     }
     if(!pairSelection.length && selectedDancerId == null) return;
-    if(document.querySelector('.modal-backdrop:not([hidden])')) return;
-    if(document.body.classList.contains('menu-open')) return;
-    if(document.querySelector('.speed-curve-popover')) return;
+    if(!selectionKeysFree()) return;
     var ae = document.activeElement;
-    if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
     if(ae && ae.classList && ae.classList.contains('dancer')) ae.blur();
     clearSelection();
   }, true);
+  function selectionKeysFree(){
+    if(document.querySelector('.modal-backdrop:not([hidden])')) return false;
+    if(document.body.classList.contains('menu-open')) return false;
+    if(document.querySelector('.speed-curve-popover')) return false;
+    var ae = document.activeElement;
+    return !(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable));
+  }
+
+  // Pfeiltasten schieben die Auswahl, auch wenn kein Punkt den Fokus hat – nach Strg-Klick (der
+  // den Fokus nicht setzt), Rollen- oder Leisten-Auswahl (#2064); ohne Auswahl den fokussierten
+  // Punkt.
+  document.addEventListener('keydown', function(e){
+    if(e.defaultPrevented || e.altKey || !selectionKeysFree()) return;
+    var pos = currentFormation().pos;
+    if(e.ctrlKey || e.metaKey) return;
+    var step = e.shiftKey ? 0.5 : 1;
+    var dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+    var dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+    if(!dx && !dy) return;
+    var ids = pairSelection.filter(function(id){ return pos[id]; });
+    if(ids.length < 2) ids = pos[selectedDancerId] ? [selectedDancerId] : ids;
+    var ae = document.activeElement;
+    if(!ids.length && ae && ae.classList && ae.classList.contains('dancer')){
+      for(var k in stageMarkers) if(stageMarkers[k] === ae && pos[k]) ids = [k];
+    }
+    if(!ids.length) return;
+    e.preventDefault();
+    if(playing) pausePlayback();
+    ids.forEach(function(id){
+      var p = currentFormation().pos[id];
+      setDancerPos(id, p.x+dx, p.y+dy);
+    });
+    ensureMarkers();
+    saveState();
+  });
 
   /* ---------- Rechtsklick-Menü ----------
      A right-click (or long press) on a dancer, a pair or the selection's cross selects like a plain
