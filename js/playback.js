@@ -262,7 +262,22 @@
       posMap = interpolateThroughBetweens(p0.idx, p1.idx, t);
       activeIdx = t >= 1 ? p1.idx : p0.idx;
     }
-    return {pos: posMap, idx: activeIdx};
+    return {pos: posMap, idx: activeIdx, from: p0.idx, to: p1.idx, t: t};
+  }
+
+  // Where a held pause/scrub stopped in the middle of a move: {fromIdx, t, songTime, sync} — t the
+  // share of the time from Bild fromIdx to the next — or null when it holds on a Bild. New Bilder
+  // and Zwischenpositionen start from there (#2031); read it before anything redraws the stage.
+  function pausedMidMove(){
+    if(playing || !pausedAt) return null;
+    var from = pausedAt.fromIdx, t = pausedAt.t;
+    if(pausedAt.sync){
+      var fr = syncFrameAt(pausedAt.songTime);
+      if(!fr || fr.to !== fr.from + 1) return null;
+      from = fr.from; t = fr.t;
+    }
+    if(!(t > 0 && t < 1) || !state.formations[from + 1]) return null;
+    return {fromIdx: from, t: t, songTime: pausedAt.songTime, sync: pausedAt.sync};
   }
 
   function syncTick(){

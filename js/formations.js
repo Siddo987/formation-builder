@@ -58,7 +58,8 @@
   function applyFigure(figure){
     if(editingBetween){ editingBetween = null; updateBetweenEditBanner(); } // a new Bild always applies to the real timeline, not whatever Zwischenposition was being posed
     var t = figure.transform || {};
-    var srcPos = currentFormation().pos;
+    var paused = pausedMidMove(); // js/playback.js — paused mid-move: applies to the pose shown there
+    var srcPos = paused ? roundedPoseAt(paused.fromIdx, paused.t) : currentFormation().pos;
     var newPos = {};
     Object.keys(srcPos).forEach(function(id){
       newPos[id] = {x:srcPos[id].x, y:srcPos[id].y, rot:srcPos[id].rot||0};
@@ -95,8 +96,7 @@
     // Bild's own fixed "came from here" reference (see renderOnionSkin()), independent of whatever
     // Bild ends up sitting before this one later (reordering, deletes, further edits to srcPos).
     var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: newPos, showAxes: currentFormation().showAxes !== false, localAxes: copyLocalAxes(currentFormation()), category: '', startPos: snapshotPos(srcPos), splitPairs: [] };
-    state.formations.push(f);
-    state.activeIndex = state.formations.length - 1;
+    placeNewBild(f, paused);
     saveState();
     renderFilmstrip();
     positionMarkers(currentFormation().pos);
@@ -584,36 +584,22 @@
     redraw();
   }
 
-  // New Zwischenposition's starting pose: exactly what playback shows at the moment it will be
-  // reached (after the last one so far, untimed, so spread like the others — see betweenAnchors),
-  // split couples and speed curve included — just a seed the user then poses properly by
-  // dragging on the stage, same as a freshly duplicated Bild's pos. A Drehung im Paar or
-  // Eigendrehung set on the leg it lands in is shared out between the two legs it now makes, so the
-  // move still turns as far in total.
-  function addBetween(fIdx){
-    var f = state.formations[fIdx];
-    var next = state.formations[fIdx + 1];
-    if(!f || !next) return;
-    if(!Array.isArray(f.betweens)) f.betweens = [];
-    var before = betweenAnchors(fIdx, fIdx + 1);
-    var leaving = f.betweens.length ? f.betweens[f.betweens.length - 1] : f;
-    f.betweens.push({pos: {}});
-    var after = betweenAnchors(fIdx, fIdx + 1);
-    f.betweens.pop();
-    var target = after[after.length - 2], legStart = before[before.length - 2];
-    var lo = 0, hi = 1;
-    for(var i = 0; i < 40; i++){
-      var mid = (lo + hi) / 2;
-      if(moveEase(fIdx, fIdx + 1, mid) < target) lo = mid; else hi = mid;
-    }
-    var seen = interpolateThroughBetweens(fIdx, fIdx + 1, (lo + hi) / 2);
+  // What playback shows `t` (share of the move's time) into the move out of Bild fIdx, split
+  // couples and speed curve included, rounded like a hand-placed pose.
+  function roundedPoseAt(fIdx, t){
+    var seen = interpolateThroughBetweens(fIdx, fIdx + 1, t);
     var pos = {};
     Object.keys(seen).forEach(function(k){
       var p = seen[k];
       pos[k] = {x: Math.round(p.x*100)/100, y: Math.round(p.y*100)/100, rot: normAngle(Math.round(p.rot*10)/10)};
     });
-    var share = legStart < 1 ? Math.min(1, Math.max(0, (target - legStart) / (1 - legStart))) : 0.5;
-    var between = {id: uid('bw'), name: '', pos: pos};
+    return pos;
+  }
+
+  // A new stop `into` splits the leg `leaving` starts: a Drehung im Paar or Eigendrehung set on it
+  // is shared out — `share` stays on `leaving`, the rest moves on with `into` — so the move still
+  // turns as far in total.
+  function splitLegTurns(leaving, into, share){
     ['coupleTurns', 'spins'].forEach(function(field){
       var set = sanitizeCoupleTurns(leaving[field]);
       if(!set) return;
@@ -623,12 +609,47 @@
         rest[k] = Math.round((set[k] - first[k]) * 10) / 10;
       });
       if(sanitizeCoupleTurns(first)) leaving[field] = sanitizeCoupleTurns(first); else delete leaving[field];
-      if(sanitizeCoupleTurns(rest)) between[field] = sanitizeCoupleTurns(rest);
+      if(sanitizeCoupleTurns(rest)) into[field] = sanitizeCoupleTurns(rest);
     });
-    f.betweens.push(between);
+  }
+
+  // New Zwischenposition's starting pose: exactly what playback shows at the moment it will be
+  // reached — just a seed the user then poses properly by dragging on the stage, same as a freshly
+  // duplicated Bild's pos. Paused in this move: right there, timed to that moment (#2031);
+  // otherwise after the last one so far, untimed, so spread like the others (see betweenAnchors).
+  function addBetween(fIdx){
+    var f = state.formations[fIdx];
+    var next = state.formations[fIdx + 1];
+    if(!f || !next) return;
+    if(!Array.isArray(f.betweens)) f.betweens = [];
+    var paused = pausedMidMove(); // js/playback.js
+    var before = betweenAnchors(fIdx, fIdx + 1);
+    var between = {id: uid('bw'), name: '', pos: {}};
+    var at, idx, target;
+    if(paused && paused.fromIdx === fIdx){
+      at = paused.t;
+      between.at = sanitizeBetweenAt(at);
+      idx = betweenTimes(fIdx).filter(function(bt){ return bt < at; }).length;
+      target = moveEase(fIdx, fIdx + 1, at);
+    }else{
+      idx = f.betweens.length;
+      f.betweens.push({pos: {}});
+      target = betweenAnchors(fIdx, fIdx + 1)[idx + 1];
+      f.betweens.pop();
+      var lo = 0, hi = 1;
+      for(var i = 0; i < 40; i++){
+        var mid = (lo + hi) / 2;
+        if(moveEase(fIdx, fIdx + 1, mid) < target) lo = mid; else hi = mid;
+      }
+      at = (lo + hi) / 2;
+    }
+    between.pos = roundedPoseAt(fIdx, at);
+    var legStart = before[idx], legEnd = before[idx + 1];
+    splitLegTurns(idx ? f.betweens[idx - 1] : f, between, legEnd > legStart ? Math.min(1, Math.max(0, (target - legStart) / (legEnd - legStart))) : 0.5);
+    f.betweens.splice(idx, 0, between);
     saveState();
     renderFilmstrip();
-    enterBetweenEdit(fIdx, f.betweens.length - 1);
+    enterBetweenEdit(fIdx, idx);
   }
 
   function removeBetween(fIdx, bIdx){
@@ -1003,17 +1024,50 @@
     });
   }
 
+  // Where a new Bild goes: to the end — or, paused in the middle of a move (pausedMidMove,
+  // js/playback.js), right there between its two Bilder (#2031). The Zwischenpositionen of that
+  // move after the spot, and the rest of a Drehung on the leg it splits, move on with the new
+  // Bild; with a song in sync it gets that spot in the song as its time marker, and the two Bilder
+  // around it keep theirs, so nothing else in the song shifts.
+  function placeNewBild(f, paused){
+    if(!paused){
+      state.formations.push(f);
+      state.activeIndex = state.formations.length - 1;
+      return;
+    }
+    var i = paused.fromIdx, t = paused.t, prev = state.formations[i], next = state.formations[i + 1];
+    var anchors = betweenAnchors(i, i + 1), times = betweenTimes(i), keep = [], moved = [];
+    (prev.betweens || []).forEach(function(b, k){
+      var own = sanitizeBetweenAt(b.at) !== null;
+      if(times[k] < t){ if(own) b.at = sanitizeBetweenAt(times[k] / t); keep.push(b); }
+      else{ if(own) b.at = sanitizeBetweenAt((times[k] - t) / (1 - t)); moved.push(b); }
+      if(b.at === null) delete b.at;
+    });
+    var legStart = anchors[keep.length], legEnd = anchors[keep.length + 1], target = moveEase(i, i + 1, t);
+    splitLegTurns(keep.length ? keep[keep.length - 1] : prev, f, legEnd > legStart ? Math.min(1, Math.max(0, (target - legStart) / (legEnd - legStart))) : 0.5);
+    prev.betweens = keep;
+    f.betweens = moved;
+    if(paused.sync){
+      var songTimes = syncTimes(), n = state.formations.length;
+      if(i > 0 && formationTime(prev) === null) prev.time = snapTime(songTimes[i]);
+      if(i + 1 < n - 1 && formationTime(next) === null) next.time = snapTime(songTimes[i + 1]);
+      f.time = snapTime(paused.songTime);
+    }
+    state.formations.splice(i + 1, 0, f);
+    state.activeIndex = i + 1;
+  }
+
   function addFormation(){
     if(editingBetween){ editingBetween = null; updateBetweenEditBanner(); }
-    var src = currentFormation();
+    var paused = pausedMidMove(); // js/playback.js
+    var src = currentFormation(), srcPos = paused ? roundedPoseAt(paused.fromIdx, paused.t) : src.pos;
     var copy = {};
-    Object.keys(src.pos).forEach(function(k){ copy[k] = {x:src.pos[k].x, y:src.pos[k].y, rot:src.pos[k].rot||0}; });
+    Object.keys(srcPos).forEach(function(k){ copy[k] = {x:srcPos[k].x, y:srcPos[k].y, rot:srcPos[k].rot||0}; });
     // startPos freezes the position this new Bild starts from (identical to `copy` right now, but
     // kept as an independent object — see snapshotPos — so later dragging dancers within this new
     // Bild, or editing the Bild before it, never changes what this Bild remembers as its own start).
-    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: copy, showAxes: src.showAxes !== false, localAxes: copyLocalAxes(src), category: '', startPos: snapshotPos(src.pos), splitPairs: [] };
-    state.formations.push(f);
-    state.activeIndex = state.formations.length - 1;
+    var f = { id: uid('f'), name: 'Bild ' + (state.formations.length+1), pos: copy, showAxes: src.showAxes !== false, localAxes: copyLocalAxes(src), category: '', startPos: snapshotPos(srcPos), splitPairs: [] };
+    placeNewBild(f, paused);
     saveState();
     renderFilmstrip();
     positionMarkers(currentFormation().pos);
