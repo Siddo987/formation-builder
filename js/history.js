@@ -570,6 +570,7 @@
       pairSelection = v.ps.slice();
       ensureMarkers();
       updatePairRotateUI();
+      updateBetweenEditBanner(); // the restored state may no longer have the Zwischenposition being posed
     }finally{
       suppressHistoryCapture = false;
     }
@@ -748,9 +749,9 @@
     section('Sonstiges', changes.filter(function(c){ return !used[c.path]; }));
   }
 
-  // Every click/tap starts a new undo step (#2027): whatever the last one changed is recorded before
-  // the next handler runs. Typing, slider drags and held keys between two clicks still settle into one.
-  ['pointerdown', 'click'].forEach(function(type){ document.addEventListener(type, flushHistoryCapture, true); });
+  // Every click/tap or focus move (Tab) starts a new undo step (#2027): whatever the last one changed is
+  // recorded before the next handler runs. Typing, slider drags and held keys in one place still settle into one.
+  ['pointerdown', 'click', 'focusin'].forEach(function(type){ document.addEventListener(type, flushHistoryCapture, true); });
   if(histUndoBtn) histUndoBtn.addEventListener('click', historyUndo);
   if(histRedoBtn) histRedoBtn.addEventListener('click', historyRedo);
   if(histOpenBtn) histOpenBtn.addEventListener('click', openHistoryPanel);
