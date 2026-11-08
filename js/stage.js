@@ -1394,7 +1394,9 @@
 
   // Pfeiltasten schieben die Auswahl, auch wenn kein Punkt den Fokus hat – nach Strg-Klick (der
   // den Fokus nicht setzt), Rollen- oder Leisten-Auswahl (#2064); ohne Auswahl den fokussierten
-  // Punkt. Strg/Cmd+A wählt alle Punkte dieses Bilds (#2063).
+  // Punkt. Strg/Cmd+A wählt alle Punkte dieses Bilds (#2063), Strg/Cmd+C/V kopiert die Plätze der
+  // Auswahl in ein anderes Bild (#2069).
+  var posClipboard = null;
   document.addEventListener('keydown', function(e){
     if(e.defaultPrevented || e.altKey || !selectionKeysFree()) return;
     var pos = currentFormation().pos;
@@ -1404,6 +1406,32 @@
       if(pairSelection.indexOf(selectedDancerId) === -1) selectedDancerId = pairSelection[0] || null;
       ensureMarkers();
       updatePairRotateUI();
+      return;
+    }
+    if((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')){
+      var sel = pairSelection.length > 1 ? pairSelection : [selectedDancerId];
+      var copied = {};
+      sel.forEach(function(id){ if(pos[id]) copied[id] = {x: pos[id].x, y: pos[id].y, rot: pos[id].rot || 0}; });
+      if(!Object.keys(copied).length) return;
+      e.preventDefault();
+      posClipboard = copied;
+      return;
+    }
+    if((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')){
+      // Only dancers this Bild has (anyone deleted since the copy is skipped).
+      var ids2 = posClipboard ? Object.keys(posClipboard).filter(function(id){ return pos[id]; }) : [];
+      if(!ids2.length) return;
+      e.preventDefault();
+      if(playing) pausePlayback();
+      ids2.forEach(function(id){ var c = posClipboard[id]; pos[id] = {x: c.x, y: c.y, rot: c.rot}; });
+      pairSelection = ids2.length > 1 ? ids2 : [];
+      selectedDancerId = ids2[0];
+      positionMarkers(pos);
+      updateMiniDots(state.activeIndex);
+      refreshRosterCoords();
+      ensureMarkers();
+      updatePairRotateUI();
+      saveState();
       return;
     }
     if(e.ctrlKey || e.metaKey) return;
