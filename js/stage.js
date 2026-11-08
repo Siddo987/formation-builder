@@ -324,6 +324,79 @@
     addDots(prev ? prev.pos : null, 'onion-dot-prev', false);
     var next = state.formations[state.activeIndex + 1];
     addDots(next ? next.pos : null, 'onion-dot-next', true);
+    renderPathLines(layer);
+  }
+
+  // Weglinien (#2056) and the too-close warning (#2057), switched per device like the audio delay:
+  // the move out of the shown Bild, sampled the way playback runs it — Zwischenpositionen,
+  // Drehungen and Kreisbahnen included.
+  var PATHS_KEY = 'aufstellung-paths', CLASH_KEY = 'aufstellung-clash';
+  var PATH_SAMPLES = 48, CLASH_DIST = 1; // grid units, about a metre
+  var pathsToggle = document.getElementById('pathsToggle'), clashToggle = document.getElementById('clashToggle');
+  try{
+    pathsToggle.checked = localStorage.getItem(PATHS_KEY) === '1';
+    clashToggle.checked = localStorage.getItem(CLASH_KEY) === '1';
+  }catch(e){}
+  [[pathsToggle, PATHS_KEY], [clashToggle, CLASH_KEY]].forEach(function(t){
+    t[0].addEventListener('change', function(){
+      try{ localStorage.setItem(t[1], t[0].checked ? '1' : '0'); }catch(e){}
+      renderOnionSkin();
+    });
+  });
+  function renderPathLines(layer){
+    var fIdx = state.activeIndex, f = state.formations[fIdx], next = state.formations[fIdx + 1];
+    if(!next || (!pathsToggle.checked && !clashToggle.checked)) return;
+    var frames = [];
+    for(var i = 0; i <= PATH_SAMPLES; i++) frames.push(interpolateThroughBetweens(fIdx, fIdx + 1, i / PATH_SAMPLES));
+    function at(w, k){ return w[k] || w[baseDancerId(k)]; }
+    var keys = [];
+    state.dancers.forEach(function(d){
+      if(!f.pos[d.id] || !next.pos[d.id]) return;
+      keys.push({k: d.id, d: d});
+      if(frames.some(function(w){ return w[followKey(d.id)]; })) keys.push({k: followKey(d.id), d: d});
+    });
+    if(pathsToggle.checked){
+      var svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('class', 'path-lines');
+      svg.setAttribute('viewBox', '0 0 100 100');
+      svg.setAttribute('preserveAspectRatio', 'none');
+      keys.forEach(function(e){
+        var line = document.createElementNS(SVG_NS, 'polyline');
+        line.setAttribute('points', frames.map(function(w){ var p = at(w, e.k); return gridToPercent(p.x).toFixed(2) + ',' + gridToPercent(p.y).toFixed(2); }).join(' '));
+        line.setAttribute('stroke', e.d.color);
+        if(isFollowKey(e.k)) line.setAttribute('stroke-dasharray', '4 3');
+        svg.appendChild(line);
+      });
+      layer.appendChild(svg);
+    }
+    if(!clashToggle.checked) return;
+    // Only what the walk itself causes: two points that get closer on the way than in any of the
+    // poses they were placed in (the Bilder and Zwischenpositionen), and closer than CLASH_DIST.
+    var stops = [f].concat(f.betweens || [], [next]);
+    function partners(a, b){
+      return baseDancerId(a) === baseDancerId(b) || (state.pairs || []).some(function(p){
+        return p.memberIds.indexOf(baseDancerId(a)) !== -1 && p.memberIds.indexOf(baseDancerId(b)) !== -1;
+      });
+    }
+    function dist(w, a, b){ var p = at(w, a), q = at(w, b); return p && q ? Math.hypot(p.x - q.x, p.y - q.y) : Infinity; }
+    keys.forEach(function(ea, i){
+      keys.slice(i + 1).forEach(function(eb){
+        if(partners(ea.k, eb.k)) return;
+        var posed = Math.min.apply(null, stops.map(function(s){ return dist(s.pos || {}, ea.k, eb.k); }));
+        var min = Infinity, m = -1;
+        frames.forEach(function(w, s){ var d = dist(w, ea.k, eb.k); if(d < min){ min = d; m = s; } });
+        if(min >= CLASH_DIST || min >= posed - 1e-6) return;
+        var p = at(frames[m], ea.k), q = at(frames[m], eb.k);
+        var mark = document.createElement('span');
+        mark.className = 'path-clash';
+        mark.style.left = gridToPercent((p.x + q.x) / 2) + '%';
+        mark.style.top = gridToPercent((p.y + q.y) / 2) + '%';
+        var label = document.createElement('span');
+        label.textContent = markerDisplayName(ea.k) + ' · ' + markerDisplayName(eb.k);
+        mark.appendChild(label);
+        layer.appendChild(mark);
+      });
+    });
   }
 
   // Editable labels around the stage edges (default "WAND"/"SPIEGEL"/"EINGANG"/"FENSTER", matching

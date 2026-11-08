@@ -479,6 +479,10 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
 .onion-dot{position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);}
 .onion-dot-prev{background:#c9c2d6;opacity:.35;}
 .onion-dot-next{opacity:.3;}
+.path-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+.path-lines polyline{fill:none;stroke-width:2;opacity:.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round;}
+.path-clash{position:absolute;width:22px;height:22px;border:2px solid var(--danger);border-radius:50%;transform:translate(-50%,-50%);}
+.path-clash span{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:4px;padding:0 .3rem;border-radius:4px;background:var(--danger);color:#fff;font-size:.65rem;font-weight:700;line-height:1.5;white-space:nowrap;}
 .layout-ghost-layer{position:absolute;inset:0;pointer-events:none;z-index:3;}
 .layout-ghost-dot{
   position:absolute;width:34px;height:34px;border-radius:50%;
