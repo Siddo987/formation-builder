@@ -490,7 +490,7 @@
     select.innerHTML = '';
     var noneOpt = document.createElement('option');
     noneOpt.value = '';
-    noneOpt.textContent = '— Keine Vorlage —';
+    noneOpt.textContent = '— Vorlage einblenden —';
     select.appendChild(noneOpt);
     function addGroup(label, layouts){
       if(!layouts.length) return;

@@ -311,7 +311,7 @@ body.shared #deleteChoreoBtn{display:none;}
 .topbar-actions > .tb-group:first-child{padding-left:0;border-left:none;}
 .tb-history + .topbar-actions{margin-left:.1rem;}
 #shareBtn{margin-left:.35rem;}
-.more-btn{display:none;}
+body.menu-open .more-btn{background:var(--panel-3);color:var(--ink);}
 .menu-scrim{display:none;}
 .import-error{
   color:var(--danger);font-size:.72rem;font-weight:700;
@@ -562,6 +562,8 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 .context-idle span + span::before{content:"·";margin:0 .55em;opacity:.7;}
 .context-idle .hint-touch{display:none;}
 .pair-rotate:not([hidden]) ~ .context-idle{display:none;}
+.help-btn{margin-left:.4rem;border-color:var(--line);border-radius:50%;font-weight:800;color:var(--ink-3);}
+.help-btn:hover{border-color:var(--line-strong);}
 
 .pair-rotate{
   flex:none;margin:0 auto;
@@ -685,6 +687,9 @@ body.roster-open .roster{display:flex;}
 .dancer-row-coords > :nth-child(3){order:5;}
 .dancer-row-coords > :nth-child(6){order:6;}
 .dancer-row-coords .coord-label,.pair-group-midpoint .coord-label{min-width:.7rem;}
+/* Kompakt: X/Y/° nur beim ausgewählten Tänzer (oder solange man darin tippt) */
+.dancer-row:not(.roster-row-selected):not(:focus-within) .dancer-row-coords,
+.dancer-row:not(.roster-row-selected):not(:focus-within) .dancer-row-follow{display:none;}
 .remove-btn{
   flex:none;width:22px;height:22px;
   display:flex;align-items:center;justify-content:center;
@@ -1064,10 +1069,17 @@ body.roster-open .roster{display:flex;}
   }
 }
 
+/* Unsichtbar größere Klickflächen für Tänzer und die kleinen Knöpfe */
+.dancer::after{content:"";position:absolute;inset:-7px;border-radius:50%;}
+.remove-btn,.split-btn,.film-between-add,.film-between-speed{position:relative;}
+.remove-btn::after,.split-btn::after,.film-remove::after,.film-between-add::after,.film-between-speed::after{content:"";position:absolute;}
+.remove-btn::after{inset:-5px -3px;}
+.split-btn::after{inset:-6px -3px;}
+.film-remove::after{inset:-5px;}
+.film-between-add::after,.film-between-speed::after{inset:-3px;}
+
 /* Kopfleiste: Beschriftungen fallen weg, bevor es eng wird */
 @media (max-width:1320px){
-  .tb-collapse .lbl{display:none;}
-  .tb-collapse{width:32px;padding:0;}
   .project-name{width:12rem;}
 }
 @media (max-width:1060px){
@@ -1077,6 +1089,19 @@ body.roster-open .roster{display:flex;}
   .project-name-field{padding-left:0;border-left:none;}
   .pencil-icon{left:.5rem;}
   .tempo-word{display:none;}
+}
+/* Desktop: Seltenes (Neu, Einstellungen, Löschen) im „Mehr“-Menü – Löschen liegt so nicht neben Teilen */
+@media (min-width:900px),(min-width:600px) and (orientation:landscape){
+  .topbar-actions > .tb-rare{
+    display:none;position:absolute;top:calc(100% + 4px);right:.4rem;z-index:70;
+    flex-direction:column;align-items:stretch;gap:1px;min-width:210px;padding:.3rem;
+    background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;
+    box-shadow:0 20px 44px -14px var(--shadow);
+  }
+  body.menu-open .topbar-actions > .tb-rare{display:flex;}
+  .topbar-actions .tb-rare .btn-ghost{width:100%;height:36px;justify-content:flex-start;gap:.7rem;padding:0 .65rem;font-size:.84rem;color:var(--ink);}
+  .topbar-actions .tb-rare .lbl,#markerBtn .lbl{display:inline;}
+  body.menu-open .menu-scrim{display:block;position:fixed;inset:0;z-index:35;}
 }
 
 /* Niedrige Fenster: kleinere Vorschauen */
@@ -1088,7 +1113,7 @@ body.roster-open .roster{display:flex;}
   :root{--tb-h:40px;--row-h:36px;--ctl-h:28px;--film-w:176px;}
   .topbar{gap:.35rem;padding:0 .4rem 0 .6rem;}
   .btn-ghost{height:28px;}
-  .btn-icon-only,.tb-collapse{width:28px;}
+  .btn-icon-only{width:28px;}
   .project-name{height:28px;width:9rem;}
   .brand h1{display:none;}
   .stage-area{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) auto;}
@@ -1130,8 +1155,6 @@ body.roster-open .roster{display:flex;}
   .btn-icon-only{width:36px;}
   #shareBtn{width:36px;padding:0;margin-left:0;}
   #shareBtn .lbl{display:none;}
-  .more-btn{display:inline-flex;}
-  body.menu-open .more-btn{background:var(--panel-3);color:var(--ink);}
   #historyBtn{display:none;}
 
   /* „Mehr“-Menü: die Desktop-Knopfleiste als Liste */
@@ -1151,12 +1174,12 @@ body.roster-open .roster{display:flex;}
   .topbar-actions > .tb-group + .tb-group{padding-left:0;border-top:1px solid var(--line);}
   .topbar-actions > .tb-group:first-child{padding-top:0;}
   .topbar-actions > .tb-group:last-child{padding-bottom:0;}
-  .topbar-actions .btn-ghost,.topbar-actions .tb-collapse,.topbar-actions .btn-icon-only{
+  .topbar-actions .btn-ghost,.topbar-actions .btn-icon-only{
     width:100%;height:40px;justify-content:flex-start;gap:.7rem;padding:0 .65rem;
     font-size:.86rem;color:var(--ink);
   }
   .topbar-actions .btn-ghost svg{color:var(--ink-2);}
-  .topbar-actions .lbl,.topbar-actions .tb-collapse .lbl{display:inline;}
+  .topbar-actions .lbl{display:inline;}
   .topbar-actions .btn-ghost.danger:hover{color:var(--danger);}
   .topbar-actions .btn-ghost.danger:hover svg{color:var(--danger);}
   #markerBtn.has-warning::after{top:12px;left:22px;right:auto;}
@@ -1169,7 +1192,8 @@ body.roster-open .roster{display:flex;}
   }
 
   /* Bühne */
-  .stage-toolbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:.35rem .7rem;}
+  /* Eine Zeile, wo es passt – sonst Umbruch; Scrollen nur noch als Notnagel */
+  .stage-toolbar{overflow-x:auto;scrollbar-width:none;padding:.3rem .5rem;row-gap:.3rem;}
   .stage-toolbar::-webkit-scrollbar{display:none;}
   .stage-toolbar > *{flex:none;}
   .stage-toolbar-spacer{flex:1 0 0;}
@@ -1177,9 +1201,13 @@ body.roster-open .roster{display:flex;}
   .stage-toolbar:has(> .layout-select-wrap:not([hidden])):has(> .between-edit-banner:not([hidden])){flex-wrap:wrap;row-gap:.35rem;}
   .stage-toolbar:has(> .layout-select-wrap:not([hidden])) > .between-edit-banner{order:1;flex:1 1 100%;}
   .float-pill{height:34px;}
-  .stage-wrap{padding:0 .45rem;}
-  .stage-frame{--lab:1.45rem;}
-  .room-label{font-size:.56rem;letter-spacing:.1em;}
+  .layout-select-wrap .tool-label{display:none;}
+  .layout-select-wrap select{max-width:7.5rem;}
+  .layout-rotate-field .coord-input{width:38px;}
+  .roster-toggle-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+  .stage-wrap{padding:0 .2rem;}
+  .stage-frame{--lab:1.15rem;}
+  .room-label{font-size:.54rem;letter-spacing:.08em;}
   .room-label-left,.room-label-right{width:calc(var(--s) * .7);}
   .context-bar{height:calc(var(--row-h) + 6px);padding:0 .6rem;}
   .pair-rotate{height:38px;}
@@ -1189,6 +1217,7 @@ body.roster-open .roster{display:flex;}
   /* Handy: Symbol statt „Drehung bis …“, damit die Leiste nicht so weit scrollt */
   .pair-turn-label{display:none;}
   .pair-turn-ico{display:block;}
+  .pair-rotate:not([hidden]):not(.floating) ~ .help-btn{display:none;}
 
   /* Bilder: waagerechter Streifen, Karten hochkant */
   .panel-head{height:32px;border-bottom:none;padding:0 .75rem;}
@@ -1209,7 +1238,7 @@ body.roster-open .roster{display:flex;}
     flex-direction:column;justify-content:center;align-self:stretch;
   }
   .film-between-chips{flex-direction:column;flex-wrap:nowrap;}
-  .film-connector .film-between-add,.film-connector .film-between-speed{position:static !important;transform:none !important;}
+  .film-connector .film-between-add,.film-connector .film-between-speed{position:relative !important;transform:none !important;}
   .film-connector:has(.film-between-chip),.film-connector.speed-set,.film-connector.turn-set{padding:0;}
   .film-add-wrap{width:64px;height:auto;align-self:stretch;margin:0 0 0 .3rem;}
 
@@ -1248,7 +1277,7 @@ body.roster-open .roster{display:flex;}
 }
 @media (max-width:420px){
   .brand-mark{width:20px;height:20px;}
-  .stage-frame{--lab:1.3rem;}
+  .stage-frame{--lab:1.1rem;}
   .film-card{width:80px;}
   .playbar{gap:.45rem;}
   input[type="range"]{width:70px;}
@@ -1269,9 +1298,12 @@ body.roster-open .roster{display:flex;}
   .film-card.active .film-remove{opacity:.85;pointer-events:auto;}
   .film-between-add,.film-between-speed{opacity:1;}
   .film-connector:not(:has(.film-between-chip)):not(.speed-set):not(.turn-set) .film-between-add,
-  .film-connector:not(:has(.film-between-chip)):not(.speed-set):not(.turn-set) .film-between-speed{position:static;transform:none;}
+  .film-connector:not(:has(.film-between-chip)):not(.speed-set):not(.turn-set) .film-between-speed{position:relative;transform:none;}
   .split-btn{opacity:1;}
-  .dancer::after{content:"";position:absolute;inset:-9px;border-radius:50%;}
+  .dancer::after{inset:-9px;}
+  .remove-btn::after{inset:-9px -4px;}
+  .split-btn::after{inset:-10px -3px;}
+  .film-remove::after{inset:-8px;}
   .btn-icon{width:40px;height:40px;}
   .btn-play{width:46px;height:46px;}
   .context-idle .hint-mouse{display:none;}

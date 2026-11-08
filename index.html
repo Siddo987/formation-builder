@@ -73,13 +73,9 @@ if ('serviceWorker' in navigator) {
       </button>
     </div>
 
-    <!-- Desktop: Knopfleiste. Handy/Tablet hoch: Aufklappmenü hinter „Mehr“ -->
+    <!-- Desktop: Knopfleiste, Seltenes (.tb-rare) hinter „Mehr“. Handy/Tablet hoch: alles hinter „Mehr“ -->
     <div class="topbar-actions" id="topbarMenu">
       <div class="tb-group">
-        <button class="btn-ghost btn-icon-only" id="newChoreoBtn" type="button" aria-label="Neue Choreo" title="Neue Choreo (die aktuelle bleibt unter „Öffnen“ gespeichert)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M12 12v6"/><path d="M9 15h6"/></svg>
-          <span class="lbl">Neue Choreo</span>
-        </button>
         <button class="btn-ghost" id="importBtn" type="button" title="Projekt öffnen">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
           <span class="lbl">Öffnen</span>
@@ -92,13 +88,17 @@ if ('serviceWorker' in navigator) {
       </div>
 
       <div class="tb-group">
-        <button class="btn-ghost tb-collapse" id="markerBtn" type="button" title="Musik &amp; Marker">
+        <button class="btn-ghost" id="markerBtn" type="button" title="Musik &amp; Marker">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
           <span class="lbl">Marker</span>
         </button>
       </div>
 
-      <div class="tb-group">
+      <div class="tb-group tb-rare">
+        <button class="btn-ghost btn-icon-only" id="newChoreoBtn" type="button" aria-label="Neue Choreo" title="Neue Choreo (die aktuelle bleibt unter „Öffnen“ gespeichert)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M12 12v6"/><path d="M9 15h6"/></svg>
+          <span class="lbl">Neue Choreo</span>
+        </button>
         <button class="btn-ghost btn-icon-only" id="settingsBtn" type="button" aria-label="Einstellungen" title="Einstellungen">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.830 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span class="lbl">Einstellungen</span>
@@ -134,7 +134,7 @@ if ('serviceWorker' in navigator) {
       <section class="stage-area" aria-label="Bühne">
         <div class="stage-toolbar">
           <label class="layout-select-wrap float-pill" id="layoutSelectWrap" hidden><span class="tool-label">Vorlage</span>
-            <select id="layoutSelect" title="Positionen relativ zueinander — auf der Bühne per Ziehen verschieben, rechts drehen und Größe ändern. Punkt antippen fixiert ihn: Ziehen eines anderen Punkts dreht und skaliert dann um ihn."><option value="">— Keine Vorlage —</option></select>
+            <select id="layoutSelect" title="Nur ein Hilfsbild zum Ausrichten – überschreibt keine Positionen. Positionen relativ zueinander — auf der Bühne per Ziehen verschieben, rechts drehen und Größe ändern. Punkt antippen fixiert ihn: Ziehen eines anderen Punkts dreht und skaliert dann um ihn."><option value="">— Vorlage einblenden —</option></select>
             <span class="layout-rotate-field" id="layoutRotateField" hidden><input type="number" id="layoutRotateInput" class="coord-input" value="0" step="5" aria-label="Drehung der Vorlage in Grad">°<input type="number" id="layoutScaleInput" class="coord-input" value="100" step="10" min="10" aria-label="Größe der Vorlage in Prozent" title="Größe der Vorlage">%</span>
           </label>
           <span class="stage-toolbar-spacer"></span>
@@ -192,20 +192,21 @@ if ('serviceWorker' in navigator) {
             <span class="pair-rotate-hint">Die ganze Auswahl wird gemeinsam gegriffen, verschoben und gedreht. Strg/Cmd-Klick wählt einzelne Tänzer ab oder dazu, Esc hebt die Auswahl auf.</span>
             <button class="btn-icon" id="pairRotateClearBtn" type="button" aria-label="Auswahl aufheben" title="Auswahl aufheben (Esc)"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
           </div>
-          <p class="context-idle"><span>Klick wählt aus</span><span class="hint-mouse">Rechtsklick zeigt alle Funktionen</span><span class="hint-touch">Lange drücken zeigt alle Funktionen</span><span class="hint-mouse">Strg/Cmd-Klick erweitert</span><span>Ziehen rastet ein, Shift = frei</span><span class="hint-mouse">Pfeiltasten verschieben</span><span>Doppelklick teilt ein Paar</span></p>
+          <p class="context-idle"><span>Klick wählt aus</span><span class="hint-mouse">Rechtsklick zeigt alle Funktionen</span><span class="hint-touch">Lange drücken zeigt alle Funktionen</span></p>
+          <button class="btn-icon help-btn" id="helpBtn" type="button" aria-haspopup="dialog" aria-label="Bedienung: alle Tastenkürzel und Gesten" title="Bedienung: alle Tastenkürzel und Gesten">?</button>
         </div>
       </section>
 
       <div class="playbar">
         <div class="transport">
-          <button class="btn-icon" id="prevBtn" aria-label="Vorheriges Bild" title="Vorheriges Bild (←)" type="button">
+          <button class="btn-icon" id="prevBtn" aria-label="Vorheriges Bild" title="Vorheriges Bild" type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
           </button>
           <button class="btn-play" id="playBtn" aria-label="Abspielen" type="button">
             <span class="icon-play" id="iconPlay"></span>
             <span class="icon-pause" id="iconPause" hidden><i></i><i></i></span>
           </button>
-          <button class="btn-icon" id="nextBtn" aria-label="Nächstes Bild" title="Nächstes Bild (→)" type="button">
+          <button class="btn-icon" id="nextBtn" aria-label="Nächstes Bild" title="Nächstes Bild" type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
           </button>
         </div>
@@ -217,7 +218,7 @@ if ('serviceWorker' in navigator) {
           </div>
         </div>
         <div class="tempo-control">
-          <label class="caption tempo-caption"><span class="tempo-word">Tempo </span><input type="text" id="tempoInput" class="tempo-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Tempo als Zahl"><span id="tempoUnit">/s</span></label>
+          <label class="caption tempo-caption"><span class="tempo-word">Tempo </span><input type="text" id="tempoInput" class="tempo-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Tempo als Zahl"><span id="tempoUnit">Bilder/s</span></label>
           <input type="range" id="tempoSlider" min="0" max="100" value="50" aria-label="Abspieltempo">
         </div>
         <button class="btn-ghost music-only-btn" id="musicOnlyBtn" type="button" aria-pressed="false" title="Nur die Musik abspielen, ohne die Bühne zu bewegen" hidden><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>Nur Musik</span></button>
@@ -282,6 +283,42 @@ if ('serviceWorker' in navigator) {
         <p class="settings-hint" id="songName" hidden></p>
       </section>
 
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="helpBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modal-header">
+      <h2 id="helpTitle">Bedienung</h2>
+      <button class="modal-close" id="helpCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <section class="settings-section">
+        <h3>Auf der Bühne</h3>
+        <dl class="help-list">
+          <dt>Klick / Tippen</dt><dd>wählt einen Tänzer oder ein Paar aus</dd>
+          <dt>Strg/Cmd-Klick</dt><dd>wählt weitere dazu oder einzelne wieder ab</dd>
+          <dt>Rechtsklick / lange drücken</dt><dd>zeigt alle Funktionen für die Auswahl</dd>
+          <dt>Ziehen</dt><dd>verschiebt und rastet im Raster ein, mit Shift frei</dd>
+          <dt>Pfeiltasten</dt><dd>verschieben den gewählten Tänzer, mit Shift um einen halben Schritt</dd>
+          <dt>Doppelklick oder T</dt><dd>teilt ein Paar in Lead und Follow – nur in diesem Bild – oder koppelt es wieder</dd>
+          <dt>Esc</dt><dd>hebt die Auswahl auf</dd>
+        </dl>
+      </section>
+      <section class="settings-section">
+        <h3>Allgemein</h3>
+        <dl class="help-list">
+          <dt>Strg/Cmd + Z</dt><dd>rückgängig</dd>
+          <dt>Strg/Cmd + Shift + Z, Strg + Y</dt><dd>wiederholen</dd>
+          <dt>Zeitleiste angeklickt</dt><dd>← → springen ein Bild weiter (mit Lied 5 s), Pos1/Ende zum Anfang/Ende</dd>
+        </dl>
+      </section>
+      <section class="settings-section">
+        <h3>Schatten der Nachbarbilder</h3>
+        <p class="help-legend"><span class="help-swatch"><span class="onion-dot onion-dot-prev"></span></span>grau: wo die Tänzer im vorigen Bild standen</p>
+        <p class="help-legend"><span class="help-swatch"><span class="onion-dot onion-dot-next" style="background:var(--accent)"></span></span>blass in Tänzerfarbe: wo sie im nächsten Bild stehen</p>
+      </section>
     </div>
   </div>
 </div>

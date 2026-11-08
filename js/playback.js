@@ -67,7 +67,7 @@
     if(document.activeElement !== tempoInputEl){
       tempoInputEl.value = song ? formatDecimal(songRate(), 2) : formatDecimal(1000/durations().move, 1);
     }
-    tempoUnitEl.textContent = song ? '×' : '/s';
+    tempoUnitEl.textContent = song ? '×' : 'Bilder/s';
     tempoSlider.title = song ? 'Geschwindigkeit des Lieds (0,5× bis 2,0× vom Original)' : '';
     tempoInputEl.title = song ? 'Geschwindigkeit des Lieds eingeben (0,5 bis 2,0)' : 'Bilder pro Sekunde eingeben (0,5 bis 2,0)';
     syncMusicRate(); // js/music.js

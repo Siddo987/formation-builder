@@ -12,9 +12,13 @@
   settingsBtn.addEventListener('click', openSettings);
   settingsCloseBtn.addEventListener('click', closeSettings);
   settingsBackdrop.addEventListener('click', function(e){ if(e.target === settingsBackdrop) closeSettings(); });
+  helpBtn.addEventListener('click', function(){ helpBackdrop.hidden = false; });
+  helpCloseBtn.addEventListener('click', function(){ helpBackdrop.hidden = true; });
+  helpBackdrop.addEventListener('click', function(e){ if(e.target === helpBackdrop) helpBackdrop.hidden = true; });
   document.addEventListener('keydown', function(e){
     if(e.key !== 'Escape') return;
     if(!settingsBackdrop.hidden) closeSettings();
+    if(!helpBackdrop.hidden) helpBackdrop.hidden = true;
     if(!openBackdrop.hidden) closeOpenProjectsModal();
     if(!videoBackdrop.hidden && exportState) exportState.cancelled = true;
     if(!exportBackdrop.hidden) closeExportDialog();
@@ -224,9 +228,9 @@
     initial();
   })();
 
-  /* ---------- „Mehr“-Menü (nur Handy/Tablet hoch) ---------- */
-  // Am Handy liegen die Aktionen der Kopfleiste in einer Ausklappliste; auf dem Desktop
-  // ist der Knopf unsichtbar und die Klasse menu-open hat keine Wirkung.
+  /* ---------- „Mehr“-Menü ---------- */
+  // Am Handy liegen alle Aktionen der Kopfleiste in einer Ausklappliste, auf dem Desktop nur
+  // die seltenen (.tb-rare) – welche, regelt allein das CSS.
   (function(){
     var moreBtn = document.getElementById('moreBtn');
     var menu = document.getElementById('topbarMenu');
