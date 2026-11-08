@@ -862,7 +862,7 @@ body.roster-open .roster{display:flex;}
 }
 .film-card:hover{background:var(--panel-2);}
 .film-card.active{background:var(--accent-wash);border-color:color-mix(in srgb,var(--accent) 55%,transparent);}
-.film-card.dragging{opacity:.4;}
+.film-card.dragging,.film-between-chip-wrap.dragging{opacity:.4;}
 .film-category{grid-area:cat;align-self:end;display:flex;align-items:baseline;gap:.2rem;min-height:.9rem;}
 .film-category-num{font-family:var(--font-mono);font-size:.6rem;font-weight:700;color:var(--accent-ink);flex:none;}
 .film-category-input{

@@ -3,6 +3,7 @@
 /* ---------- formations / filmstrip ---------- */
 
   var dragSourceId = null;
+  var betweenDragEl = null; // the chip wrap being dragged to reorder Zwischenpositionen (#2062, #2070)
 
   // A new Bild created from an existing one (addFormation, applyFigure) inherits its per-Bild-only
   // axes as a starting point, same as it inherits positions/showAxes — copied per-object so editing
@@ -295,12 +296,31 @@
     var next = state.formations[idx + 1];
     var turns = next ? moveTurnSummary(f) : null;
     wrap.className = 'film-connector' + (sanitizeSpeedCurve(f.speedCurve) ? ' speed-set' : '') + (turns ? ' turn-set' : '');
+    wrap.dataset.f = idx;
 
     var chips = document.createElement('div');
     chips.className = 'film-between-chips';
     (f.betweens || []).forEach(function(between, bIdx){
       var chipWrap = document.createElement('div');
       chipWrap.className = 'film-between-chip-wrap';
+      chipWrap.draggable = true;
+      chipWrap.dataset.f = idx; chipWrap.dataset.b = bIdx;
+      chipWrap.addEventListener('dragstart', function(e){
+        betweenDragEl = chipWrap;
+        chipWrap.classList.add('dragging');
+        if(e.dataTransfer){
+          e.dataTransfer.effectAllowed = 'move';
+          try{ e.dataTransfer.setData('text/plain', 'bw'); }catch(err){}
+        }
+      });
+      // Like the Bild cards: the DOM previews the new place while dragging, the data follows once.
+      chipWrap.addEventListener('dragend', function(){
+        chipWrap.classList.remove('dragging');
+        betweenDragEl = null;
+        var to = chipWrap.closest('.film-connector');
+        if(!to) return;
+        moveBetween(idx, bIdx, +to.dataset.f, Array.prototype.indexOf.call(chipWrap.parentNode.children, chipWrap));
+      });
 
       var chip = document.createElement('button');
       chip.type = 'button';
@@ -308,7 +328,7 @@
       chip.dataset.f = idx; chip.dataset.b = bIdx; // renderFilmstripActiveOnly (playback.js)
       chip.textContent = String(bIdx + 1);
       chip.title = 'Zwischenposition ' + (bIdx + 1) + (between.name ? ' — ' + between.name : '')
-        + ' bearbeiten — zwischen „' + f.name + '“ und „' + (next ? next.name : '?') + '“ (umbenennen per Rechtsklick oder mit dem Stift in der Leiste über der Bühne)';
+        + ' bearbeiten — zwischen „' + f.name + '“ und „' + (next ? next.name : '?') + '“ (umbenennen per Rechtsklick oder mit dem Stift in der Leiste über der Bühne, verschieben per Ziehen — auch in eine andere Lücke)';
       chip.addEventListener('click', function(){ enterBetweenEdit(idx, bIdx); });
       chip.addEventListener('contextmenu', function(e){ e.preventDefault(); openBetweenRenamePopover(chip, idx, bIdx); });
 
@@ -330,6 +350,19 @@
     addBtn.appendChild(svgIcon('plus', 12));
     addBtn.title = 'Zwischenposition hinzufügen — eine zusätzliche Pose auf dem Weg zu „' + (next ? next.name : '?') + '“, ohne eigenes Bild';
     addBtn.addEventListener('click', function(){ addBetween(idx); });
+
+    // Dropping a dragged Zwischenposition here — between its chips, or into an empty gap.
+    wrap.addEventListener('dragover', function(e){
+      if(!betweenDragEl) return;
+      e.preventDefault();
+      var over = e.target.closest && e.target.closest('.film-between-chip-wrap');
+      if(over === betweenDragEl) return;
+      if(!over || over.parentNode !== chips){ if(betweenDragEl.parentNode !== chips) chips.appendChild(betweenDragEl); return; }
+      var rect = over.getBoundingClientRect();
+      var before = getComputedStyle(chips).flexDirection === 'column' ? (e.clientY - rect.top) < rect.height / 2 : (e.clientX - rect.left) < rect.width / 2;
+      chips.insertBefore(betweenDragEl, before ? over : over.nextSibling);
+    });
+    wrap.addEventListener('drop', function(e){ if(betweenDragEl) e.preventDefault(); });
 
     wrap.appendChild(chips);
     wrap.appendChild(addBtn);
@@ -661,6 +694,33 @@
     if(editingBetween && editingBetween.fIdx === fIdx){
       if(editingBetween.bIdx === bIdx){ exitBetweenEdit(); return; }
       if(editingBetween.bIdx > bIdx) editingBetween.bIdx -= 1;
+    }
+    saveState();
+    renderFilmstrip();
+  }
+
+  // Within its own move it takes the new place but the times stay where they were (the 2nd
+  // Zwischenposition stays at the 2nd one's time); into another move it goes untimed, spread like
+  // the others there.
+  function moveBetween(fromF, fromB, toF, toB){
+    var src = (state.formations[fromF] || {}).betweens, dst = state.formations[toF];
+    var b = src && src[fromB];
+    if(!b || !dst || toF >= state.formations.length - 1 || (fromF === toF && fromB === toB)){ renderFilmstrip(); return; }
+    var edited = editingBetween ? (state.formations[editingBetween.fIdx].betweens || [])[editingBetween.bIdx] : null;
+    var ats = src.map(function(x){ return x.at; });
+    src.splice(fromB, 1);
+    if(fromF === toF){
+      src.splice(toB, 0, b);
+      src.forEach(function(x, i){ if(ats[i] === undefined) delete x.at; else x.at = ats[i]; });
+    }else{
+      delete b.at;
+      if(!Array.isArray(dst.betweens)) dst.betweens = [];
+      dst.betweens.splice(toB, 0, b);
+    }
+    if(edited){
+      var fIdx = state.formations.findIndex(function(f){ return (f.betweens || []).indexOf(edited) >= 0; });
+      enterBetweenEdit(fIdx, state.formations[fIdx].betweens.indexOf(edited)); // saves and re-renders
+      return;
     }
     saveState();
     renderFilmstrip();
