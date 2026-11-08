@@ -181,6 +181,7 @@
     if(editingBetween){ editingBetween = null; if(typeof updateBetweenEditBanner === 'function') updateBetweenEditBanner(); } // playback always plays the real timeline
     playing = !playing;
     if(playing){
+      renderOnionSkin(); // playback ghosts: gray = the Bild the move starts from (stage.js)
       if(typeof stopMusicOnly === 'function') stopMusicOnly(); // js/music.js — hand the song over to animated playback
       if(resumePaused()){ updatePlayButton(); return; }
       // On the last Bild, pressing play has nothing left to advance to (tick() would just hold
@@ -281,9 +282,28 @@
     return {fromIdx: from, t: t, songTime: pausedAt.songTime, sync: pausedAt.sync};
   }
 
+  // The song's currentTime only moves in coarse, uneven steps in some browsers, which made the
+  // stage jitter against the music (#2038). Run our own clock at the song's rate and pull it gently
+  // towards currentTime; a seek, rate change, pause or skipped frames start it afresh, and it only
+  // runs once the song has actually started moving (playback start lags a few frames).
+  var syncClock = null;
+  function smoothSongTime(){
+    var now = performance.now(), raw = songAudioEl.currentTime, c = syncClock;
+    if(c && !songAudioEl.paused && now - c.perf < 100 && (c.moving || raw !== c.ct)){
+      var est = c.ct + (now - c.perf)/1000*songAudioEl.playbackRate;
+      if(Math.abs(raw - est) < 0.1){
+        est += (raw - est)*0.15;
+        syncClock = {perf: now, ct: est, moving: true};
+        return est;
+      }
+    }
+    syncClock = {perf: now, ct: raw};
+    return raw;
+  }
+
   function syncTick(){
     if(!playing || !syncActive) return;
-    var ct = songAudioEl.currentTime;
+    var ct = smoothSongTime();
     var fr = syncFrameAt(ct);
     if(!fr){ pausePlayback(); return; }
     positionMarkers(fr.pos);
@@ -329,7 +349,7 @@
       }
       fromIdx = toIdx;
       toIdx = next;
-      phaseStart = now;
+      phaseStart += moveMs; // not `now` — the frame's overshoot would add up and drift off the song (#2038)
     }
     if(playing) rafId = requestAnimationFrame(tick);
   }

@@ -184,10 +184,9 @@
     });
     if(addFollows.length){ pairSelection = pairSelection.concat(addFollows); ensureMarkers(); updatePairRotateUI(); }
     updatePairMidpointMarker(posMap);
-    // Kept live during playback too now — the gray/faint ghosts are just the neighbouring Bilder's
-    // static positions (no comparison against the interpolating markers), so there's nothing to
-    // flicker. renderOnionSkin() reads `playing` itself to pick the right neighbours.
-    renderOnionSkin();
+    // During playback the ghosts only change with the Bild — redrawn then via resetLayoutGhost();
+    // rebuilding them every frame made playback stutter (#2038).
+    if(!playing) renderOnionSkin();
   }
 
   // Small crosshair marking the centroid a 2+ selection rotates around (rotatePairSelection's

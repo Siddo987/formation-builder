@@ -474,7 +474,7 @@ function haveLocalPendingEdits(){ return pushInFlight || !!pushDebounceTimer || 
 // The graph is fetched every tick so the Verlauf panel stays current; this only gates *swapping
 // state under the user* (a fast-forward pull) — never the fetch itself.
 function pollApplyBlocked(){
-  if(haveLocalPendingEdits()) return true;
+  if(haveLocalPendingEdits() || playing) return true; // swapping state reloads the song mid-playback (#2038)
   var ae = document.activeElement;
   if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return true;
   var m = [shareBackdrop, settingsBackdrop, markerBackdrop, exportBackdrop, videoBackdrop, addBildBackdrop, mergeBackdrop, historyBackdrop, document.getElementById('resetBackdrop')];
