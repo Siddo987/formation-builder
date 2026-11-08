@@ -247,7 +247,7 @@ if ('serviceWorker' in navigator) {
       <div class="roster-list" id="rosterList"></div>
       <div class="roster-foot">
         <button class="btn-add" id="addDancerBtn" type="button"><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Tänzer hinzufügen</span></button>
-        <p class="hint">Raster −7…7 · Shift = frei · <strong>Doppelklick</strong> oder der L/F-Knopf teilt ein Paar nur in diesem Bild.</p>
+        <p class="hint">Raster 1 m, rastet ein · Shift = frei · <strong>Doppelklick</strong> oder der L/F-Knopf teilt ein Paar nur in diesem Bild.</p>
       </div>
     </aside>
     <div class="drawer-scrim" id="rosterScrim"></div>
@@ -267,6 +267,11 @@ if ('serviceWorker' in navigator) {
         <h3>Ansicht</h3>
         <label class="toggle-label"><input type="checkbox" id="facingToggle" checked> Blickrichtungen anzeigen</label>
         <p class="settings-hint">Die kleinen Pfeile an den Punkten, auf der Bühne und im Video. Gilt für die ganze Choreo – auf jedem Gerät, das sie öffnet, auch beim Teilen.</p>
+        <div class="settings-row stage-size-row">
+          <label>Breite <input type="number" id="stageWidthInput" class="coord-input" min="4" max="40" step="0.5" inputmode="decimal" aria-label="Bühnenbreite in Metern"> m</label>
+          <label>Tiefe <input type="number" id="stageDepthInput" class="coord-input" min="4" max="40" step="0.5" inputmode="decimal" aria-label="Bühnentiefe in Metern"> m</label>
+        </div>
+        <p class="settings-hint">Bühnengröße: Breite von links nach rechts, Tiefe von vorn nach hinten, 4 bis 40 m – das Raster zeigt 1 m. Wer bei einer kleineren Fläche draußen stünde, wird an den Rand geholt. Gilt für die ganze Choreo.</p>
         <label class="toggle-label"><input type="checkbox" id="pathsToggle"> Weglinien einblenden</label>
         <label class="toggle-label"><input type="checkbox" id="clashToggle"> Warnen, wenn sich Tänzer unterwegs zu nahe kommen</label>
         <p class="settings-hint">Die Wege vom gewählten Bild zum nächsten, mit Zwischenpositionen und Drehungen. Die Warnung markiert rot, wo sich zwei Punkte unterwegs näher als etwa 1 Rasterfeld kommen – und näher als in den Bildern, in denen sie gestellt sind. Nur auf diesem Gerät.</p>

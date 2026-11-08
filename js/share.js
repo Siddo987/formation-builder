@@ -844,6 +844,7 @@ function reconstructSharedState(payload){
       bottom: (payload.roomLabels && typeof payload.roomLabels.bottom === 'string') ? payload.roomLabels.bottom : 'EINGANG',
       left: (payload.roomLabels && typeof payload.roomLabels.left === 'string') ? payload.roomLabels.left : 'FENSTER'
     },
+    stage: sanitizeStage(payload.stage),
     pairs: (Array.isArray(payload.pairs) ? payload.pairs : []).map(function(p){
       return {id:p.id, memberIds:p.memberIds, name:p.name||'', collapsed:!!p.collapsed};
     }),

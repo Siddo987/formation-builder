@@ -8,16 +8,33 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // saved before that (see loadState()).
   var LEGACY_FACING_KEY = 'aufstellung.showFacing';
 
-  var GRID_MIN = -7, GRID_MAX = 7, GRID_SPAN = 14, GRID_INSET = 6;
+  // Bühnengröße (#2060): width (x, left–right) × depth (y, front–back) in metres — the grid unit —
+  // around the middle, so x runs -w/2..w/2 and y -d/2..d/2. Older choreos are 14 × 14. The floor
+  // around it is GRID_INSET % of the longer side on every edge.
+  var STAGE_DEFAULT = 14, STAGE_MIN = 4, STAGE_MAX = 40, GRID_INSET = 6;
   var SVG_NS = 'http://www.w3.org/2000/svg';
 
   function uid(prefix){ return prefix + '-' + Math.random().toString(36).slice(2,9); }
   function lerp(a,b,t){ return a + (b-a)*t; }
   function normAngle(a){ return ((a % 360) + 360) % 360; }
   function lerpAngle(a,b,t){ var diff = (((b-a) % 360) + 540) % 360 - 180; return normAngle(a + diff*t); }
-  function clampGrid(v){ return Math.min(GRID_MAX, Math.max(GRID_MIN, v)); }
-  function gridToPercent(v){ return GRID_INSET + ((v-GRID_MIN)/GRID_SPAN)*(100-2*GRID_INSET); }
-  function percentToGrid(p){ return ((p-GRID_INSET)/(100-2*GRID_INSET))*GRID_SPAN + GRID_MIN; }
+  function sanitizeStage(v){
+    function side(n){ return typeof n === 'number' && isFinite(n) ? Math.min(STAGE_MAX, Math.max(STAGE_MIN, Math.round(n * 2) / 2)) : STAGE_DEFAULT; }
+    return {w: side(v && v.w), d: side(v && v.d)};
+  }
+  // While a project is still being loaded (`state` not assigned yet) it's the default size.
+  function stageSize(){ return (state && state.stage) || {w: STAGE_DEFAULT, d: STAGE_DEFAULT}; }
+  function stageMargin(){ var s = stageSize(); return Math.max(s.w, s.d) * GRID_INSET / (100 - 2 * GRID_INSET); }
+  // Width : height of the stage with its floor margin — the stage element, thumbnails, PDF and video.
+  function stageAspect(){ var s = stageSize(), m = stageMargin(); return (s.w + 2 * m) / (s.d + 2 * m); }
+  // Guards stored/imported coordinates against garbage; edits keep dancers on the stage (clampX/Y).
+  function clampGrid(v){ return Math.min(STAGE_MAX / 2, Math.max(-STAGE_MAX / 2, v)); }
+  function clampX(v){ var h = stageSize().w / 2; return Math.min(h, Math.max(-h, v)); }
+  function clampY(v){ var h = stageSize().d / 2; return Math.min(h, Math.max(-h, v)); }
+  function gridToPercentX(v){ var w = stageSize().w, m = stageMargin(); return (v + w / 2 + m) / (w + 2 * m) * 100; }
+  function gridToPercentY(v){ var d = stageSize().d, m = stageMargin(); return (v + d / 2 + m) / (d + 2 * m) * 100; }
+  function percentToX(p){ var w = stageSize().w, m = stageMargin(); return p / 100 * (w + 2 * m) - w / 2 - m; }
+  function percentToY(p){ var d = stageSize().d, m = stageMargin(); return p / 100 * (d + 2 * m) - d / 2 - m; }
   function roundNum(v){ return Math.round(v*10)/10; }
   // A plain {dancerId:{x,y}} copy of a pos map, detached from the source object — used to freeze a
   // Bild's own startPos (see addFormation/applyFigure) so later edits to the position it was
@@ -468,6 +485,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       showAxes: true,
       showFacing: true,
       roomLabels: {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'},
+      stage: sanitizeStage(null),
       pairs: [],
       customFigures: [],
       logo: null,
@@ -531,6 +549,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(typeof parsed.activeIndex !== 'number' || parsed.activeIndex >= parsed.formations.length) parsed.activeIndex = 0;
       if(typeof parsed.projectName !== 'string' || !parsed.projectName.trim()) parsed.projectName = 'Meine Formation';
       if(!Array.isArray(parsed.axes)) parsed.axes = [];
+      parsed.stage = sanitizeStage(parsed.stage);
       if(typeof parsed.showAxes !== 'boolean') parsed.showAxes = true;
       if(typeof parsed.showFacing !== 'boolean'){
         parsed.showFacing = true;
@@ -624,6 +643,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         showAxes: state.showAxes,
         showFacing: state.showFacing !== false,
         roomLabels: state.roomLabels,
+        stage: state.stage,
         pairs: state.pairs,
         customFigures: state.customFigures,
         activeIndex: state.activeIndex,

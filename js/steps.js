@@ -98,6 +98,10 @@
   function buildStepDiagram(primaryPos, secondaryPos, betweenPositions, followBetweens, rolePos, contextPositions){
     var diagram = document.createElement('div');
     diagram.className = 'step-diagram';
+    // The room (180 px less 22 px all round) in the stage's proportions (#2060), never bigger.
+    var ar = stageAspect();
+    diagram.style.width = Math.round(136 * Math.min(1, ar) + 44) + 'px';
+    diagram.style.height = Math.round(136 / Math.max(1, ar) + 44) + 'px';
     var labels = state.roomLabels || {};
     var walls = [
       [labels.top || 'WAND', 'top'],
@@ -120,8 +124,8 @@
       if(!pos) return;
       var dot = document.createElement('span');
       dot.className = 'step-dot ' + cls;
-      dot.style.left = (at ? at.x : gridToPercent(pos.x)) + '%';
-      dot.style.top = (at ? at.y : gridToPercent(pos.y)) + '%';
+      dot.style.left = (at ? at.x : gridToPercentX(pos.x)) + '%';
+      dot.style.top = (at ? at.y : gridToPercentY(pos.y)) + '%';
       if(label !== undefined) dot.textContent = label;
       room.appendChild(dot);
     }
@@ -132,8 +136,8 @@
     var roleAt = null;
     if(primaryPos && rolePos){
       var MIN_SPLIT_GAP = 13; // % of the room — a little more than one lettered dot
-      var px = gridToPercent(primaryPos.x), py = gridToPercent(primaryPos.y);
-      var dx = gridToPercent(rolePos.x) - px, dy = gridToPercent(rolePos.y) - py;
+      var px = gridToPercentX(primaryPos.x), py = gridToPercentY(primaryPos.y);
+      var dx = gridToPercentX(rolePos.x) - px, dy = gridToPercentY(rolePos.y) - py;
       var dist = Math.sqrt(dx*dx + dy*dy);
       if(dist < MIN_SPLIT_GAP){
         if(dist < 0.01){ dx = 1; dy = 0; dist = 1; }

@@ -3,6 +3,8 @@
 /* ---------- settings panel: project name, logo, song ---------- */
 
   function openSettings(){
+    stageWidthInput.value = stageSize().w;
+    stageDepthInput.value = stageSize().d;
     updateLogoSettingsUI();
     updateSongSettingsUI();
     settingsBackdrop.hidden = false;
@@ -171,6 +173,26 @@
     saveState();
   });
   applyFacingVisibility();
+
+  // Bühnengröße (#2060). Whoever would stand outside a smaller stage is brought to its edge.
+  var stageWidthInput = document.getElementById('stageWidthInput');
+  var stageDepthInput = document.getElementById('stageDepthInput');
+  function applyStageSizeInputs(){
+    var next = sanitizeStage({w: parseFloat(stageWidthInput.value), d: parseFloat(stageDepthInput.value)});
+    stageWidthInput.value = next.w;
+    stageDepthInput.value = next.d;
+    if(next.w === stageSize().w && next.d === stageSize().d) return;
+    state.stage = next;
+    state.formations.forEach(function(f){
+      [f.pos, f.startPos].concat((f.betweens || []).map(function(b){ return b.pos; })).forEach(function(pos){
+        if(pos) Object.keys(pos).forEach(function(k){ pos[k].x = clampX(pos[k].x); pos[k].y = clampY(pos[k].y); });
+      });
+    });
+    saveState();
+    fullRerender();
+  }
+  stageWidthInput.addEventListener('change', applyStageSizeInputs);
+  stageDepthInput.addEventListener('change', applyStageSizeInputs);
 
   /* ---------- wiring ---------- */
 

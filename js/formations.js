@@ -41,7 +41,7 @@
     var dx = p.x - px, dy = p.y - py;
     var nx = px + dx*cos - dy*sin + (recipe.translateX||0);
     var ny = py + dx*sin + dy*cos + (recipe.translateY||0);
-    newPos[id] = { x: clampGrid(nx), y: clampGrid(ny), rot: normAngle((p.rot||0) + deg) };
+    newPos[id] = { x: clampX(nx), y: clampY(ny), rot: normAngle((p.rot||0) + deg) };
   }
 
   // Partner pairs a couples-Figur acts on, as [Lead/A, Follow/B] pos keys: saved pairs from older
@@ -1099,6 +1099,7 @@
 
       var preview = document.createElement('div');
       preview.className = 'film-preview';
+      preview.style.aspectRatio = stageAspect();
       preview.appendChild(removeEl);
       state.dancers.forEach(function(d){
         [d.id, followKey(d.id)].forEach(function(k){
@@ -1106,8 +1107,8 @@
           if(!pos) return;
           var dot = document.createElement('span');
           dot.className = k === d.id ? (f.pos[followKey(d.id)] ? 'film-dot film-dot-split' : 'film-dot') : 'film-dot film-dot-split film-dot-follow';
-          dot.style.left = gridToPercent(pos.x) + '%';
-          dot.style.top = gridToPercent(pos.y) + '%';
+          dot.style.left = gridToPercentX(pos.x) + '%';
+          dot.style.top = gridToPercentY(pos.y) + '%';
           dot.style.background = d.color;
           dot.dataset.dancer = k;
           preview.appendChild(dot);
@@ -1228,8 +1229,8 @@
     card.querySelectorAll('.film-dot').forEach(function(dot){
       var pos = f.pos[dot.dataset.dancer];
       if(!pos) return;
-      dot.style.left = gridToPercent(pos.x) + '%';
-      dot.style.top = gridToPercent(pos.y) + '%';
+      dot.style.left = gridToPercentX(pos.x) + '%';
+      dot.style.top = gridToPercentY(pos.y) + '%';
     });
   }
 

@@ -169,7 +169,7 @@
     var xInput = document.createElement('input');
     xInput.type = 'number';
     xInput.className = 'coord-input';
-    xInput.min = GRID_MIN; xInput.max = GRID_MAX; xInput.step = '0.5';
+    xInput.min = -stageSize().w / 2; xInput.max = stageSize().w / 2; xInput.step = '0.5';
     xInput.value = roundNum(mid.x);
     xInput.setAttribute('aria-label', 'X-Position des Mittelpunkts von ' + a.name + ' & ' + b.name);
     xInput.addEventListener('input', function(){
@@ -183,7 +183,7 @@
     var yInput = document.createElement('input');
     yInput.type = 'number';
     yInput.className = 'coord-input';
-    yInput.min = GRID_MIN; yInput.max = GRID_MAX; yInput.step = '0.5';
+    yInput.min = -stageSize().d / 2; yInput.max = stageSize().d / 2; yInput.step = '0.5';
     yInput.value = roundNum(mid.y);
     yInput.setAttribute('aria-label', 'Y-Position des Mittelpunkts von ' + a.name + ' & ' + b.name);
     yInput.addEventListener('input', function(){
@@ -264,7 +264,7 @@
       var xInput = document.createElement('input');
       xInput.type = 'number';
       xInput.className = 'coord-input';
-      xInput.min = GRID_MIN; xInput.max = GRID_MAX; xInput.step = '0.5';
+      xInput.min = -stageSize().w / 2; xInput.max = stageSize().w / 2; xInput.step = '0.5';
       xInput.value = roundNum(p.x);
       xInput.setAttribute('aria-label', 'X-Position von ' + d.name);
       xInput.addEventListener('input', function(){
@@ -278,7 +278,7 @@
       var yInput = document.createElement('input');
       yInput.type = 'number';
       yInput.className = 'coord-input';
-      yInput.min = GRID_MIN; yInput.max = GRID_MAX; yInput.step = '0.5';
+      yInput.min = -stageSize().d / 2; yInput.max = stageSize().d / 2; yInput.step = '0.5';
       yInput.value = roundNum(p.y);
       yInput.setAttribute('aria-label', 'Y-Position von ' + d.name);
       yInput.addEventListener('input', function(){
@@ -364,8 +364,8 @@
       i.setAttribute('aria-label', aria);
       return {l: l, i: i};
     }
-    var x = mk('X', p.x, GRID_MIN, GRID_MAX, '0.5', 'X-Position Follow von ' + d.name);
-    var y = mk('Y', p.y, GRID_MIN, GRID_MAX, '0.5', 'Y-Position Follow von ' + d.name);
+    var x = mk('X', p.x, -stageSize().w / 2, stageSize().w / 2, '0.5', 'X-Position Follow von ' + d.name);
+    var y = mk('Y', p.y, -stageSize().d / 2, stageSize().d / 2, '0.5', 'Y-Position Follow von ' + d.name);
     var r = mk('°', p.rot||0, 0, 359, '5', 'Drehung Follow von ' + d.name);
     x.i.addEventListener('input', function(){
       var cur = currentFormation().pos[fk]; if(!cur) return;

@@ -415,10 +415,13 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
    nie auf der Tanzfläche. --s ist die Kantenlänge der quadratischen Bühne. */
 .stage-frame{
   --lab:1.75rem;
-  --s:max(160px,min(calc(100cqw - 2 * var(--lab)),calc(100cqh - 2 * var(--lab))));
+  --ar:1; /* width : depth of the stage, set by js/stage.js (#2060) */
+  --sh:max(160px,min(calc((100cqw - 2 * var(--lab)) / var(--ar)),calc(100cqh - 2 * var(--lab))));
+  --sw:calc(var(--sh) * var(--ar));
+  --s:min(var(--sw),var(--sh)); /* the shorter side — dot sizes */
   display:grid;
-  grid-template-columns:var(--lab) var(--s) var(--lab);
-  grid-template-rows:var(--lab) var(--s) var(--lab);
+  grid-template-columns:var(--lab) var(--sw) var(--lab);
+  grid-template-rows:var(--lab) var(--sh) var(--lab);
   margin:0 auto;
   width:max-content;
 }
@@ -438,7 +441,7 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
 .room-label-bottom{width:60%;}
 .room-label-left,.room-label-right{
   grid-row:2;align-self:center;justify-self:center;
-  width:calc(var(--s) * .6);
+  width:calc(var(--sh) * .6);
 }
 .room-label-left{grid-column:1;transform:rotate(-90deg);}
 .room-label-right{grid-column:3;transform:rotate(90deg);}
@@ -446,7 +449,7 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
 .stage{
   grid-area:2/2;
   position:relative;
-  width:var(--s);height:var(--s);
+  width:var(--sw);height:var(--sh);
   border-radius:8px;
   background:
     radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.04),transparent 60%),
@@ -1224,7 +1227,7 @@ body.roster-open .roster{display:flex;}
   .stage-wrap{padding:0 .2rem;}
   .stage-frame{--lab:1.15rem;}
   .room-label{font-size:.54rem;letter-spacing:.08em;}
-  .room-label-left,.room-label-right{width:calc(var(--s) * .7);}
+  .room-label-left,.room-label-right{width:calc(var(--sh) * .7);}
   .context-bar{height:calc(var(--row-h) + 6px);padding:0 .6rem;}
   .pair-rotate{height:38px;}
   .pair-rotate-input{height:30px;width:5rem;}

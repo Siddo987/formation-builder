@@ -14,7 +14,7 @@
     var lines = text.split(/\r?\n/);
     var first = (lines[0] || '').trim();
     if(!/^AUFSTELLUNG\s+\d+/.test(first)) throw new Error('Kein gültiges Aufstellung-Format');
-    var tempo = 50, dancers = [], formations = [], current = null;
+    var tempo = 50, dancers = [], formations = [], current = null, stage = sanitizeStage(null);
     for(var i=1; i<lines.length; i++){
       var line = lines[i].trim();
       if(!line) continue;
@@ -22,6 +22,7 @@
       var kw = parts[0];
       if(kw === 'TEMPO'){ tempo = parseFloat(parts[1]); if(isNaN(tempo)) tempo = 50; }
       else if(kw === 'LOOP'){ /* legacy field, ignored */ }
+      else if(kw === 'BUEHNE') stage = sanitizeStage({w: parseFloat(parts[1]), d: parseFloat(parts[2])});
       else if(kw === 'TAENZER'){
         var did = parts[1], color = parts[2], dname = parts.slice(3).join(' ') || 'Tänzer';
         dancers.push({id: did, name: dname, color: color});
@@ -52,6 +53,7 @@
       dancers: dancers, formations: formations,
       axes: [], showAxes: true,
       roomLabels: {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'},
+      stage: stage,
       pairs: [], customFigures: [], logo: null, song: null,
       activeIndex: 0, tempo: tempo
     };
@@ -60,7 +62,7 @@
   // Symmetrical writer for the format `parseAuf` reads — keeps `.auf` a lightweight,
   // human-readable companion to `.stg` (positions/names/rotations only, no song/logo/axes/pairs).
   function buildAufText(s){
-    var lines = ['AUFSTELLUNG 1', 'TEMPO ' + Math.round(s.tempo)];
+    var lines = ['AUFSTELLUNG 1', 'TEMPO ' + Math.round(s.tempo), 'BUEHNE ' + sanitizeStage(s.stage).w + ' ' + sanitizeStage(s.stage).d];
     s.dancers.forEach(function(d){
       lines.push('TAENZER ' + d.id + ' ' + d.color + ' ' + d.name);
     });
@@ -144,6 +146,7 @@
         bottom: (s.roomLabels && s.roomLabels.bottom) || '',
         left: (s.roomLabels && s.roomLabels.left) || ''
       },
+      stage: sanitizeStage(s.stage),
       pairs: (s.pairs||[]).map(function(p){ return {id:p.id, memberIds:p.memberIds.slice(), name:p.name||'', collapsed:!!p.collapsed}; }),
       customFigures: (s.customFigures||[]).map(function(fig){ return {id:fig.id, name:fig.name, transform:fig.transform}; }),
       activeIndex: s.activeIndex,
@@ -259,6 +262,7 @@
         bottom: (header.roomLabels && typeof header.roomLabels.bottom === 'string') ? header.roomLabels.bottom : 'EINGANG',
         left: (header.roomLabels && typeof header.roomLabels.left === 'string') ? header.roomLabels.left : 'FENSTER'
       },
+      stage: sanitizeStage(header.stage),
       pairs: pairs,
       customFigures: customFigures,
       activeIndex: typeof header.activeIndex === 'number' ? header.activeIndex : 0,
@@ -867,11 +871,12 @@
     // than the old straight gridToPercent(v)/100*W so the whole stage draws confined to the right
     // of the panel instead of across the full canvas.
     var sx0 = panelW, sw = W - panelW, sh = H;
-    // The grid itself is a centered square inside that rectangle so 1 m is equally long in x and y
-    // (same as the square live stage); the floor still fills the whole rectangle around it.
-    var side = Math.min(sw, sh), gx0 = sx0 + (sw - side) / 2, gy0 = (sh - side) / 2;
-    function gx(v){ return gx0 + gridToPercent(v) / 100 * side; }
-    function gy(v){ return gy0 + gridToPercent(v) / 100 * side; }
+    // The grid itself is a centered rectangle of the stage's proportions (#2060) inside that
+    // rectangle, so 1 m is equally long in x and y; the floor still fills the whole rectangle around it.
+    var ar = stageAspect(), sideW = Math.min(sw, sh * ar), sideH = sideW / ar;
+    var gx0 = sx0 + (sw - sideW) / 2, gy0 = (sh - sideH) / 2;
+    function gx(v){ return gx0 + gridToPercentX(v) / 100 * sideW; }
+    function gy(v){ return gy0 + gridToPercentY(v) / 100 * sideH; }
 
     if(hasPanel){
       ctx.fillStyle = '#150f1c';
@@ -896,12 +901,14 @@
     }
 
     ctx.lineWidth = 1;
-    for(var v = GRID_MIN; v <= GRID_MAX; v++){
-      var isZero = v === 0;
-      var px = gx(v), py = gy(v);
-      ctx.strokeStyle = isZero ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.08)';
-      ctx.beginPath(); ctx.moveTo(px, gy0); ctx.lineTo(px, gy0+side); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(gx0, py); ctx.lineTo(gx0+side, py); ctx.stroke();
+    var stage = stageSize(), v;
+    for(v = Math.ceil(-stage.w / 2); v <= stage.w / 2; v++){
+      ctx.strokeStyle = v === 0 ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.08)';
+      ctx.beginPath(); ctx.moveTo(gx(v), gy0); ctx.lineTo(gx(v), gy0+sideH); ctx.stroke();
+    }
+    for(v = Math.ceil(-stage.d / 2); v <= stage.d / 2; v++){
+      ctx.strokeStyle = v === 0 ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.08)';
+      ctx.beginPath(); ctx.moveTo(gx0, gy(v)); ctx.lineTo(gx0+sideW, gy(v)); ctx.stroke();
     }
 
     // Room-orientation labels (Wand/Spiegel/Eingang/Fenster or whatever they've been renamed to,
@@ -915,15 +922,15 @@
     ctx.font = '700 ' + Math.round(Math.min(sw,sh)*0.024) + 'px "JetBrains Mono", monospace';
     if(roomLabels.top){
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(roomLabels.top.toUpperCase(), gx0 + side/2, gy0 + roomInset);
+      ctx.fillText(roomLabels.top.toUpperCase(), gx0 + sideW/2, gy0 + roomInset);
     }
     if(roomLabels.bottom){
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText(roomLabels.bottom.toUpperCase(), gx0 + side/2, gy0 + side - roomInset);
+      ctx.fillText(roomLabels.bottom.toUpperCase(), gx0 + sideW/2, gy0 + sideH - roomInset);
     }
     if(roomLabels.left){
       ctx.save();
-      ctx.translate(gx0 + roomInset, gy0 + side/2);
+      ctx.translate(gx0 + roomInset, gy0 + sideH/2);
       ctx.rotate(-Math.PI/2);
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillText(roomLabels.left.toUpperCase(), 0, 0);
@@ -931,7 +938,7 @@
     }
     if(roomLabels.right){
       ctx.save();
-      ctx.translate(gx0 + side - roomInset, gy0 + side/2);
+      ctx.translate(gx0 + sideW - roomInset, gy0 + sideH/2);
       ctx.rotate(Math.PI/2);
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       ctx.fillText(roomLabels.right.toUpperCase(), 0, 0);

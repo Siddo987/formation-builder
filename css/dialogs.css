@@ -47,6 +47,8 @@
 .settings-section{display:flex;flex-direction:column;gap:.55rem;}
 .settings-section h3{margin:0;font-size:.66rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);}
 .settings-row{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;}
+.stage-size-row label{display:inline-flex;align-items:center;gap:.35rem;font-size:.82rem;}
+.stage-size-row .coord-input{width:4.5rem;}
 .settings-hint{margin:0;font-size:.76rem;line-height:1.45;color:var(--ink-3);}
 .logo-preview-wrap{
   display:flex;align-items:center;justify-content:center;

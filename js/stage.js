@@ -164,8 +164,8 @@
     });
     shownPosMap = posMap;
     function place(el, pos){
-      el.style.left = gridToPercent(pos.x) + '%';
-      el.style.top = gridToPercent(pos.y) + '%';
+      el.style.left = gridToPercentX(pos.x) + '%';
+      el.style.top = gridToPercentY(pos.y) + '%';
       var ind = el.querySelector('.rot-indicator');
       if(ind) ind.style.transform = 'rotate(' + (pos.rot||0) + 'deg)';
     }
@@ -203,8 +203,8 @@
       if(p){ sx+=p.x; sy+=p.y; n++; }
     });
     if(n < 2){ marker.hidden = true; return; }
-    marker.style.left = gridToPercent(sx/n) + '%';
-    marker.style.top = gridToPercent(sy/n) + '%';
+    marker.style.left = gridToPercentX(sx/n) + '%';
+    marker.style.top = gridToPercentY(sy/n) + '%';
     marker.hidden = false;
   }
 
@@ -245,8 +245,8 @@
         var rect = stageEl.getBoundingClientRect();
         var px = ((ev.clientX-rect.left)/rect.width)*100;
         var py = ((ev.clientY-rect.top)/rect.height)*100;
-        var gx = percentToGrid(px);
-        var gy = percentToGrid(py);
+        var gx = percentToX(px);
+        var gy = percentToY(py);
         if(!ev.shiftKey){ gx = Math.round(gx); gy = Math.round(gy); }
         var dx = gx - grabStart.x, dy = gy - grabStart.y;
         if(activeLayoutId && !ev.shiftKey){
@@ -271,6 +271,7 @@
   }
 
   function buildStageLayers(){
+    stageEl.parentNode.style.setProperty('--ar', stageAspect()); // width : depth, see .stage-frame
     buildStageLogo();
     buildOnionSkinLayer();
     buildPairMidpointMarker();
@@ -311,8 +312,8 @@
           if(!p) return;
           var dot = document.createElement('span');
           dot.className = 'onion-dot ' + extraClass;
-          dot.style.left = gridToPercent(p.x) + '%';
-          dot.style.top = gridToPercent(p.y) + '%';
+          dot.style.left = gridToPercentX(p.x) + '%';
+          dot.style.top = gridToPercentY(p.y) + '%';
           if(useDancerColor) dot.style.background = d.color;
           layer.appendChild(dot);
         });
@@ -362,7 +363,7 @@
       svg.setAttribute('preserveAspectRatio', 'none');
       keys.forEach(function(e){
         var line = document.createElementNS(SVG_NS, 'polyline');
-        line.setAttribute('points', frames.map(function(w){ var p = at(w, e.k); return gridToPercent(p.x).toFixed(2) + ',' + gridToPercent(p.y).toFixed(2); }).join(' '));
+        line.setAttribute('points', frames.map(function(w){ var p = at(w, e.k); return gridToPercentX(p.x).toFixed(2) + ',' + gridToPercentY(p.y).toFixed(2); }).join(' '));
         line.setAttribute('stroke', e.d.color);
         if(isFollowKey(e.k)) line.setAttribute('stroke-dasharray', '4 3');
         svg.appendChild(line);
@@ -389,8 +390,8 @@
         var p = at(frames[m], ea.k), q = at(frames[m], eb.k);
         var mark = document.createElement('span');
         mark.className = 'path-clash';
-        mark.style.left = gridToPercent((p.x + q.x) / 2) + '%';
-        mark.style.top = gridToPercent((p.y + q.y) / 2) + '%';
+        mark.style.left = gridToPercentX((p.x + q.x) / 2) + '%';
+        mark.style.top = gridToPercentY((p.y + q.y) / 2) + '%';
         var label = document.createElement('span');
         label.textContent = markerDisplayName(ea.k) + ' · ' + markerDisplayName(eb.k);
         mark.appendChild(label);
@@ -612,7 +613,7 @@
   // returns its own screen position (dx/dy both zero) — that's what renders/drags its ghost dot.
   function layoutPointToStage(p){
     var r = layoutPointRaw(p);
-    return {x: clampGrid(r.x), y: clampGrid(r.y)};
+    return {x: clampX(r.x), y: clampY(r.y)};
   }
 
   // Same without the stage clamp — the pin math below needs the exact, unclamped position.
@@ -701,8 +702,8 @@
       var dot = document.createElement('span');
       var pinned = i === activeLayoutPinIndex;
       dot.className = 'layout-ghost-dot' + (pinned ? ' pinned' : '');
-      dot.style.left = gridToPercent(stagePos.x) + '%';
-      dot.style.top = gridToPercent(stagePos.y) + '%';
+      dot.style.left = gridToPercentX(stagePos.x) + '%';
+      dot.style.top = gridToPercentY(stagePos.y) + '%';
       dot.style.borderColor = units[i].color;
       dot.title = pinned
         ? 'Fixiert — einen anderen Punkt ziehen dreht und skaliert die Vorlage um diesen · Antippen löst'
@@ -716,8 +717,8 @@
     var originPos = layoutPointToStage(activeLayoutOrigin());
     var originDot = document.createElement('span');
     originDot.className = 'layout-ghost-origin';
-    originDot.style.left = gridToPercent(originPos.x) + '%';
-    originDot.style.top = gridToPercent(originPos.y) + '%';
+    originDot.style.left = gridToPercentX(originPos.x) + '%';
+    originDot.style.top = gridToPercentY(originPos.y) + '%';
     originDot.title = 'Orientierungspunkt — auch greifbar, verschiebt die ganze Vorlage';
     attachLayoutGhostDragEvents(originDot, null);
     layer.appendChild(originDot);
@@ -735,14 +736,14 @@
     var dots = layer.querySelectorAll('.layout-ghost-dot');
     for(var i=0; i<dots.length; i++){
       var stagePos = layoutPointToStage(layout.positions[i]);
-      dots[i].style.left = gridToPercent(stagePos.x) + '%';
-      dots[i].style.top = gridToPercent(stagePos.y) + '%';
+      dots[i].style.left = gridToPercentX(stagePos.x) + '%';
+      dots[i].style.top = gridToPercentY(stagePos.y) + '%';
     }
     var originDot = layer.querySelector('.layout-ghost-origin');
     if(originDot){
       var originPos = layoutPointToStage(activeLayoutOrigin());
-      originDot.style.left = gridToPercent(originPos.x) + '%';
-      originDot.style.top = gridToPercent(originPos.y) + '%';
+      originDot.style.left = gridToPercentX(originPos.x) + '%';
+      originDot.style.top = gridToPercentY(originPos.y) + '%';
     }
   }
 
@@ -761,8 +762,8 @@
       // incremental *movement* instead (the previous approach) still left the shape off-grid
       // whenever it had last been placed with Shift (fractional offset).
       var grabStart = {
-        x: percentToGrid(parseFloat(dot.style.left)),
-        y: percentToGrid(parseFloat(dot.style.top))
+        x: percentToX(parseFloat(dot.style.left)),
+        y: percentToY(parseFloat(dot.style.top))
       };
       var layout = activeLayout();
       var pinned = layout && index != null && activeLayoutPinIndex != null && index !== activeLayoutPinIndex
@@ -775,8 +776,8 @@
         var rect = stageEl.getBoundingClientRect();
         var px = ((ev.clientX-rect.left)/rect.width)*100;
         var py = ((ev.clientY-rect.top)/rect.height)*100;
-        var gx = percentToGrid(px);
-        var gy = percentToGrid(py);
+        var gx = percentToX(px);
+        var gy = percentToY(py);
         if(!ev.shiftKey){ gx = Math.round(gx); gy = Math.round(gy); }
         if(pinned && scaleLayoutAroundPin(pinned, pinStage, layout.positions[index], {x:gx, y:gy})){
           repositionLayoutGhostDots();
@@ -784,8 +785,8 @@
         }
         var dx = gx - grabStart.x, dy = gy - grabStart.y;
         activeLayoutOffset = {
-          x: clampGrid(startOffset.x + dx),
-          y: clampGrid(startOffset.y + dy)
+          x: clampX(startOffset.x + dx),
+          y: clampY(startOffset.y + dy)
         };
         repositionLayoutGhostDots();
       }
@@ -851,35 +852,29 @@
     });
   }
 
+  // A line every metre across the width and the depth (#2060); on a big stage only every second
+  // one gets a number, so they don't run into each other.
   function buildGridOverlay(){
     var overlay = document.createElement('div');
     overlay.className = 'stage-grid';
-    for(var v = GRID_MIN; v <= GRID_MAX; v++){
-      var pct = gridToPercent(v);
-      var isZero = v === 0;
-
-      var vline = document.createElement('div');
-      vline.className = 'grid-line vertical' + (isZero ? ' zero' : '');
-      vline.style.left = pct + '%';
-      overlay.appendChild(vline);
-
-      var hline = document.createElement('div');
-      hline.className = 'grid-line horizontal' + (isZero ? ' zero' : '');
-      hline.style.top = pct + '%';
-      overlay.appendChild(hline);
-
-      var xlabel = document.createElement('span');
-      xlabel.className = 'grid-label x-label' + (isZero ? ' zero' : '');
-      xlabel.style.left = pct + '%';
-      xlabel.textContent = v;
-      overlay.appendChild(xlabel);
-
-      var ylabel = document.createElement('span');
-      ylabel.className = 'grid-label y-label' + (isZero ? ' zero' : '');
-      ylabel.style.top = pct + '%';
-      ylabel.textContent = v;
-      overlay.appendChild(ylabel);
+    var s = stageSize(), step = Math.max(s.w, s.d) > 20 ? 2 : 1;
+    function lines(half, toPct, lineCls, labelCls, prop){
+      for(var v = Math.ceil(-half); v <= half; v++){
+        var pct = toPct(v), isZero = v === 0;
+        var line = document.createElement('div');
+        line.className = 'grid-line ' + lineCls + (isZero ? ' zero' : '');
+        line.style[prop] = pct + '%';
+        overlay.appendChild(line);
+        if(v % step) continue;
+        var label = document.createElement('span');
+        label.className = 'grid-label ' + labelCls + (isZero ? ' zero' : '');
+        label.style[prop] = pct + '%';
+        label.textContent = v;
+        overlay.appendChild(label);
+      }
     }
+    lines(s.w / 2, gridToPercentX, 'vertical', 'x-label', 'left');
+    lines(s.d / 2, gridToPercentY, 'horizontal', 'y-label', 'top');
     stageEl.appendChild(overlay);
   }
 
@@ -963,8 +958,8 @@
         var rect = stageEl.getBoundingClientRect();
         var px = ((ev.clientX-rect.left)/rect.width)*100;
         var py = ((ev.clientY-rect.top)/rect.height)*100;
-        var gx = percentToGrid(px);
-        var gy = percentToGrid(py);
+        var gx = percentToX(px);
+        var gy = percentToY(py);
         if(!ev.shiftKey){ gx = Math.round(gx); gy = Math.round(gy); }
         var dx = gx - grabStart.x, dy = gy - grabStart.y;
         // Snap onto an active Vorlage's nearest point: for a solo drag the reference is the
@@ -1226,8 +1221,8 @@
     ids.forEach(function(id){
       var p = pos[id];
       var dx = p.x - mx, dy = p.y - my;
-      p.x = clampGrid(mx + dx*cos - dy*sin);
-      p.y = clampGrid(my + dx*sin + dy*cos);
+      p.x = clampX(mx + dx*cos - dy*sin);
+      p.y = clampY(my + dx*sin + dy*cos);
       p.rot = normAngle((p.rot || 0) + deg);
     });
     positionMarkers(pos);
@@ -1321,8 +1316,8 @@
       var rad = turn * Math.PI / 180;
       var cos = Math.cos(rad), sin = Math.sin(rad);
       var rx = hx*cos - hy*sin, ry = hx*sin + hy*cos;
-      c.next.pos[c.lk] = {x: clampGrid(mx + rx), y: clampGrid(my + ry), rot: normAngle((la.rot||0) + turn)};
-      c.next.pos[c.fk] = {x: clampGrid(mx - rx), y: clampGrid(my - ry), rot: normAngle((fa.rot||0) + turn)};
+      c.next.pos[c.lk] = {x: clampX(mx + rx), y: clampY(my + ry), rot: normAngle((la.rot||0) + turn)};
+      c.next.pos[c.fk] = {x: clampX(mx - rx), y: clampY(my - ry), rot: normAngle((fa.rot||0) + turn)};
     }else if(!c.next.pos[c.fk]){
       c.next.pos[c.lk] = {x: lb.x, y: lb.y, rot: normAngle((la.rot||0) + turn)};
     }
@@ -1437,7 +1432,7 @@
     var ca = mid(o.cur.pos), cb = mid(o.next.pos), rad = turn * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
     o.ids.forEach(function(k){
       var p = o.cur.pos[k], dx = p.x - ca.x, dy = p.y - ca.y;
-      o.next.pos[k] = {x: clampGrid(cb.x + dx*cos - dy*sin), y: clampGrid(cb.y + dx*sin + dy*cos), rot: normAngle((p.rot||0) + turn)};
+      o.next.pos[k] = {x: clampX(cb.x + dx*cos - dy*sin), y: clampY(cb.y + dx*sin + dy*cos), rot: normAngle((p.rot||0) + turn)};
     });
     o.cur.orbits = sanitizeOrbits(orbitsWithout(o).concat([{ids: o.ids, turn: turn}]));
     afterCoupleTurnChange();
@@ -1666,7 +1661,7 @@
   if(window.ResizeObserver) new ResizeObserver(fitPairBar).observe(pairRotateEl.parentNode);
 
   function setDancerPos(dancerId, x, y, skipRosterUpdate){
-    x = clampGrid(x); y = clampGrid(y);
+    x = clampX(x); y = clampY(y);
     var existing = currentFormation().pos[dancerId];
     var rot = existing ? existing.rot||0 : 0;
     currentFormation().pos[dancerId] = {x:x, y:y, rot:rot};
@@ -1751,8 +1746,8 @@
       var ox = Math.round(Math.cos(r)), oy = Math.round(Math.sin(r));
       if(!ox && !oy) ox = 1;
       var nx = p.x + ox, ny = p.y + oy;
-      if(clampGrid(nx) !== nx || clampGrid(ny) !== ny){ nx = p.x - ox; ny = p.y - oy; }
-      f.pos[fk] = {x: clampGrid(nx), y: clampGrid(ny), rot: p.rot||0};
+      if(clampX(nx) !== nx || clampY(ny) !== ny){ nx = p.x - ox; ny = p.y - oy; }
+      f.pos[fk] = {x: clampX(nx), y: clampY(ny), rot: p.rot||0};
       pairSelection = [did, fk]; // both stay selected: move or turn them as one right away
       selectedDancerId = fk;
     }
