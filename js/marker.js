@@ -55,7 +55,7 @@
     if(markerListEl){
       // Unmarked Bilder show in grey where sync playback spreads them to (syncTimes, js/stage.js).
       var times = isSyncActive() ? syncTimes() : [];
-      Array.prototype.forEach.call(markerListEl.children, function(row, i){
+      Array.prototype.forEach.call(markerListEl.querySelectorAll('.marker-row'), function(row, i){
         row.classList.toggle('marker-row--warn', !!bad[i]);
         row.querySelector('.marker-time-input').placeholder = times[i] != null ? formatTime(times[i]) : 'mm:ss';
       });
@@ -80,7 +80,17 @@
 
   function renderMarkerList(){
     markerListEl.innerHTML = '';
+    var lastCategory = '';
     state.formations.forEach(function(f, idx){
+      // Tanzgrenzen wie in der Schritte-PDF: Überschrift, wo ein neuer Abschnitt beginnt (#2066).
+      var cat = categoryLabelAt(idx);
+      if(cat && cat !== lastCategory){
+        var head = document.createElement('div');
+        head.className = 'marker-section';
+        head.textContent = cat;
+        markerListEl.appendChild(head);
+      }
+      lastCategory = cat;
       var row = document.createElement('div');
       row.className = 'marker-row';
 

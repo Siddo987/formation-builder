@@ -106,6 +106,11 @@
     display:flex; align-items:center; gap:.5rem;
     padding:.4rem .55rem; border-radius:10px; background:var(--panel-2);
   }
+  .marker-section{
+    font-size:.68rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--accent-ink); padding:.35rem .2rem 0;
+  }
+  .marker-section:first-child{padding-top:0;}
   .marker-badge{
     font-family:var(--font-mono); font-size:.68rem; font-weight:700;
     color:var(--ink-faint); flex:none; width:20px;
