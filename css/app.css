@@ -597,6 +597,9 @@ body.hide-facing .dancer .rot-indicator{display:none;}
   display:flex;align-items:center;gap:3px;flex:none;
   padding-left:.4rem;margin-left:.05rem;border-left:1px solid var(--line);
 }
+/* Einzelauswahl: das Drehfeld fehlt, der Trennstrich des Namens reicht */
+.pair-rotate.single .pair-rotate-turn + .pair-turn,
+.pair-rotate.single .pair-rotate-turn + .pair-turn[hidden] + .pair-turn{padding-left:0;margin-left:0;border-left:none;}
 .pair-turn-label{
   font-size:.72rem;color:var(--ink-2);white-space:nowrap;
   max-width:11rem;overflow:hidden;text-overflow:ellipsis;padding-right:.15rem;
