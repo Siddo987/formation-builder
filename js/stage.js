@@ -1377,10 +1377,18 @@
 
   // Pfeiltasten schieben die Auswahl, auch wenn kein Punkt den Fokus hat – nach Strg-Klick (der
   // den Fokus nicht setzt), Rollen- oder Leisten-Auswahl (#2064); ohne Auswahl den fokussierten
-  // Punkt.
+  // Punkt. Strg/Cmd+A wählt alle Punkte dieses Bilds (#2063).
   document.addEventListener('keydown', function(e){
     if(e.defaultPrevented || e.altKey || !selectionKeysFree()) return;
     var pos = currentFormation().pos;
+    if((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')){
+      e.preventDefault();
+      pairSelection = Object.keys(pos).filter(function(id){ return stageMarkers[id]; });
+      if(pairSelection.indexOf(selectedDancerId) === -1) selectedDancerId = pairSelection[0] || null;
+      ensureMarkers();
+      updatePairRotateUI();
+      return;
+    }
     if(e.ctrlKey || e.metaKey) return;
     var step = e.shiftKey ? 0.5 : 1;
     var dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
