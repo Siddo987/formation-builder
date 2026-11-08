@@ -10,7 +10,7 @@
   function handleRosterSelectClick(e, dancerId){
     if(e.target.closest('input, button, textarea, select')) return;
     if(playing) pausePlayback();
-    var isolate = e.ctrlKey || e.metaKey;
+    var isolate = e.ctrlKey || e.metaKey || e.shiftKey; // Shift adds too (#2043)
     if(isolate){
       var idx = pairSelection.indexOf(dancerId);
       if(idx !== -1) pairSelection.splice(idx, 1); else pairSelection.push(dancerId);
@@ -29,7 +29,7 @@
   function handleRosterPairSelectClick(e, pair){
     if(e.target.closest('input, button, textarea, select')) return;
     if(playing) pausePlayback();
-    var isolate = e.ctrlKey || e.metaKey;
+    var isolate = e.ctrlKey || e.metaKey || e.shiftKey; // Shift adds too (#2043)
     if(isolate){
       var allIn = pair.memberIds.every(function(id){ return pairSelection.indexOf(id) !== -1; });
       if(allIn){

@@ -840,6 +840,12 @@
         e.preventDefault();
         var idx = pairSelection.indexOf(dancerId);
         if(idx !== -1) pairSelection.splice(idx, 1); else pairSelection.push(dancerId);
+      }else if(e.shiftKey){
+        // Shift-click adds what a plain click would select (the pair, too) or takes it out again;
+        // unlike Strg the drag that follows moves the whole selection (#2043).
+        var add = defaultSelectionFor(dancerId);
+        if(pairSelection.indexOf(dancerId) !== -1) pairSelection = pairSelection.filter(function(id){ return add.indexOf(id) === -1; });
+        else add.forEach(function(id){ if(pairSelection.indexOf(id) === -1) pairSelection.push(id); });
       }else{
         // Plain click on a dancer with a saved partner selects — and now drags — both together.
         // An unpaired dancer starts a fresh single-dancer selection (not an empty one — a plain
