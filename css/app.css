@@ -960,9 +960,8 @@ body.roster-open .roster{display:flex;}
   display:flex;align-items:center;justify-content:center;
   border:1px dashed var(--line-strong);border-radius:5px;background:transparent;
   color:var(--ink-3);padding:0;
-  opacity:0;transition:opacity .12s ease,border-color .12s ease,color .12s ease;
+  transition:border-color .12s ease,color .12s ease;
 }
-.film-connector:hover .film-between-add,.film-between-add:focus-visible{opacity:1;}
 .film-between-add:hover{border-color:var(--pair);color:var(--pair);}
 /* Geschwindigkeitsverlauf der Bewegung zum nächsten Bild */
 .film-between-speed{
@@ -970,9 +969,8 @@ body.roster-open .roster{display:flex;}
   display:flex;align-items:center;justify-content:center;
   border:1px dashed var(--line-strong);border-radius:5px;background:transparent;
   color:var(--ink-3);padding:0;
-  opacity:0;transition:opacity .12s ease,border-color .12s ease,color .12s ease,background .12s ease;
+  transition:border-color .12s ease,color .12s ease,background .12s ease;
 }
-.film-connector:hover .film-between-speed,.film-between-speed:focus-visible,.film-between-speed.custom{opacity:1;}
 .film-between-speed:hover{border-color:var(--pair);color:var(--pair);}
 .film-between-speed.custom{border-style:solid;border-color:var(--pair);color:var(--pair);background:var(--pair-wash);}
 /* Markiert eine eingestellte Drehung im Paar (gesetzt in der Auswahlzeile unter der Bühne) */
@@ -1299,7 +1297,6 @@ body.roster-open .roster{display:flex;}
   .remove-btn,.film-between-chip-remove{opacity:1;}
   .film-remove{opacity:0;pointer-events:none;}
   .film-card.active .film-remove{opacity:.85;pointer-events:auto;}
-  .film-between-add,.film-between-speed{opacity:1;}
   .film-connector:not(:has(.film-between-chip)):not(.speed-set):not(.turn-set) .film-between-add,
   .film-connector:not(:has(.film-between-chip)):not(.speed-set):not(.turn-set) .film-between-speed{position:relative;transform:none;}
   .split-btn{opacity:1;}
