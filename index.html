@@ -282,6 +282,8 @@ if ('serviceWorker' in navigator) {
           <button class="btn-ghost danger" id="songRemoveBtn" type="button" hidden>Entfernen</button>
         </div>
         <p class="settings-hint" id="songName" hidden></p>
+        <label class="music-preroll">Audio-Verzögerung <input type="number" id="audioDelayInput" class="coord-input" min="0" max="1000" step="10" value="0" inputmode="numeric" aria-label="Audio-Verzögerung in Millisekunden"> ms</label>
+        <p class="settings-hint">Nur auf diesem Gerät, z.&nbsp;B. für Bluetooth-Kopfhörer: Das Bild läuft um so viel später, und „Jetzt“ setzt Marker auf das, was gerade zu hören ist. Der Videoexport bleibt exakt.</p>
       </section>
 
     </div>

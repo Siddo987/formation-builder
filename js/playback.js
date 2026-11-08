@@ -160,7 +160,7 @@
     if(!pa.sync && (state.activeIndex !== pa.fromIdx || pa.toIdx >= state.formations.length)) return false;
     syncActive = pa.sync;
     if(pa.sync){
-      songAudioEl.currentTime = pa.songTime;
+      songAudioEl.currentTime = syncHeardFrom = pa.songTime;
       songAudioEl.play().catch(function(){});
       rafId = requestAnimationFrame(syncTick);
     }else{
@@ -199,7 +199,7 @@
       syncActive = isSyncActive();
       if(syncActive){
         // Start the song (and therefore the animation) at the selected Bild, not always at 0.
-        songAudioEl.currentTime = playbackStartTime();
+        songAudioEl.currentTime = syncHeardFrom = playbackStartTime();
         songAudioEl.play().catch(function(){});
         rafId = requestAnimationFrame(syncTick);
       }else{
@@ -217,7 +217,12 @@
     }else{
       // Hold everything right where it is — no jump back to the start of the Bild.
       cancelAnimationFrame(rafId);
-      songAudioEl.pause();
+      if(syncActive){
+        // Hold at what was heard (and shown), so play carries on from there (#2059).
+        var heard = Math.max(syncHeardFrom, heardSongTime());
+        songAudioEl.pause();
+        songAudioEl.currentTime = heard;
+      }else songAudioEl.pause();
       pausedAt = syncActive
         ? {sync: true, songTime: songAudioEl.currentTime}
         : {sync: false, fromIdx: fromIdx, toIdx: toIdx, songTime: songAudioEl.currentTime,
@@ -301,9 +306,28 @@
     return raw;
   }
 
+  // Bluetooth & co. play the song this long after currentTime (#2059). Per device like the Vorlauf
+  // (js/music.js), so it lives in localStorage, not in the project.
+  var AUDIO_DELAY_KEY = 'aufstellung-audio-delay';
+  var audioDelayInput = document.getElementById('audioDelayInput');
+  function audioDelaySec(){
+    var v = parseFloat(audioDelayInput.value);
+    return isFinite(v) && v > 0 ? Math.min(1000, v)/1000 : 0;
+  }
+  try{ var storedDelay = localStorage.getItem(AUDIO_DELAY_KEY); if(storedDelay !== null) audioDelayInput.value = storedDelay; }catch(e){}
+  audioDelayInput.addEventListener('change', function(){
+    audioDelayInput.value = String(Math.round(audioDelaySec()*1000));
+    try{ localStorage.setItem(AUDIO_DELAY_KEY, audioDelayInput.value); }catch(e){}
+  });
+  // What is being heard right now: the song's position minus that delay, while it plays.
+  function heardSongTime(){
+    return songAudioEl.paused ? songAudioEl.currentTime : Math.max(0, songAudioEl.currentTime - audioDelaySec());
+  }
+
+  var syncHeardFrom = 0; // where sync playback started: the picture holds there until the sound arrives
   function syncTick(){
     if(!playing || !syncActive) return;
-    var ct = smoothSongTime();
+    var ct = Math.max(syncHeardFrom, smoothSongTime() - audioDelaySec());
     var fr = syncFrameAt(ct);
     if(!fr){ pausePlayback(); return; }
     positionMarkers(fr.pos);

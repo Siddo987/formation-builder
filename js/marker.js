@@ -153,7 +153,7 @@
       nowBtn.textContent = 'Jetzt';
       nowBtn.title = 'Auf aktuelle Abspielposition setzen';
       nowBtn.addEventListener('click', function(){
-        f.time = snapTime(songAudioEl.currentTime);
+        f.time = snapTime(heardSongTime()); // js/playback.js — minus the Bluetooth delay (#2059)
         timeInput.value = formatTime(f.time);
         clearBtn.hidden = false;
         saveState();
