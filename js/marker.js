@@ -18,6 +18,7 @@
   var markerListEl = document.getElementById('markerList');
   var markerOrderWarning = document.getElementById('markerOrderWarning');
   var syncBadge = document.getElementById('syncBadge');
+  var scrubTicksEl = document.getElementById('scrubTicks');
 
   function formatTime(sec){
     if(sec === null || sec === undefined || !isFinite(sec)) return '';
@@ -41,7 +42,17 @@
   }
 
   function updateSyncBadge(){
-    syncBadge.hidden = !isSyncActive();
+    var sync = isSyncActive();
+    syncBadge.hidden = !sync;
+    // The marked Bilder as ticks on the playbar timeline, which spans the song in sync (#2054).
+    scrubTicksEl.innerHTML = '';
+    var dur = songAudioEl.duration;
+    if(!sync || !isFinite(dur) || dur <= 0) return;
+    markerWaypoints().forEach(function(w){
+      var tick = document.createElement('span');
+      tick.style.left = Math.min(100, w.time/dur*100) + '%';
+      scrubTicksEl.appendChild(tick);
+    });
   }
 
   // Time markers should climb in Bild order. When they don't — hand-entered out of sequence, or a

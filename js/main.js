@@ -126,6 +126,7 @@
       songAudioEl.pause();
     }
     applyTempo(); // the readout switches between Bilder/s and the song's speed
+    updateSyncBadge(); // no song, no sync badge or timeline ticks (js/marker.js)
   }
 
   document.getElementById('songUploadBtn').addEventListener('click', function(){ document.getElementById('songInput').click(); });
