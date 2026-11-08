@@ -1356,6 +1356,12 @@
     updatePairRotateUI();
   }
   pairRotateClearBtn.addEventListener('click', clearSelection);
+  // Ein Klick auf leere Bühne (oder ihren Rand) hebt die Auswahl auf; Tänzer & Co. liegen darüber (#2046).
+  stageEl.parentNode.addEventListener('pointerdown', function(e){
+    if(e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if(e.target !== stageEl && e.target !== stageEl.parentNode) return;
+    if(pairSelection.length || selectedDancerId != null) clearSelection();
+  });
   // Esc hebt die Auswahl auf – aber nur, wenn kein Dialog/Menü/Popover offen ist (die schließen dann
   // zuerst) und nicht gerade in ein Feld getippt wird. Capture-Phase, damit der Zustand vor den
   // Schließen-Handlern geprüft wird, sonst würde ein Esc Dialog und Auswahl zugleich wegnehmen.
