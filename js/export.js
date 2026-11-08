@@ -1134,14 +1134,15 @@
     });
   }
 
+  // Exactly the song's times, like sync playback (syncFrameAt): any padding here added up and
+  // pushed the picture further behind the sound with every short move (#2074).
   function buildSyncSegments(pts, totalDur){
     var segments = [];
-    if(pts[0].time > 0.02){
+    if(pts[0].time > 0){
       segments.push({type:'hold', idx: pts[0].idx, dur: pts[0].time*1000});
     }
     for(var i=0; i<pts.length-1; i++){
-      var span = Math.max(0, pts[i+1].time - pts[i].time);
-      segments.push({type:'move', from: pts[i].idx, to: pts[i+1].idx, dur: Math.max(200, span*1000)});
+      segments.push({type:'move', from: pts[i].idx, to: pts[i+1].idx, dur: Math.max(0, pts[i+1].time - pts[i].time)*1000});
     }
     var last = pts[pts.length-1];
     var tailDur = Math.max(300, (totalDur - last.time)*1000);
@@ -1194,7 +1195,7 @@
       // static — the info-panel stack only moves during an actual move segment
       return {pos: state.formations[seg.idx].pos, cursor: seg.idx};
     }
-    var t = Math.min(1, elapsedInSeg/seg.dur);
+    var t = seg.dur > 0 ? Math.min(1, elapsedInSeg/seg.dur) : 1; // two Bilder at the same time: a jump
     return {
       // Chains through any Zwischenpositionen on seg.from's own betweens list, same as live
       // playback (see interpolateThroughBetweens in state.js) — so a video export shows exactly
@@ -1461,7 +1462,7 @@
     recorder.start(250);
     if(exportAudioEl){ exportAudioEl.currentTime = 0; exportAudioEl.play().catch(function(){}); }
 
-    var segIdx = 0, segStart = null;
+    var segIdx = 0, segStart = 0, clockStart = null;
     // setTimeout, not requestAnimationFrame: every major browser fully suspends rAF callbacks in a
     // backgrounded tab, which used to freeze this loop — and the frame it froze on — for however
     // long the user had another tab/window focused, while the (unaffected, real-time) audio element
@@ -1478,10 +1479,16 @@
         return;
       }
       var now = performance.now();
-      if(segStart === null) segStart = now;
+      if(clockStart === null) clockStart = now;
+      // While the song plays, the picture follows its currentTime like sync playback does, so the
+      // song's start lag and each frame's overshoot can't shift it against the sound (#2074).
+      var tMs = (exportAudioEl && !exportAudioEl.paused) ? exportAudioEl.currentTime*1000 : now - clockStart;
+      while(segIdx < segments.length-1 && tMs >= segStart + segments[segIdx].dur){
+        segStart += segments[segIdx].dur;
+        segIdx++;
+      }
       var seg = segments[segIdx];
-      var elapsedInSeg = now - segStart;
-      var at = videoFrameAt(seg, elapsedInSeg);
+      var at = videoFrameAt(seg, tMs - segStart);
       renderCanvasFrame(ctx, W, H, at.pos, logoImg, focusIds, ghostsFor(seg), at.cursor);
       // In manual-capture mode (see runVideoRecording), the stream never emits a frame on its own —
       // this is the one and only signal that a new frame is ready, which is exactly what keeps
@@ -1490,24 +1497,14 @@
       // canvas on its own separate timer.
       if(manualCaptureTrack) manualCaptureTrack.requestFrame();
 
-      var elapsedBefore = 0;
-      for(var s=0; s<segIdx; s++) elapsedBefore += segments[s].dur;
-      var elapsedTotal = elapsedBefore + Math.min(elapsedInSeg, seg.dur);
-      showVideoProgress(seg, elapsedTotal/totalDuration);
+      showVideoProgress(seg, tMs/totalDuration);
 
-      if(elapsedInSeg >= seg.dur){
-        segIdx += 1;
-        segStart = now;
-        if(segIdx >= segments.length){
-          var lastSeg = segments[segments.length-1];
-          renderCanvasFrame(ctx, W, H, state.formations[lastSeg.idx].pos, logoImg, focusIds, ghostsFor(lastSeg), lastSeg.idx);
-          if(manualCaptureTrack) manualCaptureTrack.requestFrame();
-          videoProgressFill.style.width = '100%';
-          videoProgressFill.classList.add('indeterminate');
-          videoStatusText.textContent = 'Wird finalisiert…';
-          setTimeout(function(){ recorder.stop(); }, 300);
-          return;
-        }
+      if(tMs >= totalDuration){
+        videoProgressFill.style.width = '100%';
+        videoProgressFill.classList.add('indeterminate');
+        videoStatusText.textContent = 'Wird finalisiert…';
+        setTimeout(function(){ recorder.stop(); }, 300);
+        return;
       }
       scheduleFrame();
     }
