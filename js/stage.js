@@ -916,6 +916,18 @@
   }
 
   function updatePairRotateUI(){
+    updatePairRotateControls();
+    fitPairBar();
+  }
+
+  // Too little room for „Drehung bis …“ next to the rest: show the icons instead, as on phones.
+  function fitPairBar(){
+    var bar = pairRotateEl.parentNode;
+    pairRotateEl.classList.remove('compact');
+    if(!pairRotateEl.hidden && !selectionMenuAt && bar.scrollWidth > bar.clientWidth) pairRotateEl.classList.add('compact');
+  }
+
+  function updatePairRotateControls(){
     if(typeof noteHistoryView === 'function') noteHistoryView(); // a new Bild or selection is an undo step (js/history.js)
     // While paused mid-move the markers stand between two Bilder — the cross has to sit between
     // them there too, not at the Bild's own positions.
@@ -1349,6 +1361,7 @@
     selectionMenuAt = null;
     pairRotateEl.classList.remove('floating');
     pairRotateEl.style.left = pairRotateEl.style.top = '';
+    fitPairBar();
   }
 
   // Below/right of the pointer; flipped to the other side where that would run off screen.
@@ -1391,6 +1404,7 @@
   // A different set of controls (e.g. after „Paar lösen“) changes its size — keep it on screen.
   if(window.ResizeObserver) new ResizeObserver(placeSelectionMenu).observe(pairRotateEl);
   window.addEventListener('resize', placeSelectionMenu);
+  if(window.ResizeObserver) new ResizeObserver(fitPairBar).observe(pairRotateEl.parentNode);
 
   function setDancerPos(dancerId, x, y, skipRosterUpdate){
     x = clampGrid(x); y = clampGrid(y);
