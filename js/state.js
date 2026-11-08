@@ -965,7 +965,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // paces even unmarked Bilder by it, as before), the project's Bilder tempo otherwise.
   function activeTempo(){ return state.song && state.song.url ? songTempo : state.tempo; }
 
-  function durations(){
-    var t = activeTempo()/100;
+  function durations(tempo){
+    var t = (tempo == null ? activeTempo() : tempo)/100;
     return { move: lerp(2200,500,t), hold: lerp(1600,300,t) };
   }

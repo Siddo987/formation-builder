@@ -402,10 +402,7 @@
         : 'Ein Dokument mit den Blättern aller Tänzer – erst Paar 1, dann Paar 2 usw.') +
         ' Ist ein Paar in einem Bild in Lead & Follow geteilt, gibt es je ein Blatt für Lead und Follow.';
     } else {
-      // The video plays at the playbar's Tempo — said here, since the dialog has no tempo of its own.
-      var tempo = state.song && state.song.url ? formatDecimal(songRate(), 2) + '×' : formatDecimal(1000/durations().move, 1) + ' Bilder/s';
-      exportWhoHint.textContent = (who ? 'Das Video zeigt nur die Gewählten.' : 'Die ganze Choreo mit allen Tänzern.') +
-        ' Tempo wie in der Abspielleiste: ' + tempo + '.';
+      exportWhoHint.textContent = who ? 'Das Video zeigt nur die Gewählten.' : 'Die ganze Choreo mit allen Tänzern.';
     }
     // On a video of everyone there are no "other couples" to grey out; on the PDF every sheet has them.
     exportContextOption.hidden = !media || (exportFormat === 'video' && !who);
@@ -1083,8 +1080,7 @@
     }).catch(function(){});
   })();
 
-  // Song tempo ≠ 1× works offline too: stretchSong gives the decoded song the same pitch-preserving
-  // speed change the <audio> element's playbackRate does live.
+  // The video always plays the song at 1×, whatever the playbar's Tempo (#2023).
   function fastVideoExportPossible(){
     if(!fastVideoCodecs) return false;
     if(!(state.song && state.song.url)) return true;
@@ -1138,20 +1134,17 @@
     });
   }
 
-  // Marker times are positions in the original song; at songRate() ≠ 1 the song (and so each
-  // segment) takes 1/rate as long in real time.
-  function buildSyncSegments(pts, totalDur, rate){
-    var msPerSongSec = 1000/rate;
+  function buildSyncSegments(pts, totalDur){
     var segments = [];
     if(pts[0].time > 0.02){
-      segments.push({type:'hold', idx: pts[0].idx, dur: pts[0].time*msPerSongSec});
+      segments.push({type:'hold', idx: pts[0].idx, dur: pts[0].time*1000});
     }
     for(var i=0; i<pts.length-1; i++){
       var span = Math.max(0, pts[i+1].time - pts[i].time);
-      segments.push({type:'move', from: pts[i].idx, to: pts[i+1].idx, dur: Math.max(200, span*msPerSongSec)});
+      segments.push({type:'move', from: pts[i].idx, to: pts[i+1].idx, dur: Math.max(200, span*1000)});
     }
     var last = pts[pts.length-1];
-    var tailDur = Math.max(300, (totalDur - last.time)*msPerSongSec);
+    var tailDur = Math.max(300, (totalDur - last.time)*1000);
     segments.push({type:'hold', idx: last.idx, dur: tailDur});
     return segments;
   }
@@ -1175,9 +1168,10 @@
   }
 
   // syncPts: syncWaypoints(songDuration) when the video follows the song, else null.
-  function buildVideoSegments(syncPts, songDuration, rate){
-    if(syncPts && songDuration > 0) return buildSyncSegments(syncPts, songDuration, rate);
-    var d = durations();
+  function buildVideoSegments(syncPts, songDuration){
+    if(syncPts && songDuration > 0) return buildSyncSegments(syncPts, songDuration);
+    // A loaded song's Tempo is only the playbar's; the video paces like a song at 1× (songTempo 50).
+    var d = durations(state.song && state.song.url ? 50 : state.tempo);
     if(state.formations.length === 1) return [{type:'hold', idx:0, dur: Math.max(d.hold, 2000)}];
     // Match the live playback (js/playback.js tick): one continuous chain of moves with no
     // hold in between — just a brief hold on the first and last Bild so the opening and closing
@@ -1283,73 +1277,6 @@
     try{ if(encoder && encoder.state !== 'closed') encoder.close(); }catch(e){}
   }
 
-  // The song at rate× its speed with the pitch kept (WSOLA): 40 ms frames overlap by half under a
-  // Hann window, each taken from wherever within ±10 ms of its nominal place it best continues the
-  // previous frame's waveform — a plain overlap-add would smear beats and tones. The search runs
-  // on a 4× decimated mono mix and is then refined at full rate. Works in slices so the page and
-  // the Abbrechen button stay responsive; resolves with {left, right} (mono → both the same), or
-  // null when cancelled.
-  function stretchSong(audioBuf, rate){
-    var left = audioBuf.getChannelData(0);
-    var right = audioBuf.getChannelData(Math.min(1, audioBuf.numberOfChannels-1));
-    if(rate === 1) return Promise.resolve({left:left, right:right});
-    var len = audioBuf.length, sr = audioBuf.sampleRate;
-    var HS = Math.round(0.02*sr), N = 2*HS, TOL = Math.round(0.01*sr), D = 4;
-    var outLen = Math.round(len/rate);
-    var outL = new Float32Array(outLen + N), outR = new Float32Array(outLen + N);
-    var win = new Float32Array(N);
-    for(var n = 0; n < N; n++) win[n] = 0.5 - 0.5*Math.cos(2*Math.PI*n/N);
-    var mix = new Float32Array(Math.floor(len/D));
-    for(var i = 0; i < mix.length; i++){
-      var s = 0;
-      for(var j = i*D; j < i*D+D; j++) s += left[j] + right[j];
-      mix[i] = s;
-    }
-    var frames = Math.ceil(outLen/HS), k = 0, prev = 0;
-
-    // Offset in [lo, hi] at which x[nominal+δ …] best matches x[target …] over the overlap (HS samples).
-    function bestOffset(target, nominal, lo, hi){
-      var best = 0, bestScore = -Infinity, a = Math.floor(target/D), m = HS/D | 0, d, s, j;
-      for(d = Math.ceil(lo/D)*D; d <= hi; d += D){
-        var b = Math.floor((nominal+d)/D);
-        for(s = 0, j = 0; j < m; j++) s += mix[a+j]*mix[b+j];
-        if(s > bestScore){ bestScore = s; best = d; }
-      }
-      var coarse = best;
-      bestScore = -Infinity;
-      for(d = Math.max(lo, coarse-D+1); d <= Math.min(hi, coarse+D-1); d++){
-        var p = nominal + d;
-        for(s = 0, j = 0; j < HS; j++) s += (left[target+j] + right[target+j])*(left[p+j] + right[p+j]);
-        if(s > bestScore){ bestScore = s; best = d; }
-      }
-      return best;
-    }
-
-    return new Promise(function(resolve){
-      function slice(){
-        if(exportState.cancelled){ resolve(null); return; }
-        var sliceEnd = performance.now() + 40;
-        for(; k < frames && performance.now() < sliceEnd; k++){
-          var nominal = Math.round(k*HS*rate), p = nominal;
-          var lo = Math.max(-TOL, -nominal), hi = Math.min(TOL, len - N - nominal);
-          if(k > 0 && prev + N <= len && lo <= hi) p = nominal + bestOffset(prev + HS, nominal, lo, hi);
-          var o = k*HS, end = Math.min(N, len - p);
-          for(var n = 0; n < end; n++){
-            var w = k === 0 && n < HS ? 1 : win[n]; // the very start has no frame before it to fade in against
-            outL[o+n] += left[p+n]*w;
-            outR[o+n] += right[p+n]*w;
-          }
-          prev = p;
-        }
-        videoProgressFill.style.width = (k/frames*100) + '%';
-        if(k < frames) yieldToBrowser(slice);
-        else resolve({left: outL.subarray(0, outLen), right: outR.subarray(0, outLen)});
-      }
-      videoStatusText.textContent = 'Lied wird ans Tempo angepasst…';
-      slice();
-    });
-  }
-
   // Resolves once the .mp4 is downloaded or the user cancelled; rejects when anything fails.
   function renderVideoOffline(logoImg, filename, focusIds){
     exportState = { cancelled:false };
@@ -1357,30 +1284,27 @@
     var canvas = createVideoCanvas();
     var W = canvas.width, H = canvas.height;
     var ctx = canvas.getContext('2d');
-    var rate = songRate();
     // decodeAudioData resamples to the context's rate, so the samples come out at FAST_AUDIO_RATE.
     var songPromise = (state.song && state.song.url) ? fetch(state.song.url).then(function(res){ return res.arrayBuffer(); }).then(function(buf){
       return new OfflineAudioContext(2, 1, FAST_AUDIO_RATE).decodeAudioData(buf);
-    }).then(function(audioBuf){
-      return stretchSong(audioBuf, rate).then(function(ch){ return ch && {duration: audioBuf.duration, left: ch.left, right: ch.right}; });
     }) : Promise.resolve(null);
 
     return Promise.all([loadMp4Muxer(), songPromise]).then(function(loaded){
       if(exportState.cancelled) return;
-      var Mp4 = loaded[0], song = loaded[1];
-      var pts = song ? syncWaypoints(song.duration) : [];
-      var segments = buildVideoSegments(pts.length >= 2 ? pts : null, song ? song.duration : 0, rate);
+      var Mp4 = loaded[0], audioBuf = loaded[1];
+      var pts = audioBuf ? syncWaypoints(audioBuf.duration) : [];
+      var segments = buildVideoSegments(pts.length >= 2 ? pts : null, audioBuf ? audioBuf.duration : 0);
       var totalDuration = segmentsDuration(segments);
       var totalFrames = Math.max(1, Math.ceil(totalDuration*FAST_VIDEO_FPS/1000));
       // Like the real-time recording, the sound ends with the picture (or earlier, with the song).
-      var audioFrames = song ? Math.min(song.left.length, Math.round(totalFrames/FAST_VIDEO_FPS*FAST_AUDIO_RATE)) : 0;
-      var left = song ? song.left : null;
-      var right = song ? song.right : null;
+      var audioFrames = audioBuf ? Math.min(audioBuf.length, Math.round(totalFrames/FAST_VIDEO_FPS*FAST_AUDIO_RATE)) : 0;
+      var left = audioBuf ? audioBuf.getChannelData(0) : null;
+      var right = audioBuf ? audioBuf.getChannelData(Math.min(1, audioBuf.numberOfChannels-1)) : null; // mono → both sides
 
       var muxer = new Mp4.Muxer({
         target: new Mp4.ArrayBufferTarget(),
         video: {codec: codecs.video.muxer, width: W, height: H, frameRate: FAST_VIDEO_FPS},
-        audio: song ? {codec: codecs.audio.muxer, numberOfChannels: 2, sampleRate: FAST_AUDIO_RATE} : undefined,
+        audio: audioBuf ? {codec: codecs.audio.muxer, numberOfChannels: 2, sampleRate: FAST_AUDIO_RATE} : undefined,
         fastStart: 'in-memory',
         firstTimestampBehavior: 'offset'
       });
@@ -1392,7 +1316,7 @@
       });
       videoEncoder.configure(codecs.video.config);
       var audioEncoder = null;
-      if(song){
+      if(audioBuf){
         audioEncoder = new AudioEncoder({
           output: function(chunk, meta){ try{ muxer.addAudioChunk(chunk, meta); }catch(e){ fail(e); } },
           error: fail
@@ -1476,12 +1400,11 @@
     var ctx = canvas.getContext('2d');
 
     var exportAudioEl = (state.song && state.song.url) ? new Audio(state.song.url) : null;
-    if(exportAudioEl) applySongRate(exportAudioEl);
     var durationPromise = exportAudioEl ? getAudioDuration(exportAudioEl) : Promise.resolve(0);
 
     durationPromise.then(function(songDuration){
       var pts = exportAudioEl ? syncWaypoints(songDuration) : [];
-      var segments = buildVideoSegments(pts.length >= 2 ? pts : null, songDuration, songRate());
+      var segments = buildVideoSegments(pts.length >= 2 ? pts : null, songDuration);
       var totalDuration = segmentsDuration(segments);
 
       // Manual capture mode when the browser supports it (Chrome/Edge): the canvas only emits a
