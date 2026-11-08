@@ -9,7 +9,7 @@
 --
 -- On MySQL/MariaDB api/lib/db.php (DB_MYSQL_TABLES, keep it in sync with this file) also adds
 -- missing tables and columns by itself on the next API request, so a new column no longer breaks
--- saving until this file is re-run. The starter Figuren/Vorlagen rows below still come only from here.
+-- saving until this file is re-run. The starter Figuren rows below still come only from here.
 
 CREATE TABLE IF NOT EXISTS shares (
   id            VARCHAR(32)   NOT NULL PRIMARY KEY,
@@ -27,8 +27,7 @@ CREATE TABLE IF NOT EXISTS shares (
 -- before updated_at/version existed, i.e. before live/persistent share links — see
 -- api/share/update.php) — CREATE TABLE IF NOT EXISTS above is a no-op there, so add the columns
 -- explicitly. Needs MySQL 8.0.29+ for ADD COLUMN IF NOT EXISTS; on an older MySQL, drop the "IF
--- NOT EXISTS" and ignore the resulting "duplicate column" error if it's already there (same as the
--- layouts migration below). `version` is an opaque per-write token the client polls against
+-- NOT EXISTS" and ignore the resulting "duplicate column" error if it's already there. `version` is an opaque per-write token the client polls against
 -- (pollSharedUpdate() in js/share.js) — deliberately not the DATETIME itself, which only has
 -- one-second resolution and could miss two edits landing in the same second.
 ALTER TABLE shares ADD COLUMN IF NOT EXISTS updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
@@ -84,35 +83,6 @@ INSERT INTO figures (id, name, description, transform_json, sort_order) VALUES
    '{"mode":"couples","partnerA":{"rotateDeg":180,"translateX":0,"translateY":0},"partnerB":{"rotateDeg":180,"translateX":0,"translateY":0}}', 4)
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
--- Admin-presettable "Vorlagen": target *shapes* shown client-side as a transparent ghost overlay
--- (js/stage.js, renderLayoutGhost()) that the user drags into place and rotates, then dancers get
--- manually dragged onto it by hand. `positions_json` is an ordered array of {"x":n,"y":n} that
--- matters only relative to each other, not as fixed stage coordinates — center the shape around
--- (0,0) here; the client places/rotates it on the actual stage. Same -7..7 scale as dancer
--- positions. The client matches slots to dancers by order, up to however many dancers the current
--- project actually has. Nothing here is tied to a specific project's dancer ids.
-CREATE TABLE IF NOT EXISTS layouts (
-  id              VARCHAR(32)   NOT NULL PRIMARY KEY,
-  name            VARCHAR(120)  NOT NULL,
-  description     VARCHAR(255)  NULL,
-  positions_json  JSON          NOT NULL,
-  origin_x        FLOAT         NOT NULL DEFAULT 0,
-  origin_y        FLOAT         NOT NULL DEFAULT 0,
-  sort_order      INT           NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Re-running this file against a database that already has an older `layouts` table (created
--- before origin_x/origin_y existed) — CREATE TABLE IF NOT EXISTS above is a no-op there, so add
--- the columns explicitly. Needs MySQL 8.0.29+ for ADD COLUMN IF NOT EXISTS; on an older MySQL,
--- drop the "IF NOT EXISTS" and ignore the resulting "duplicate column" error if it's already there.
-ALTER TABLE layouts ADD COLUMN IF NOT EXISTS origin_x FLOAT NOT NULL DEFAULT 0;
-ALTER TABLE layouts ADD COLUMN IF NOT EXISTS origin_y FLOAT NOT NULL DEFAULT 0;
-
--- The rotation pivot ("Orientierungspunkt") — where the layout-select rotation input in the app
--- turns the shape around, and rendered client-side as its own distinct, grabbable ghost point
--- alongside the per-dancer ones. Defaults to (0,0), matching the previous fixed pivot exactly, so
--- existing rows/behavior are unaffected until an admin deliberately repositions it.
-
--- No seed rows: the Grundformen (Reihe, Kreis, V-Form, …) are generated client-side for the
--- choreo's pair count (LAYOUT_SHAPES in js/stage.js). This table only holds admin-made Vorlagen;
--- the client hides the old seed ids lay-reihe/lay-kreis/lay-v-form/lay-doppelreihe if still present.
+-- The Vorlagen (Reihe, Kreis, V-Form, …) are generated client-side for the choreo's pair count
+-- (LAYOUT_SHAPES in js/stage.js); the old admin-made `layouts` table is gone.
+DROP TABLE IF EXISTS layouts;

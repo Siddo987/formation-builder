@@ -122,8 +122,8 @@
     pointer-events:auto; cursor:grab; touch-action:none;
   }
   .layout-ghost-dot:active{cursor:grabbing; opacity:.8;}
-  /* Orientierungspunkt — the layout's rotation pivot (admin-settable, see admin/layouts.php's
-     violet diamond). Distinct shape/color from the numbered per-dancer dots so it doesn't read as
+  /* Orientierungspunkt — the layout's rotation pivot (its center), a violet
+     diamond. Distinct shape/color from the numbered per-dancer dots so it doesn't read as
      "one more dancer slot" — dragging it works exactly the same as any other ghost dot though. */
   .layout-ghost-origin{
     position:absolute; width:22px; height:22px;

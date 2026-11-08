@@ -365,20 +365,18 @@
     }
   }
 
-  /* ---------- layout templates ("Vorlagen"): admin-presettable target *shapes* — a Vorlage's
+  /* ---------- layout templates ("Vorlagen"): target *shapes* — a Vorlage's
      positions are relative to each other only (no fixed spot on the stage baked in). Shown as a
      transparent, non-interactive-underneath ghost overlay that the user drags into place and
      rotates to taste; dancers then get manually dragged onto the ghost by hand — a positioning
      aid, not an auto-transform like Figuren. Picking one (and any placement/rotation applied to
      it) is per-session/transient, never saved in state, and resets whenever the active Bild
-     changes (a fresh reference point for whichever Bild you're now positioning). Each layout also
-     carries an admin-settable "Orientierungspunkt" (origin) — the rotation pivot, rendered as its
-     own distinct, grabbable ghost point (see activeLayoutOrigin/layoutPointToStage). Next to the
-     admin ones the client brings its own Grundformen (LAYOUT_SHAPES), generated fresh for however
-     many pairs the choreo has, so they always fit exactly. ---------- */
+     changes (a fresh reference point for whichever Bild you're now positioning). The shape's
+     center is its "Orientierungspunkt" — the rotation pivot, rendered as its own distinct,
+     grabbable ghost point (see layoutPointToStage). The Vorlagen are the Grundformen
+     (LAYOUT_SHAPES), generated fresh for however many pairs the choreo has, so they always fit
+     exactly. ---------- */
 
-  var layoutsCatalog = null; // null until first fetch resolves
-  var layoutsFetchPromise = null;
   var activeLayoutId = null;
   var activeLayoutOffset = {x:0, y:0}; // where the shape's own Orientierungspunkt currently sits on stage
   var activeLayoutRotateDeg = 0; // rotation around that same Orientierungspunkt, applied before the offset
@@ -465,41 +463,21 @@
       return rowPoints(n, 14).map(function(p, i){ return {x: p.x, y: i % 2 ? -1.5 : 1.5}; });
     }}
   ];
-  // The old seeded catalog rows (schema.sql) — the Grundformen above replace them.
-  var LAYOUT_SEED_IDS = ['lay-reihe', 'lay-kreis', 'lay-v-form', 'lay-doppelreihe'];
-
   // One ghost point per pair: every dot is a couple, except the Follow of an older saved pair.
   function layoutUnits(){
     return state.dancers.filter(function(d){ return dancerRole(d.id) !== 'follow'; });
   }
 
   // The active Vorlage as {positions, origin}: a Grundform generated for the current pair count
-  // (bounding box centered on its origin), or an admin layout as stored. null when none is picked.
+  // (bounding box centered on its origin). null when none is picked.
   function activeLayout(){
-    if(!activeLayoutId) return null;
-    var shape = LAYOUT_SHAPES.find(function(l){ return l.id === activeLayoutId; });
-    if(shape){
-      var pts = shape.points(layoutUnits().length);
-      var xs = pts.map(function(p){ return p.x; }), ys = pts.map(function(p){ return p.y; });
-      var cx = (Math.min.apply(null, xs) + Math.max.apply(null, xs))/2 || 0;
-      var cy = (Math.min.apply(null, ys) + Math.max.apply(null, ys))/2 || 0;
-      return {positions: pts.map(function(p){ return {x: roundNum(p.x-cx), y: roundNum(p.y-cy)}; }), origin: {x:0, y:0}};
-    }
-    var layout = (layoutsCatalog || []).find(function(l){ return l.id === activeLayoutId; });
-    if(!layout || !Array.isArray(layout.positions)) return null;
-    // origin defaults to (0,0) for layouts saved before this field existed (see api/layouts.php)
-    return {positions: layout.positions, origin: {x: (layout.origin && layout.origin.x) || 0, y: (layout.origin && layout.origin.y) || 0}};
-  }
-
-  function ensureLayoutsLoaded(){
-    if(!layoutsFetchPromise){
-      layoutsFetchPromise = fetch('api/layouts.php')
-        .then(function(res){ return res.ok ? res.json() : {layouts:[]}; })
-        .then(function(data){ layoutsCatalog = Array.isArray(data.layouts) ? data.layouts : []; })
-        .catch(function(){ layoutsCatalog = []; })
-        .then(function(){ renderLayoutSelectOptions(); });
-    }
-    return layoutsFetchPromise;
+    var shape = activeLayoutId && LAYOUT_SHAPES.find(function(l){ return l.id === activeLayoutId; });
+    if(!shape) return null;
+    var pts = shape.points(layoutUnits().length);
+    var xs = pts.map(function(p){ return p.x; }), ys = pts.map(function(p){ return p.y; });
+    var cx = (Math.min.apply(null, xs) + Math.max.apply(null, xs))/2 || 0;
+    var cy = (Math.min.apply(null, ys) + Math.max.apply(null, ys))/2 || 0;
+    return {positions: pts.map(function(p){ return {x: roundNum(p.x-cx), y: roundNum(p.y-cy)}; }), origin: {x:0, y:0}};
   }
 
   function renderLayoutSelectOptions(){
@@ -525,7 +503,6 @@
       select.appendChild(group);
     }
     addGroup('Formen (passend zur Paarzahl)', LAYOUT_SHAPES);
-    addGroup('Eigene Vorlagen', (layoutsCatalog || []).filter(function(l){ return LAYOUT_SEED_IDS.indexOf(l.id) === -1; }));
     select.value = activeLayoutId || '';
     updateLayoutRotateFieldVisibility();
   }
@@ -608,7 +585,7 @@
       attachLayoutGhostDragEvents(dot);
       layer.appendChild(dot);
     }
-    // Orientierungspunkt — the admin-set rotation pivot, its own distinct grabbable marker
+    // Orientierungspunkt — the rotation pivot, its own distinct grabbable marker
     // alongside the per-dancer dots (dragging it moves the whole shape too, same as any other dot
     // — they all just update the shared activeLayoutOffset).
     var originPos = layoutPointToStage(activeLayoutOrigin());

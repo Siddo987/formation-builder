@@ -115,7 +115,7 @@ function describe_transform(string $json): string {
 <body>
 <div class="wrap">
   <h1>Aufstellung — Admin</h1>
-  <nav><a class="current" href="index.php">Figuren</a><a href="layouts.php">Vorlagen</a><a href="logout.php">Abmelden</a></nav>
+  <nav><a class="current" href="index.php">Figuren</a><a href="logout.php">Abmelden</a></nav>
 
   <?php if ($notice): ?><p class="notice"><?= h($notice) ?></p><?php endif; ?>
   <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>

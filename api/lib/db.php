@@ -80,18 +80,6 @@ const DB_MYSQL_TABLES = [
         ],
         'extra' => [],
     ],
-    'layouts' => [
-        'columns' => [
-            'id'             => 'VARCHAR(32) NOT NULL PRIMARY KEY',
-            'name'           => 'VARCHAR(120) NOT NULL',
-            'description'    => 'VARCHAR(255) NULL',
-            'positions_json' => 'JSON NOT NULL',
-            'origin_x'       => 'FLOAT NOT NULL DEFAULT 0',
-            'origin_y'       => 'FLOAT NOT NULL DEFAULT 0',
-            'sort_order'     => 'INT NOT NULL DEFAULT 0',
-        ],
-        'extra' => [],
-    ],
 ];
 
 /** Ensures every table/column the API uses exists. sqlite (dev, see db.php header) gets the full
@@ -118,9 +106,10 @@ function db_ensure_schema(): void {
         song_path TEXT,
         delete_token TEXT
     )");
-    // Migration for a dev sqlite file created before updated_at/version existed (see
-    // layouts.origin_x/y above for why this pattern is needed) — and backfill any pre-existing
-    // rows so they don't read as an empty string.
+    // Migration for a dev sqlite file created before updated_at/version existed — CREATE TABLE IF
+    // NOT EXISTS is a no-op against an existing table and older sqlite has no ADD COLUMN IF NOT
+    // EXISTS, so add each column and ignore the error — and backfill any pre-existing rows so they
+    // don't read as an empty string.
     try { $pdo->exec("ALTER TABLE shares ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''"); } catch (Throwable $e) {}
     try { $pdo->exec("ALTER TABLE shares ADD COLUMN version TEXT NOT NULL DEFAULT ''"); } catch (Throwable $e) {}
     try { $pdo->exec("ALTER TABLE shares ADD COLUMN head_commit TEXT"); } catch (Throwable $e) {}
@@ -145,20 +134,6 @@ function db_ensure_schema(): void {
         transform_json TEXT NOT NULL,
         sort_order INTEGER NOT NULL DEFAULT 0
     )");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS layouts (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        positions_json TEXT NOT NULL,
-        origin_x REAL NOT NULL DEFAULT 0,
-        origin_y REAL NOT NULL DEFAULT 0,
-        sort_order INTEGER NOT NULL DEFAULT 0
-    )");
-    // Migration for a dev sqlite file created before origin_x/origin_y existed — CREATE TABLE IF
-    // NOT EXISTS above is a no-op against an already-existing table, so add the columns directly;
-    // ignore the error if they're already there (older sqlite has no ADD COLUMN IF NOT EXISTS).
-    try { $pdo->exec("ALTER TABLE layouts ADD COLUMN origin_x REAL NOT NULL DEFAULT 0"); } catch (Throwable $e) {}
-    try { $pdo->exec("ALTER TABLE layouts ADD COLUMN origin_y REAL NOT NULL DEFAULT 0"); } catch (Throwable $e) {}
 }
 
 /** MySQL/MariaDB half of db_ensure_schema(): one information_schema lookup, then CREATE TABLE /

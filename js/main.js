@@ -192,7 +192,7 @@
   // A share link brings its own project (new localId), so only check right away without one.
   startTabProjectGuard(!openingShareLink);
   ensureFiguresLoaded();
-  ensureLayoutsLoaded();
+  renderLayoutSelectOptions();
 
   /* ---------- Tänzer-Schublade ---------- */
   // Breit genug (≥1200px): die Liste steht neben der Bühne und merkt sich, ob sie offen war.
