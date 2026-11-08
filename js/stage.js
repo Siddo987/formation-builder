@@ -157,6 +157,11 @@
   function positionMarkers(posMap){
     // The stage shows something else now – a held pause (playback.js) can't resume from there.
     if(!playing && pausedAt){ pausedAt = null; updateProgress(idleTimelinePct()); }
+    // A couple picked as one dot stays picked whole where it's split into Lead & Follow (#2048).
+    var prevPos = shownPosMap;
+    var addFollows = (playing || !prevPos) ? [] : pairSelection.map(followKey).filter(function(fk){
+      return posMap[fk] && !prevPos[fk] && pairSelection.indexOf(fk) === -1;
+    });
     shownPosMap = posMap;
     function place(el, pos){
       el.style.left = gridToPercent(pos.x) + '%';
@@ -177,6 +182,7 @@
       if(!el || !pos) return;
       place(el, pos);
     });
+    if(addFollows.length){ pairSelection = pairSelection.concat(addFollows); ensureMarkers(); updatePairRotateUI(); }
     updatePairMidpointMarker(posMap);
     // Kept live during playback too now — the gray/faint ghosts are just the neighbouring Bilder's
     // static positions (no comparison against the interpolating markers), so there's nothing to
