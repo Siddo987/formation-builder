@@ -47,7 +47,7 @@
   // With a song loaded, the Tempo slider sets how fast the song itself plays (songTempo, see
   // js/state.js): 0,5× to 2,0× of the original, 1,0× in the middle. Sync playback follows the song's
   // clock, so the stage speeds up with it. Piecewise linear so the readout lands on round values
-  // (75 → 1,50×).
+  // (75 → 1,50×). Typed into the field it goes on down to 0,25× (songTempo below 0, #2049).
   function songRate(){
     var t = songTempo;
     return t <= 50 ? 0.5 + t/100 : 1 + (t-50)/50;
@@ -65,25 +65,26 @@
     tempoSlider.value = activeTempo();
     var song = !!(state.song && state.song.url);
     if(document.activeElement !== tempoInputEl){
-      tempoInputEl.value = song ? formatDecimal(songRate(), 2) : formatDecimal(1000/durations().move, 1);
+      var bps = 1000/durations().move;
+      tempoInputEl.value = song ? formatDecimal(songRate(), 2) : formatDecimal(bps, bps < 0.5 ? 2 : 1);
     }
     tempoUnitEl.textContent = song ? '×' : 'Bilder/s';
     tempoSlider.title = song ? 'Geschwindigkeit des Lieds (0,5× bis 2,0× vom Original)' : '';
-    tempoInputEl.title = song ? 'Geschwindigkeit des Lieds eingeben (0,5 bis 2,0)' : 'Bilder pro Sekunde eingeben (0,5 bis 2,0)';
+    tempoInputEl.title = song ? 'Geschwindigkeit des Lieds eingeben (0,25 bis 2,0)' : 'Bilder pro Sekunde eingeben (0,25 bis 2,0)';
     syncMusicRate(); // js/music.js
   }
 
   function formatDecimal(v, digits){ return v.toFixed(digits).replace('.', ','); }
 
-  // Inverses of the two readouts, for typing a value instead of dragging (both clamp to the
-  // slider's range): songRate() above, and Bilder/s = 1000/durations().move with
-  // move = 2200 - 17·tempo.
+  // Inverses of the two readouts, for typing a value instead of dragging (both clamp to 0,25…2,0,
+  // below the slider's range — the slider then just sits at its left end, #2049): songRate()
+  // above, and Bilder/s = 1000/durations().move with move = 2200 - 17·tempo.
   function songTempoForRate(r){
-    r = Math.min(2, Math.max(0.5, r));
+    r = Math.min(2, Math.max(0.25, r));
     return r <= 1 ? (r - 0.5)*100 : 50 + (r - 1)*50;
   }
   function bilderTempoForRate(r){
-    return Math.round(Math.min(100, Math.max(0, (2200 - 1000/r)/17)));
+    return Math.round(Math.min(100, (2200 - 1000/Math.max(0.25, r))/17));
   }
 
   // The Tempo readouts are text fields: Enter or leaving the field applies the typed value (comma or

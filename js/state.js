@@ -958,7 +958,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var songTempo = (function(){
     try{
       var v = parseFloat(sessionStorage.getItem(SONG_TEMPO_KEY));
-      return isFinite(v) && v >= 0 && v <= 100 ? v : 50;
+      return isFinite(v) && v >= -25 && v <= 100 ? v : 50; // -25 = 0,25× (songTempoForRate)
     }catch(e){ return 50; }
   })();
   // The one Tempo value the playbar shows: the song's speed while a song is loaded (playback then
