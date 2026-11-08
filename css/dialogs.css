@@ -156,6 +156,8 @@
   padding:.55rem .65rem;border:1px solid var(--line-strong);border-radius:9px;background:var(--panel);cursor:pointer;
 }
 .export-format input{position:absolute;opacity:0;pointer-events:none;}
+.new-choreo-options{display:flex;flex-direction:column;gap:.4rem;}
+.new-choreo-options .export-format{width:100%;font:inherit;text-align:left;}
 .export-format-head{display:flex;align-items:center;gap:.4rem;color:var(--ink-2);}
 .export-format strong{font-size:.82rem;color:var(--ink);}
 .export-format code{font-family:var(--font-mono);font-size:.76rem;}

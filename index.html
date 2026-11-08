@@ -504,6 +504,25 @@ if ('serviceWorker' in navigator) {
   </div>
 </div>
 
+<div class="modal-backdrop" id="newChoreoBackdrop" hidden>
+  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="newChoreoTitle">
+    <div class="modal-header">
+      <h2 id="newChoreoTitle">Neue Choreo</h2>
+      <button class="modal-close" id="newChoreoCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <section class="settings-section">
+        <div class="new-choreo-options">
+          <button class="export-format" type="button" data-neu="muster"><span class="export-format-head"><strong>Mit Mustern</strong></span><span>5 Tänzer und die Bilder Startlinie, Kreis und Diagonale</span></button>
+          <button class="export-format" type="button" data-neu="leer"><span class="export-format-head"><strong>Leer</strong></span><span>Ohne Tänzer, mit einem leeren Bild</span></button>
+          <button class="export-format" type="button" data-neu="kopie"><span class="export-format-head"><strong>Kopie der aktuellen</strong></span><span>Alles von dieser Choreo, mit Lied und Logo – aber nicht mit ihrem Teilen-Link verbunden</span></button>
+        </div>
+        <p class="settings-hint">Die aktuelle Choreo bleibt unter „Öffnen“ gespeichert.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="openBackdrop" hidden>
   <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="openTitle">
     <div class="modal-header">

@@ -21,6 +21,7 @@
     if(!settingsBackdrop.hidden) closeSettings();
     if(!helpBackdrop.hidden) helpBackdrop.hidden = true;
     if(!openBackdrop.hidden) closeOpenProjectsModal();
+    if(!newChoreoBackdrop.hidden) closeNewChoreoModal();
     if(!videoBackdrop.hidden && exportState) exportState.cancelled = true;
     if(!exportBackdrop.hidden) closeExportDialog();
     if(!markerBackdrop.hidden) closeMarkerModal();

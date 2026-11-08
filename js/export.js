@@ -632,13 +632,28 @@
     e.target.value = '';
   });
 
-  // „Neue Choreo“: the current one stays saved on this device (the „Öffnen“ list) and the page
-  // reloads into a fresh project (?neu, see loadState()) — not swapped in place, for the same
-  // reason as openLocalProject() above.
-  newChoreoBtn.addEventListener('click', function(){
-    saveStateDebounced.flush();
-    writeLocalProject();
-    location.assign(location.pathname + '?neu');
+  // „Neue Choreo“ (#2042): with the sample Bilder, empty, or a copy of this one. The current one
+  // stays saved on this device (the „Öffnen“ list) and the page reloads into the new project
+  // (?neu=…, see loadState()) — not swapped in place, for the same reason as openLocalProject() above.
+  var newChoreoBackdrop = document.getElementById('newChoreoBackdrop');
+  function closeNewChoreoModal(){ newChoreoBackdrop.hidden = true; }
+  newChoreoBtn.addEventListener('click', function(){ newChoreoBackdrop.hidden = false; });
+  document.getElementById('newChoreoCloseBtn').addEventListener('click', closeNewChoreoModal);
+  newChoreoBackdrop.addEventListener('click', function(e){ if(e.target === newChoreoBackdrop) closeNewChoreoModal(); });
+  Array.prototype.forEach.call(newChoreoBackdrop.querySelectorAll('[data-neu]'), function(btn){
+    btn.addEventListener('click', function(){
+      saveStateDebounced.flush();
+      writeLocalProject();
+      var url = location.pathname + '?neu=' + btn.dataset.neu;
+      if(btn.dataset.neu !== 'kopie'){ location.assign(url); return; }
+      // Logo and song live in IndexedDB per project — file them under the copy's id first.
+      var id = uid('proj'), puts = [];
+      if(state.logo && state.logo.blob) puts.push(idbPut(idbBlobKey('logo', id), { name:state.logo.name, mime:state.logo.mime, blob:state.logo.blob, opacity:state.logo.opacity }));
+      if(state.song && state.song.blob) puts.push(idbPut(idbBlobKey('song', id), { name:state.song.name, mime:state.song.mime, blob:state.song.blob }));
+      Promise.all(puts).then(function(){
+        location.assign(url + '&von=' + encodeURIComponent(state.localId) + '&id=' + encodeURIComponent(id));
+      });
+    });
   });
 
   // „Choreo löschen“ wipes the entire project (every Bild, dancer, axis, logo, song — replaced

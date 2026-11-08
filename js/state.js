@@ -489,6 +489,14 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     };
   }
 
+  // „Neue Choreo → Leer“ (#2042): no dancers and one empty Bild — the app needs at least one.
+  function emptyState(){
+    var s = defaultState();
+    s.dancers = [];
+    s.formations = [{id:uid('f'), name:'Bild 1', pos:{}, showAxes:true, localAxes:[], category:'', startPos:{}, betweens:[]}];
+    return s;
+  }
+
   // Every tab works on its own project: the save lives under projectStorageKey(localId), and
   // sessionStorage (per tab, survives a reload) remembers which one this tab has open — so a reload
   // brings back this tab's project, not whichever tab saved last. STORAGE_KEY itself stays a copy of
@@ -500,16 +508,21 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
 
   function loadState(){
     try{
-      var tabId = null, openId = null;
+      var tabId = null, openId = null, copyId = null;
       try{ tabId = sessionStorage.getItem(TAB_PROJECT_KEY); }catch(e){}
       // ?project=<localId>: the "Öffnen" list (js/export.js) reloads the page into that project;
-      // ?neu: „Neue Choreo“ does, into a fresh one.
+      // ?neu: „Neue Choreo“ does, into a fresh one — ?neu=leer an empty one, ?neu=kopie&von=<localId>
+      // a copy of that project under the new localId `id` (its logo/song are already filed there).
       try{
         var params = new URLSearchParams(location.search);
-        if(params.has('neu')) return defaultState();
-        openId = params.get('project');
+        if(params.has('neu')){
+          if(params.get('neu') === 'leer') return emptyState();
+          if(params.get('neu') !== 'kopie' || !params.get('von')) return defaultState();
+          copyId = params.get('id') || uid('proj');
+        }
+        openId = params.get(copyId ? 'von' : 'project');
       }catch(e){}
-      var raw = (openId && localStorage.getItem(projectStorageKey(openId))) ||
+      var raw = copyId ? localStorage.getItem(projectStorageKey(openId)) : (openId && localStorage.getItem(projectStorageKey(openId))) ||
         (tabId && localStorage.getItem(projectStorageKey(tabId))) || localStorage.getItem(STORAGE_KEY);
       if(!raw) return defaultState();
       var parsed = JSON.parse(raw);
@@ -549,6 +562,13 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       // bearbeitbar behandeln (der Server lässt Alt-Links mit edit_token IS NULL ohnehin durch).
       parsed.shareReadOnly = parsed.shareReadOnly === true;
       if(typeof parsed.localId !== 'string' || !parsed.localId) parsed.localId = uid('proj');
+      if(copyId){
+        parsed.localId = copyId;
+        parsed.projectName += ' (Kopie)';
+        parsed.sharedId = null;
+        parsed.shareEditToken = null;
+        parsed.shareReadOnly = false;
+      }
       // logo/song blobs are never stored in this localStorage JSON (too large/binary) — they're
       // persisted separately in IndexedDB and hydrated back in via hydrateBlobsFromIdb().
       parsed.logo = null;
@@ -855,8 +875,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     try{
       var params = new URLSearchParams(location.search);
       if(!params.has('project') && !params.has('neu')) return;
-      params.delete('project');
-      params.delete('neu');
+      ['project', 'neu', 'von', 'id'].forEach(function(k){ params.delete(k); });
       var rest = params.toString();
       history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
     }catch(e){}
