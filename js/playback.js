@@ -371,9 +371,10 @@
         hold = {sync: false, fromIdx: from, toIdx: from + 1, t: t, songTime: freeSongTimeAt(from, t)};
       }
     }
-    var changed = idx !== state.activeIndex;
+    var changed = idx !== state.activeIndex || !hold !== !pausedAt;
     state.activeIndex = idx;
     positionMarkers(posMap); // drops any earlier hold
+    pausedAt = hold; // before the redraw: the ghosts depend on it (#2039)
     if(changed){
       renderFilmstripActiveOnly();
       refreshRosterCoords();
@@ -381,7 +382,6 @@
       resetLayoutGhost();
       renderOnionSkin();
     }
-    pausedAt = hold;
     updateProgress(frac*100);
   }
 

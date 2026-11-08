@@ -313,7 +313,8 @@
         });
       });
     }
-    var prevIdx = playing ? state.activeIndex : state.activeIndex - 1;
+    // Paused mid-move the ghosts stay as during playback: gray = the Bild the move started from (#2039).
+    var prevIdx = playing || pausedMidMove() ? state.activeIndex : state.activeIndex - 1;
     var prev = state.formations[prevIdx];
     addDots(prev ? prev.pos : null, 'onion-dot-prev', false);
     var next = state.formations[state.activeIndex + 1];
