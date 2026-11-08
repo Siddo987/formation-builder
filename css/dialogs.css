@@ -196,6 +196,7 @@
 .history-summary{grid-column:1/-1;font-size:.8rem;font-weight:700;}
 .history-diff{flex:1;min-width:0;max-height:46vh;overflow-y:auto;padding:.7rem .8rem;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;}
 .history-diff-head{margin:0 0 .5rem;font-size:.82rem;font-weight:700;color:var(--ink-2);}
+.history-diff-head:not(:first-child){margin-top:1rem;}
 .history-diff-section{margin:.7rem 0 .3rem;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);}
 .history-diff-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:.25rem;}
 .history-change{font-size:.8rem;line-height:1.35;padding-left:.8rem;position:relative;}

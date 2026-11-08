@@ -699,17 +699,26 @@
     if(!histDiffEl) return;
     histDiffEl.innerHTML = '';
     if(histSelected < 0){
-      histDiffEl.innerHTML = '<p class="settings-hint">Einen Eintrag links wählen, um zu sehen, was sich seitdem geändert hat.</p>';
+      histDiffEl.innerHTML = '<p class="settings-hint">Einen Eintrag links wählen, um zu sehen, was sich darin und seitdem geändert hat.</p>';
       return;
     }
-    var fromSnap = histEntries[histSelected].snapshot;
-    var toSnap = serializableState(state);
-    var changes = diffStates(fromSnap, toSnap);
+    var entry = histEntries[histSelected], prev = histEntries[histSelected - 1];
+    // First what this step itself changed (#2022), then how far it is from the current state.
+    var own = prev ? diffStates(prev.snapshot, entry.snapshot) : [];
+    renderChangeList(own.length ? countLabel(own) + ' in diesem Schritt'
+      : prev ? 'In diesem Schritt nur die Ansicht gewechselt.' : 'Ausgangsstand.', own, entry.snapshot);
+    if(histSelected === histPointer) return;
+    var now = serializableState(state);
+    var since = diffStates(entry.snapshot, now);
+    renderChangeList(since.length ? countLabel(since) + ' seitdem bis jetzt' : 'Keine Unterschiede zum aktuellen Stand.', since, now);
+  }
+  function countLabel(changes){ return changes.length + (changes.length === 1 ? ' Änderung' : ' Änderungen'); }
+
+  // A heading plus the changes grouped like DIFF_GROUPS, then per Bild in toSnap's order.
+  function renderChangeList(title, changes, toSnap){
     var head = document.createElement('p');
     head.className = 'history-diff-head';
-    head.textContent = changes.length
-      ? changes.length + (changes.length === 1 ? ' Änderung' : ' Änderungen') + ' seit ' + relTime(histEntries[histSelected].ts)
-      : 'Keine Unterschiede zum aktuellen Stand.';
+    head.textContent = title;
     histDiffEl.appendChild(head);
     if(!changes.length) return;
 
@@ -730,7 +739,6 @@
     DIFF_GROUPS.forEach(function(g){
       section(g[0], changes.filter(function(c){ if(used[c.path]) return false; if(g[1](c.path)){ used[c.path] = true; return true; } return false; }));
     });
-    // per-Bild groups (in current Bild order)
     (toSnap.formations || []).forEach(function(f, idx){
       var pref = 'bild/' + f.id + '/';
       section('Bild ' + (idx + 1) + (f.name ? ' „' + f.name + '“' : ''),
