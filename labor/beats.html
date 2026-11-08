@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Beat-Labor — Aufstellung</title>
+<!-- #2041: Testseite, um fertige Beat-Erkennungs-Bausteine an echten Medleys auszuprobieren, bevor
+     etwas davon in die App kommt. Nicht verlinkt; das Lied bleibt im Browser. -->
+<style>
+  :root{--bg:#f6f6f8;--panel:#fff;--ink:#1b1b22;--ink-2:#5b5b6b;--line:#dcdce4;--accent:#6c5ce7;
+    --c0:#e17055;--c1:#0984e3;--c2:#00b894;}
+  @media (prefers-color-scheme: dark){:root{--bg:#16161a;--panel:#202027;--ink:#ececf1;--ink-2:#a0a0b0;--line:#34343e;}}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,sans-serif;}
+  main{max-width:1100px;margin:0 auto;padding:16px;}
+  h1{font-size:1.25rem;margin:.2rem 0 .3rem;}
+  .sub{color:var(--ink-2);margin:0 0 1rem;font-size:.85rem;}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;}
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;}
+  button{font:inherit;padding:.35rem .8rem;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  button:disabled{opacity:.5;cursor:default;}
+  select,input[type=number]{font:inherit;padding:.25rem;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);}
+  canvas{display:block;width:100%;border-radius:6px;background:var(--bg);cursor:pointer;}
+  .lib0{color:var(--c0);} .lib1{color:var(--c1);} .lib2{color:var(--c2);}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;}
+  th,td{text-align:left;padding:.3rem .4rem;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--ink-2);font-weight:600;}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .muted{color:var(--ink-2);font-size:.8rem;}
+  #status{min-height:1.4em;}
+  .time{font-variant-numeric:tabular-nums;min-width:7em;}
+  @media (max-width:640px){ .wide{display:none;} }
+</style>
+</head>
+<body>
+<main>
+  <h1>Beat-Labor</h1>
+  <p class="sub">Probiert drei fertige Beat-Erkennungen an deinem Lied aus — pro Tanz-Abschnitt eines Medleys.
+    Das Lied bleibt in deinem Browser. Lizenzen: <span class="lib0">web-audio-beat-detector</span> MIT ·
+    <span class="lib1">Essentia</span> AGPL-3 · <span class="lib2">aubio</span> GPL-3 — hier nur zum Testen, nicht in Aufstellung eingebaut.</p>
+
+  <section>
+    <div class="row">
+      <input type="file" id="file" accept="audio/*">
+      <button id="fromApp" title="Nimmt Lied und Abschnitte der zuletzt in diesem Browser geöffneten Choreo">Aus Aufstellung übernehmen</button>
+      <span id="info" class="muted"></span>
+    </div>
+  </section>
+
+  <section>
+    <canvas id="wave" height="150" aria-label="Ganzes Lied: Klick springt dorthin"></canvas>
+    <p class="muted">Oben das ganze Lied (Klick = springen), darunter je Baustein eine Zeile mit den erkannten Schlägen. Senkrechte Striche = Abschnittsgrenzen.</p>
+    <canvas id="tempo" height="110" aria-label="Erkanntes Tempo über die Zeit"></canvas>
+    <p class="muted">Tempo über die Zeit (Schläge pro Minute, aus dem Abstand je zweier Schläge, ungefaltet).</p>
+    <canvas id="zoom" height="120" aria-label="Ausschnitt 8 Sekunden um die Abspielposition"></canvas>
+    <p class="muted">Lupe: 8 Sekunden um die Abspielposition.</p>
+    <div class="row" style="margin-top:.5rem">
+      <button id="play" disabled>▶ Abspielen</button>
+      <span class="time" id="time">0:00.0</span>
+      <button id="cut" disabled title="Setzt an der Abspielposition eine Grenze zwischen zwei Tänzen (Taste G)">Grenze hier (G)</button>
+      <label>Klick von
+        <select id="clickLib"><option value="-1">keinem</option><option value="0">web-audio-beat-detector</option><option value="1">Essentia</option><option value="2">aubio</option></select>
+      </label>
+      <label>Lautstärke <input type="range" id="clickVol" min="0" max="1" step="0.05" value="0.5"></label>
+    </div>
+  </section>
+
+  <section>
+    <div class="row">
+      <label><input type="checkbox" class="libOn" value="0" checked> <span class="lib0">web-audio-beat-detector</span></label>
+      <label><input type="checkbox" class="libOn" value="1" checked> <span class="lib1">Essentia</span></label>
+      <label><input type="checkbox" class="libOn" value="2" checked> <span class="lib2">aubio</span></label>
+      <button class="primary" id="run" disabled>Analysieren</button>
+      <span id="status" class="muted"></span>
+    </div>
+    <table style="margin-top:.6rem">
+      <thead><tr><th>#</th><th>Abschnitt</th><th>Tanz</th>
+        <th class="lib0">web-audio-beat-detector</th><th class="lib1">Essentia</th><th class="lib2">aubio</th><th></th></tr></thead>
+      <tbody id="sections"></tbody>
+    </table>
+    <p class="muted">Je Zelle: erkanntes Tempo → gefaltet auf den Tanz (halb/doppelt/⅔/³⁄₂ korrigiert) in Takten pro Minute · Gleichmäßigkeit der Schläge (± ms) · Rechenzeit.
+      Die „1“ (Taktanfang) erkennt keiner der Bausteine.</p>
+  </section>
+</main>
+
+<script type="module">
+const LIBS = ['web-audio-beat-detector', 'Essentia', 'aubio'];
+// Turniertempi (WDSF) als Schläge pro Minute + Schläge pro Takt.
+const DANCES = {
+  '': null,
+  LW: {name: 'Langsamer Walzer', lo: 84, hi: 90, per: 3},
+  TG: {name: 'Tango', lo: 124, hi: 132, per: 4},
+  WW: {name: 'Wiener Walzer', lo: 174, hi: 180, per: 3},
+  SF: {name: 'Slowfox', lo: 112, hi: 120, per: 4},
+  QS: {name: 'Quickstep', lo: 200, hi: 208, per: 4},
+  SB: {name: 'Samba', lo: 100, hi: 104, per: 2},
+  CC: {name: 'Cha-Cha-Cha', lo: 120, hi: 128, per: 4},
+  RB: {name: 'Rumba', lo: 100, hi: 108, per: 4},
+  PD: {name: 'Paso Doble', lo: 120, hi: 124, per: 2},
+  JV: {name: 'Jive', lo: 168, hi: 176, per: 4},
+};
+const SR = 44100;
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+let ctx = null, buffer = null, mono = null, env = null;  // env: max |sample| per 10 ms
+let cuts = [];                       // section boundaries in s
+let dances = {};                     // section start (s, rounded) -> dance key
+let names = {};                      // section start (s, rounded) -> Abschnitt name from the Choreo
+let results = [[], [], []];          // per lib: [{start, end, bpm, beats:[s], ms, err}]
+let playing = false, src = null, startCtx = 0, startPos = 0, pausedAt = 0, scheduledUntil = 0;
+
+const fmt = s => Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0');
+const sections = () => { const b = [0].concat(cuts, [buffer.duration]); return b.slice(0, -1).map((s, i) => ({start: s, end: b[i + 1]})); };
+const danceOf = sec => DANCES[dances[sec.start.toFixed(2)] || ''];
+const pos = () => playing ? Math.min(buffer.duration, startPos + ctx.currentTime - startCtx) : pausedAt;
+
+// Halb/doppelt (und beim Walzer ⅔/³⁄₂) danebenliegendes Tempo auf den Bereich des Tanzes holen.
+function fold(bpm, d){
+  if(!d || !bpm) return bpm;
+  const c = (d.lo + d.hi) / 2;
+  return [0.5, 2 / 3, 1, 1.5, 2].map(f => bpm * f).reduce((a, b) => Math.abs(b - c) < Math.abs(a - c) ? b : a);
+}
+function median(a){ const s = a.slice().sort((x, y) => x - y); return s.length ? s[s.length >> 1] : 0; }
+function ibis(beats){ const o = []; for(let i = 1; i < beats.length; i++) o.push(beats[i] - beats[i - 1]); return o; }
+
+async function loadAudio(blob, name){
+  stop();
+  buffer = null;
+  $('info').textContent = 'lade …';
+  ctx = ctx || new AudioContext();
+  const b = await ctx.decodeAudioData(await blob.arrayBuffer());
+  // Einmal auf Mono 44,1 kHz bringen — das erwarten Essentia und aubio.
+  const off = new OfflineAudioContext(1, Math.ceil(b.duration * SR), SR);
+  const s = off.createBufferSource(); s.buffer = b; s.connect(off.destination); s.start();
+  mono = (await off.startRendering()).getChannelData(0);
+  env = new Float32Array(Math.ceil(mono.length / 441));
+  for(let i = 0; i < mono.length; i++){ const v = Math.abs(mono[i]), k = (i / 441) | 0; if(v > env[k]) env[k] = v; }
+  buffer = b;
+  cuts = []; dances = {}; names = {}; results = [[], [], []]; pausedAt = 0;
+  $('info').textContent = name + ' · ' + fmt(buffer.duration) + ' · ' + buffer.sampleRate + ' Hz';
+  ['play', 'cut', 'run'].forEach(id => $(id).disabled = false);
+  renderTable();
+}
+$('file').addEventListener('change', e => { if(e.target.files[0]) loadAudio(e.target.files[0], e.target.files[0].name); });
+
+// Same origin as the app, so its storage is readable: the last saved Choreo (state.js STORAGE_KEY),
+// its song from IndexedDB, and every Abschnitt (Bild category with a time) as a boundary.
+const DANCE_WORDS = [['langsam', 'LW'], ['wiener', 'WW'], ['tango', 'TG'], ['slow', 'SF'], ['quick', 'QS'], ['samba', 'SB'], ['cha', 'CC'], ['rumba', 'RB'], ['paso', 'PD'], ['jive', 'JV']];
+$('fromApp').addEventListener('click', async () => {
+  let p = null;
+  try{ p = JSON.parse(localStorage.getItem('aufstellung-choreo-v2')); }catch(e){}
+  if(!p || !p.localId){ $('info').textContent = 'Keine Choreo in diesem Browser gefunden.'; return; }
+  const rec = await new Promise(res => {
+    const r = indexedDB.open('aufstellung-blobs', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('blobs');
+    r.onsuccess = () => { const q = r.result.transaction('blobs').objectStore('blobs').get('song:' + p.localId); q.onsuccess = () => res(q.result); q.onerror = () => res(null); };
+    r.onerror = () => res(null);
+  });
+  if(!rec || !rec.blob){ $('info').textContent = '„' + (p.projectName || 'Choreo') + '“ hat kein Lied.'; return; }
+  await loadAudio(rec.blob, (p.projectName || 'Choreo') + ': ' + rec.name);
+  (p.formations || []).forEach(f => {
+    if(!f.category || typeof f.time !== 'number' || f.time >= buffer.duration - 0.5) return;
+    const t = Math.max(0, f.time), key = t > 0.5 ? t : 0;
+    if(key) cuts.push(t);
+    names[key.toFixed(2)] = f.category;
+    const w = DANCE_WORDS.find(d => f.category.toLowerCase().includes(d[0]));
+    if(w) dances[key.toFixed(2)] = w[1];
+  });
+  cuts.sort((a, b) => a - b);
+  renderTable();
+});
+
+/* ---------- Analyse ---------- */
+
+let essentia = null, aubioMod = null, wabd = null;
+async function lib(i){
+  if(i === 0) return wabd || (wabd = await import('https://cdn.jsdelivr.net/npm/web-audio-beat-detector@8.2.39/+esm'));
+  if(i === 1){
+    if(essentia) return essentia;
+    const [{EssentiaWASM}, {default: Essentia}] = await Promise.all([
+      import('https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.es.js'),
+      import('https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.es.js')]);
+    const mod = typeof EssentiaWASM === 'function' ? await EssentiaWASM() : EssentiaWASM;
+    if(mod.ready) await mod.ready;
+    return essentia = new Essentia(mod);
+  }
+  if(!aubioMod){ const m = await import('https://cdn.jsdelivr.net/npm/aubiojs@0.2.1/build/aubio.esm.js'); aubioMod = await m.default(); }
+  return aubioMod;
+}
+
+async function analyze(i, sec){
+  const d = danceOf(sec), t0 = performance.now();
+  const range = d ? {minTempo: Math.round(d.lo * 0.9), maxTempo: Math.round(d.hi * 1.1)} : {minTempo: 60, maxTempo: 210};
+  const L = await lib(i);
+  let bpm, beats = [];
+  if(i === 0){
+    const g = await L.guess(buffer, sec.start, sec.end - sec.start, range);
+    bpm = g.tempo;
+    for(let t = sec.start + g.offset; t < sec.end; t += 60 / g.tempo) beats.push(t);
+  }else if(i === 1){
+    const v = L.arrayToVector(mono.subarray(Math.floor(sec.start * SR), Math.floor(sec.end * SR)));
+    const r = L.RhythmExtractor2013(v, range.maxTempo, 'multifeature', range.minTempo);
+    bpm = r.bpm;
+    beats = Array.from(L.vectorToArray(r.ticks), t => t + sec.start);
+    v.delete(); r.ticks.delete && r.ticks.delete();
+  }else{
+    const hop = 512, tempo = new L.Tempo(1024, hop, SR);
+    const a = Math.floor(sec.start * SR), b = Math.floor(sec.end * SR);
+    for(let p = a; p + hop <= b; p += hop){
+      const at = tempo.do(mono.subarray(p, p + hop)); // > 0: beat, at that fraction of this hop
+      if(at) beats.push((p + at * hop) / SR);
+    }
+    bpm = tempo.getBpm();
+  }
+  return {start: sec.start, end: sec.end, bpm, beats, ms: performance.now() - t0};
+}
+
+$('run').addEventListener('click', async () => {
+  const on = Array.from(document.querySelectorAll('.libOn')).filter(c => c.checked).map(c => +c.value);
+  $('run').disabled = true;
+  results = [[], [], []];
+  const secs = sections();
+  for(const i of on){
+    for(const [k, sec] of secs.entries()){
+      $('status').textContent = LIBS[i] + ': Abschnitt ' + (k + 1) + '/' + secs.length + ' …';
+      await new Promise(r => setTimeout(r, 30)); // UI kurz durchlassen — die Rechnung blockiert
+      try{ results[i].push(await analyze(i, sec)); }
+      catch(err){ console.error(err); results[i].push({start: sec.start, end: sec.end, err: String(err && err.message || err), beats: []}); }
+      renderTable();
+    }
+  }
+  $('status').textContent = 'fertig';
+  $('run').disabled = false;
+});
+
+/* ---------- Abschnitte ---------- */
+
+function renderTable(){
+  const tb = $('sections');
+  tb.innerHTML = '';
+  if(!buffer) return;
+  sections().forEach((sec, k) => {
+    const tr = document.createElement('tr');
+    const d = danceOf(sec);
+    const nm = names[sec.start.toFixed(2)];
+    let html = '<td>' + (k + 1) + '</td><td class="num">' + fmt(sec.start) + ' – ' + fmt(sec.end) + (nm ? '<br>' + nm.replace(/[<&]/g, '') : '') + '</td><td><select data-start="' + sec.start.toFixed(2) + '">' +
+      Object.keys(DANCES).map(key => '<option value="' + key + '"' + ((dances[sec.start.toFixed(2)] || '') === key ? ' selected' : '') + '>' + (DANCES[key] ? DANCES[key].name : '– Tanz –') + '</option>').join('') + '</select></td>';
+    for(let i = 0; i < 3; i++){
+      const r = results[i].find(x => Math.abs(x.start - sec.start) < 0.01);
+      if(!r){ html += '<td></td>'; continue; }
+      if(r.err){ html += '<td class="lib' + i + '">Fehler: ' + r.err + '</td>'; continue; }
+      const f = fold(r.bpm, d), jit = ibis(r.beats).map(x => Math.abs(x - median(ibis(r.beats))) * 1000);
+      html += '<td class="num lib' + i + '">' + r.bpm.toFixed(1) + (d ? ' → <b>' + (f / d.per).toFixed(1) + ' T/min</b>' + (f / d.per < d.lo / d.per - 1 || f / d.per > d.hi / d.per + 1 ? ' ⚠' : '') : '') +
+        '<br>± ' + Math.round(median(jit)) + ' ms · ' + (r.ms / 1000).toFixed(1) + ' s</td>';
+    }
+    html += '<td>' + (k > 0 ? '<button data-cut="' + (k - 1) + '" title="Grenze davor entfernen">×</button>' : '') + '</td>';
+    tr.innerHTML = html;
+    tb.appendChild(tr);
+  });
+}
+$('sections').addEventListener('change', e => { if(e.target.dataset.start){ dances[e.target.dataset.start] = e.target.value; renderTable(); } });
+$('sections').addEventListener('click', e => {
+  if(e.target.dataset.cut === undefined) return;
+  cuts.splice(+e.target.dataset.cut, 1);
+  results = [[], [], []];
+  renderTable();
+});
+function addCut(){
+  const t = Math.round(pos() * 10) / 10;
+  if(t <= 0.5 || t >= buffer.duration - 0.5 || cuts.some(c => Math.abs(c - t) < 1)) return;
+  cuts.push(t); cuts.sort((a, b) => a - b);
+  results = [[], [], []];
+  renderTable();
+}
+$('cut').addEventListener('click', addCut);
+document.addEventListener('keydown', e => {
+  if(!buffer || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if(e.key === 'g' || e.key === 'G') addCut();
+  if(e.key === ' '){ e.preventDefault(); toggle(); }
+});
+
+/* ---------- Abspielen + Klick ---------- */
+
+function toggle(){ playing ? stop() : play(pausedAt); }
+function play(at){
+  stop();
+  src = ctx.createBufferSource(); src.buffer = buffer; src.connect(ctx.destination);
+  startCtx = ctx.currentTime + 0.05; startPos = at; scheduledUntil = at;
+  src.start(startCtx, at);
+  src.onended = () => { if(src && pos() >= buffer.duration - 0.05){ stop(); pausedAt = 0; } };
+  playing = true; $('play').textContent = '⏸ Pause';
+  ctx.resume();
+}
+function stop(){
+  if(!playing) return;
+  pausedAt = pos(); playing = false;
+  try{ src.onended = null; src.stop(); }catch(e){}
+  src = null; $('play').textContent = '▶ Abspielen';
+}
+$('play').addEventListener('click', toggle);
+setInterval(() => {
+  const i = +$('clickLib').value;
+  if(!playing || i < 0) return;
+  const until = pos() + 0.25, vol = +$('clickVol').value;
+  results[i].forEach(r => r.beats.forEach(t => {
+    if(t < scheduledUntil || t >= until) return;
+    const when = startCtx + (t - startPos), o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = 1600; g.gain.setValueAtTime(vol, when); g.gain.exponentialRampToValueAtTime(0.001, when + 0.05);
+    o.connect(g); g.connect(ctx.destination); o.start(when); o.stop(when + 0.06);
+  }));
+  scheduledUntil = until;
+}, 50);
+
+/* ---------- Zeichnen ---------- */
+
+function fit(c){ const w = c.clientWidth * devicePixelRatio, h = c.height; if(c.width !== w) c.width = w; return [c.getContext('2d'), w, h]; }
+function drawWave(g, w, h, t0, t1, top, hh){
+  g.fillStyle = css('--ink-2');
+  for(let x = 0; x < w; x++){
+    const a = Math.floor((t0 + (t1 - t0) * x / w) * 100), b = Math.max(a + 1, Math.floor((t0 + (t1 - t0) * (x + 1) / w) * 100));
+    let m = 0; for(let k = a; k < b && k < env.length; k++) if(k >= 0 && env[k] > m) m = env[k];
+    g.fillRect(x, top + hh / 2 - m * hh / 2, 1, Math.max(1, m * hh));
+  }
+}
+function drawBeats(g, w, t0, t1, top, rowH){
+  for(let i = 0; i < 3; i++){
+    g.fillStyle = css('--c' + i);
+    results[i].forEach(r => r.beats.forEach(t => { if(t >= t0 && t <= t1) g.fillRect((t - t0) / (t1 - t0) * w, top + i * rowH + 2, Math.max(1, devicePixelRatio), rowH - 4); }));
+  }
+}
+function drawMarks(g, w, h, t0, t1){
+  g.fillStyle = css('--accent');
+  cuts.forEach(c => { if(c >= t0 && c <= t1) g.fillRect((c - t0) / (t1 - t0) * w - 1, 0, 2 * devicePixelRatio, h); });
+  g.fillStyle = css('--ink');
+  g.fillRect((pos() - t0) / (t1 - t0) * w, 0, devicePixelRatio, h);
+}
+function frame(){
+  requestAnimationFrame(frame);
+  if(!buffer) return;
+  const D = buffer.duration, p = pos();
+  $('time').textContent = fmt(p) + ' / ' + fmt(D);
+  let [g, w, h] = fit($('wave'));
+  g.clearRect(0, 0, w, h); drawWave(g, w, h, 0, D, 0, 96); drawBeats(g, w, 0, D, 100, 16); drawMarks(g, w, h, 0, D);
+  [g, w, h] = fit($('tempo'));
+  g.clearRect(0, 0, w, h);
+  const y = b => h - (Math.min(240, Math.max(40, b)) - 40) / 200 * h;
+  g.fillStyle = css('--line');
+  [60, 100, 140, 180, 220].forEach(b => { g.fillRect(0, y(b), w, 1); g.fillText(b, 2, y(b) - 2); });
+  for(let i = 0; i < 3; i++){
+    g.fillStyle = css('--c' + i);
+    results[i].forEach(r => { for(let k = 1; k < r.beats.length; k++){ const t = (r.beats[k] + r.beats[k - 1]) / 2; g.fillRect(t / D * w, y(60 / (r.beats[k] - r.beats[k - 1])) - 1, 2, 2 * devicePixelRatio); } });
+  }
+  drawMarks(g, w, h, 0, D);
+  [g, w, h] = fit($('zoom'));
+  g.clearRect(0, 0, w, h); drawWave(g, w, h, p - 4, p + 4, 0, 72); drawBeats(g, w, p - 4, p + 4, 74, 15); drawMarks(g, w, h, p - 4, p + 4);
+}
+requestAnimationFrame(frame);
+$('wave').addEventListener('click', e => {
+  if(!buffer) return;
+  const t = (e.offsetX / e.target.clientWidth) * buffer.duration;
+  if(playing) play(t); else pausedAt = t;
+});
+
+// Für Tests/Neugierige: Zustand von außen ansehen.
+window.beatLab = {sections, results: () => results, fold, setCuts: c => { cuts = c.slice().sort((a, b) => a - b); renderTable(); }, setDance: (start, key) => { dances[start.toFixed(2)] = key; renderTable(); }};
+</script>
+</body>
+</html>
