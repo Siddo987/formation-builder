@@ -984,7 +984,13 @@ body.roster-open .roster{display:flex;}
   width:20px;height:20px;flex:none;
   display:flex;align-items:center;justify-content:center;
   border:1px solid var(--pair);border-radius:5px;background:var(--pair-wash);color:var(--pair);
+  padding:0;cursor:pointer;
 }
+.between-rename-popover.turn-overview{max-width:min(340px,calc(100vw - 16px));max-height:60vh;overflow-y:auto;padding:.55rem .7rem;font-size:.78rem;}
+.turn-overview h4{margin:0 0 .3rem;font-size:.82rem;}
+.turn-overview h5{margin:.45rem 0 .15rem;font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--pair);}
+.turn-overview p{margin:.1rem 0;}
+.turn-overview .turn-overview-legend{margin-top:.45rem;color:var(--ink-3);font-size:.7rem;}
 .between-rename-popover{
   position:fixed;transform:translateX(-50%);z-index:50;
   background:var(--panel);border:1px solid var(--pair);border-radius:8px;padding:.3rem;

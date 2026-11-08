@@ -367,7 +367,7 @@
     wrap.appendChild(chips);
     wrap.appendChild(addBtn);
     wrap.appendChild(buildSpeedCurveButton(f, next));
-    if(turns) wrap.appendChild(buildCoupleTurnBadge(turns, next));
+    if(turns) wrap.appendChild(buildCoupleTurnBadge(turns, idx));
     return wrap;
   }
 
@@ -389,12 +389,95 @@
 
   // Marks a move with a set Drehung im Paar, Eigendrehung or Kreisbahn (set in the selection bar under the
   // stage, in the Bild or in one of its Zwischenpositionen).
-  function buildCoupleTurnBadge(lines, next){
-    var badge = document.createElement('span');
+  function buildCoupleTurnBadge(lines, fIdx){
+    var badge = document.createElement('button');
+    badge.type = 'button';
     badge.className = 'film-between-turn';
+    badge.dataset.f = fIdx;
+    badge.setAttribute('aria-label', 'Übersicht der Drehungen');
+    badge.setAttribute('aria-haspopup', 'dialog');
     badge.appendChild(svgIcon('turn', 12));
-    badge.title = 'Drehungen auf dem Weg zu „' + next.name + '“ — ' + lines.join('; ');
+    badge.title = 'Drehungen auf dem Weg zu „' + state.formations[fIdx + 1].name + '“ — ' + lines.join('; ') + ' (klicken für die Übersicht)';
+    badge.addEventListener('click', function(){
+      if(turnOverviewEl && turnOverviewEl.dataset.f === String(fIdx)){ closeTurnOverview(); return; }
+      openTurnOverview(badge, fIdx);
+    });
     return badge;
+  }
+
+  // Übersicht der Drehungen (#2050): everything set on the move out of Bild fIdx, leg by leg —
+  // every Drehung runs to the next stop, Bild or Zwischenposition. First each couple's Paardrehung,
+  // then each person's Eigendrehung, then the Kreisbahnen.
+  var turnOverviewEl = null;
+  function closeTurnOverview(){
+    if(!turnOverviewEl) return;
+    turnOverviewEl.remove();
+    turnOverviewEl = null;
+    document.removeEventListener('pointerdown', onTurnOverviewOutside, true);
+    document.removeEventListener('keydown', onTurnOverviewKey);
+  }
+  function onTurnOverviewOutside(e){
+    if(turnOverviewEl.contains(e.target) || (e.target.closest && e.target.closest('.film-between-turn'))) return;
+    closeTurnOverview();
+  }
+  function onTurnOverviewKey(e){ if(e.key === 'Escape') closeTurnOverview(); }
+  function openTurnOverview(anchorEl, fIdx){
+    closeTurnOverview();
+    var f = state.formations[fIdx], next = state.formations[fIdx + 1];
+    var stops = [f].concat(f.betweens || []);
+    function toName(i){ var b = (f.betweens || [])[i]; return b ? (b.name || 'Zwischenposition ' + (i + 1)) : next.name; }
+    function part(v, i){ return roundNum(Math.abs(v)) + '° ' + (v > 0 ? '↻' : '↺') + (stops.length > 1 ? ' bis „' + toName(i) + '“' : ''); }
+    function order(k){ return state.dancers.findIndex(function(d){ return d.id === baseDancerId(k); }) * 2 + (isFollowKey(k) ? 1 : 0); }
+    var pop = document.createElement('div');
+    pop.className = 'between-rename-popover turn-overview';
+    pop.dataset.f = fIdx;
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', 'Drehungen bis „' + next.name + '“');
+    var head = document.createElement('h4');
+    head.textContent = 'Drehungen bis „' + next.name + '“';
+    pop.appendChild(head);
+    function section(title, rows){
+      if(!rows.length) return;
+      var h = document.createElement('h5');
+      h.textContent = title;
+      pop.appendChild(h);
+      rows.forEach(function(r){
+        var row = document.createElement('p');
+        var who = document.createElement('b');
+        who.textContent = r.who;
+        row.appendChild(who);
+        row.appendChild(document.createTextNode(' ' + r.parts.join(' · ')));
+        pop.appendChild(row);
+      });
+    }
+    ['coupleTurns', 'spins'].forEach(function(field){
+      var byKey = {};
+      stops.forEach(function(s, i){
+        var set = sanitizeCoupleTurns(s[field]);
+        if(set) Object.keys(set).forEach(function(k){ (byKey[k] = byKey[k] || []).push(part(set[k], i)); });
+      });
+      section(field === 'spins' ? 'Eigendrehung' : 'Paardrehung', Object.keys(byKey).sort(function(a, b){ return order(a) - order(b); }).map(function(k){
+        return {who: markerDisplayName(k), parts: byKey[k]};
+      }));
+    });
+    var orbits = [];
+    stops.forEach(function(s, i){
+      (sanitizeOrbits(s.orbits) || []).forEach(function(g){ orbits.push({who: g.ids.map(markerDisplayName).join(', ') + ':', parts: [part(g.turn, i)]}); });
+    });
+    section('Kreisbahn', orbits);
+    var legend = document.createElement('p');
+    legend.className = 'turn-overview-legend';
+    legend.textContent = '↻ im Uhrzeigersinn, ↺ dagegen';
+    pop.appendChild(legend);
+    document.body.appendChild(pop);
+    turnOverviewEl = pop;
+    var rect = anchorEl.getBoundingClientRect(), pr = pop.getBoundingClientRect();
+    pop.style.left = Math.min(Math.max(rect.left + rect.width / 2, pr.width / 2 + 8), window.innerWidth - pr.width / 2 - 8) + 'px';
+    var top = rect.bottom + 8;
+    if(top + pr.height > window.innerHeight - 8) top = Math.max(8, rect.top - pr.height - 8);
+    pop.style.top = top + 'px';
+    document.addEventListener('pointerdown', onTurnOverviewOutside, true);
+    document.addEventListener('keydown', onTurnOverviewKey);
   }
 
   // Opens the Geschwindigkeitsverlauf graph for the move out of this Bild (see speedEase in
