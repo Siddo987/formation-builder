@@ -380,6 +380,8 @@
   var activeLayoutId = null;
   var activeLayoutOffset = {x:0, y:0}; // where the shape's own Orientierungspunkt currently sits on stage
   var activeLayoutRotateDeg = 0; // rotation around that same Orientierungspunkt, applied before the offset
+  var activeLayoutScale = 1; // size factor around that same Orientierungspunkt (#2025)
+  var activeLayoutPinIndex = null; // ghost dot tapped to stay put while another one is dragged
 
   // Grundformen for n pairs, centered around (0,0), +y = front (towards the audience). Spacing
   // shrinks once a shape would leave the -7..7 stage.
@@ -530,13 +532,54 @@
   // been dragged to, not around the stage's own center. Passing the origin itself in as `p`
   // returns its own screen position (dx/dy both zero) — that's what renders/drags its ghost dot.
   function layoutPointToStage(p){
+    var r = layoutPointRaw(p);
+    return {x: clampGrid(r.x), y: clampGrid(r.y)};
+  }
+
+  // Same without the stage clamp — the pin math below needs the exact, unclamped position.
+  function layoutPointRaw(p){
     var rad = activeLayoutRotateDeg * Math.PI / 180;
     var cos = Math.cos(rad), sin = Math.sin(rad);
     var origin = activeLayoutOrigin();
-    var dx = (p.x||0) - origin.x, dy = (p.y||0) - origin.y;
-    var x = origin.x + dx*cos - dy*sin + activeLayoutOffset.x;
-    var y = origin.y + dx*sin + dy*cos + activeLayoutOffset.y;
-    return {x: clampGrid(x), y: clampGrid(y)};
+    var dx = ((p.x||0) - origin.x) * activeLayoutScale, dy = ((p.y||0) - origin.y) * activeLayoutScale;
+    return {x: origin.x + dx*cos - dy*sin + activeLayoutOffset.x, y: origin.y + dx*sin + dy*cos + activeLayoutOffset.y};
+  }
+
+  // Shifts the shape so layout point q sits exactly at stagePos (rotation/size unchanged).
+  function placeLayoutPointAt(q, stagePos){
+    var at = layoutPointRaw(q);
+    activeLayoutOffset = {x: activeLayoutOffset.x + stagePos.x - at.x, y: activeLayoutOffset.y + stagePos.y - at.y};
+  }
+
+  // Rotates and scales the shape so the pinned point qp stays at pinStage and qj lands on target.
+  // False when qp and qj are the same layout point (nothing to turn by) — the caller just moves then.
+  function scaleLayoutAroundPin(qp, pinStage, qj, target){
+    var ox = qj.x - qp.x, oy = qj.y - qp.y;
+    var tx = target.x - pinStage.x, ty = target.y - pinStage.y;
+    var from = Math.hypot(ox, oy), to = Math.hypot(tx, ty);
+    if(from < 1e-6) return false;
+    if(to < 1e-6) return true; // dragged onto the pin itself: keep the last shape
+    activeLayoutScale = to / from;
+    activeLayoutRotateDeg = (((Math.atan2(ty, tx) - Math.atan2(oy, ox)) * 180 / Math.PI) + 540) % 360 - 180;
+    placeLayoutPointAt(qp, pinStage);
+    syncLayoutTransformInputs();
+    return true;
+  }
+
+  function syncLayoutTransformInputs(){
+    if(layoutRotateInputEl) layoutRotateInputEl.value = Math.round(activeLayoutRotateDeg);
+    if(layoutScaleInputEl) layoutScaleInputEl.value = Math.round(activeLayoutScale * 100);
+  }
+
+  // Typed rotation/size turns around the pinned dot when there is one, else around the
+  // Orientierungspunkt as before.
+  function applyLayoutTransform(change){
+    var layout = activeLayout();
+    var pinned = layout && activeLayoutPinIndex != null ? layout.positions[activeLayoutPinIndex] : null;
+    var pinStage = pinned && layoutPointRaw(pinned);
+    change();
+    if(pinned) placeLayoutPointAt(pinned, pinStage);
+    renderLayoutGhost();
   }
 
   // How close (in grid units) a dancer/pair reference point must get to a Vorlage ghost point
@@ -577,12 +620,15 @@
     for(var i=0; i<n; i++){
       var stagePos = layoutPointToStage(layout.positions[i]);
       var dot = document.createElement('span');
-      dot.className = 'layout-ghost-dot';
+      var pinned = i === activeLayoutPinIndex;
+      dot.className = 'layout-ghost-dot' + (pinned ? ' pinned' : '');
       dot.style.left = gridToPercent(stagePos.x) + '%';
       dot.style.top = gridToPercent(stagePos.y) + '%';
       dot.style.borderColor = units[i].color;
-      dot.title = 'Ziehen zum Verschieben der ganzen Vorlage';
-      attachLayoutGhostDragEvents(dot);
+      dot.title = pinned
+        ? 'Fixiert — einen anderen Punkt ziehen dreht und skaliert die Vorlage um diesen · Antippen löst'
+        : 'Ziehen verschiebt die ganze Vorlage · Antippen fixiert diesen Punkt';
+      attachLayoutGhostDragEvents(dot, i);
       layer.appendChild(dot);
     }
     // Orientierungspunkt — the rotation pivot, its own distinct grabbable marker
@@ -594,7 +640,7 @@
     originDot.style.left = gridToPercent(originPos.x) + '%';
     originDot.style.top = gridToPercent(originPos.y) + '%';
     originDot.title = 'Orientierungspunkt — auch greifbar, verschiebt die ganze Vorlage';
-    attachLayoutGhostDragEvents(originDot);
+    attachLayoutGhostDragEvents(originDot, null);
     layer.appendChild(originDot);
   }
 
@@ -623,7 +669,8 @@
 
   // Dragging any ghost dot moves the whole shape together (updates the shared offset, not just
   // that one point) — same pointer-capture pattern as attachDancerEvents' drag handling.
-  function attachLayoutGhostDragEvents(dot){
+  // A tap pins a dot instead (#2025); dragging another dot then rotates/scales around the pin.
+  function attachLayoutGhostDragEvents(dot, index){
     dot.addEventListener('pointerdown', function(e){
       e.preventDefault();
       e.stopPropagation();
@@ -638,13 +685,24 @@
         x: percentToGrid(parseFloat(dot.style.left)),
         y: percentToGrid(parseFloat(dot.style.top))
       };
+      var layout = activeLayout();
+      var pinned = layout && index != null && activeLayoutPinIndex != null && index !== activeLayoutPinIndex
+        ? layout.positions[activeLayoutPinIndex] : null;
+      var pinStage = pinned && layoutPointRaw(pinned);
+      var moved = false;
       function onMove(ev){
+        if(!moved && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 4) return; // still a tap
+        moved = true;
         var rect = stageEl.getBoundingClientRect();
         var px = ((ev.clientX-rect.left)/rect.width)*100;
         var py = ((ev.clientY-rect.top)/rect.height)*100;
         var gx = percentToGrid(px);
         var gy = percentToGrid(py);
         if(!ev.shiftKey){ gx = Math.round(gx); gy = Math.round(gy); }
+        if(pinned && scaleLayoutAroundPin(pinned, pinStage, layout.positions[index], {x:gx, y:gy})){
+          repositionLayoutGhostDots();
+          return;
+        }
         var dx = gx - grabStart.x, dy = gy - grabStart.y;
         activeLayoutOffset = {
           x: clampGrid(startOffset.x + dx),
@@ -656,6 +714,10 @@
         try{ dot.releasePointerCapture(e.pointerId); }catch(err){}
         dot.removeEventListener('pointermove', onMove);
         dot.removeEventListener('pointerup', onUp);
+        if(!moved && index != null){
+          activeLayoutPinIndex = activeLayoutPinIndex === index ? null : index;
+          renderLayoutGhost();
+        }
       }
       dot.addEventListener('pointermove', onMove);
       dot.addEventListener('pointerup', onUp);
@@ -675,20 +737,24 @@
     activeLayoutId = null;
     activeLayoutOffset = {x:0, y:0};
     activeLayoutRotateDeg = 0;
-    var rotateInput = document.getElementById('layoutRotateInput');
-    if(rotateInput) rotateInput.value = 0;
+    activeLayoutScale = 1;
+    activeLayoutPinIndex = null;
+    syncLayoutTransformInputs();
     renderLayoutSelectOptions();
     renderLayoutGhost();
   }
 
   var layoutSelectEl = document.getElementById('layoutSelect');
   var layoutRotateInputEl = document.getElementById('layoutRotateInput');
+  var layoutScaleInputEl = document.getElementById('layoutScaleInput');
   if(layoutSelectEl){
     layoutSelectEl.addEventListener('change', function(){
       activeLayoutId = layoutSelectEl.value || null;
       activeLayoutOffset = {x:0, y:0};
       activeLayoutRotateDeg = 0;
-      if(layoutRotateInputEl) layoutRotateInputEl.value = 0;
+      activeLayoutScale = 1;
+      activeLayoutPinIndex = null;
+      syncLayoutTransformInputs();
       updateLayoutRotateFieldVisibility();
       renderLayoutGhost();
     });
@@ -696,8 +762,13 @@
   if(layoutRotateInputEl){
     layoutRotateInputEl.addEventListener('input', function(){
       var deg = parseFloat(layoutRotateInputEl.value);
-      activeLayoutRotateDeg = isFinite(deg) ? deg : 0;
-      renderLayoutGhost();
+      applyLayoutTransform(function(){ activeLayoutRotateDeg = isFinite(deg) ? deg : 0; });
+    });
+  }
+  if(layoutScaleInputEl){
+    layoutScaleInputEl.addEventListener('input', function(){
+      var pct = parseFloat(layoutScaleInputEl.value);
+      applyLayoutTransform(function(){ activeLayoutScale = isFinite(pct) && pct > 0 ? pct / 100 : 1; });
     });
   }
 

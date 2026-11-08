@@ -487,6 +487,7 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
   opacity:.55;pointer-events:auto;cursor:grab;
 }
 .layout-ghost-dot:active{cursor:grabbing;opacity:.8;}
+.layout-ghost-dot.pinned{border-style:solid;opacity:.95;box-shadow:0 0 0 3px var(--gold);}
 .layout-ghost-origin{
   position:absolute;width:22px;height:22px;
   transform:translate(-50%,-50%) rotate(45deg);

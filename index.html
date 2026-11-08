@@ -134,8 +134,8 @@ if ('serviceWorker' in navigator) {
       <section class="stage-area" aria-label="Bühne">
         <div class="stage-toolbar">
           <label class="layout-select-wrap float-pill" id="layoutSelectWrap" hidden><span class="tool-label">Vorlage</span>
-            <select id="layoutSelect" title="Positionen relativ zueinander — auf der Bühne per Ziehen verschieben, rechts drehen"><option value="">— Keine Vorlage —</option></select>
-            <span class="layout-rotate-field" id="layoutRotateField" hidden><input type="number" id="layoutRotateInput" class="coord-input" value="0" step="5" aria-label="Drehung der Vorlage in Grad">°</span>
+            <select id="layoutSelect" title="Positionen relativ zueinander — auf der Bühne per Ziehen verschieben, rechts drehen und Größe ändern. Punkt antippen fixiert ihn: Ziehen eines anderen Punkts dreht und skaliert dann um ihn."><option value="">— Keine Vorlage —</option></select>
+            <span class="layout-rotate-field" id="layoutRotateField" hidden><input type="number" id="layoutRotateInput" class="coord-input" value="0" step="5" aria-label="Drehung der Vorlage in Grad">°<input type="number" id="layoutScaleInput" class="coord-input" value="100" step="10" min="10" aria-label="Größe der Vorlage in Prozent" title="Größe der Vorlage">%</span>
           </label>
           <span class="stage-toolbar-spacer"></span>
           <div class="between-edit-banner" id="betweenEditBanner" hidden>
