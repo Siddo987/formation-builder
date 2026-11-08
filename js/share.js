@@ -246,19 +246,8 @@ function copyLinkFrom(inputEl){
 shareCopyBtn.addEventListener('click', function(){ copyLinkFrom(shareLinkInput); });
 shareEditCopyBtn.addEventListener('click', function(){ copyLinkFrom(shareEditLinkInput); });
 
-// Same manual two-click-with-text-swap pattern as resetBtn (export.js) — matches its weight
-// (visible-text btn-ghost.danger, moderately consequential but easily reversible by sharing again).
-var shareUnlinkArmed = false, shareUnlinkTimer = null;
-var shareUnlinkLabel = shareUnlinkBtn.textContent;
 shareUnlinkBtn.addEventListener('click', function(){
-  if(!shareUnlinkArmed){
-    shareUnlinkArmed = true;
-    shareUnlinkBtn.textContent = 'Wirklich? Nochmal klicken';
-    shareUnlinkTimer = setTimeout(function(){ shareUnlinkArmed = false; shareUnlinkBtn.textContent = shareUnlinkLabel; }, 3000);
-  }else{
-    clearTimeout(shareUnlinkTimer);
-    shareUnlinkArmed = false;
-    shareUnlinkBtn.textContent = shareUnlinkLabel;
+  confirmDelete('Verknüpfung aufheben?', function(){
     state.sharedId = null;
     state.shareEditToken = null;
     state.shareReadOnly = false;
@@ -267,7 +256,7 @@ shareUnlinkBtn.addEventListener('click', function(){
     applyShareReadonlyUi();
     saveState();
     resetShareModal();
-  }
+  }, shareUnlinkBtn, 'Aufheben');
 });
 
 /* ---------- syncing a bound share as a commit graph -------------------------------------------

@@ -706,6 +706,21 @@ if ('serviceWorker' in navigator) {
   </div>
 </div>
 
+<div class="modal-backdrop" id="confirmBackdrop" hidden>
+  <div class="modal modal-narrow" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal-header">
+      <h2 id="confirmTitle"></h2>
+      <button class="modal-close" id="confirmCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="filename-actions">
+        <button class="btn-ghost" id="confirmCancelBtn" type="button">Abbrechen</button>
+        <button class="btn-ghost danger" id="confirmOkBtn" type="button">Löschen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="stepsPrintArea" aria-hidden="true"></div>
 
 <script src="js/state.js?v=48"></script>

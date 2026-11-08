@@ -17,6 +17,7 @@
   helpBackdrop.addEventListener('click', function(e){ if(e.target === helpBackdrop) helpBackdrop.hidden = true; });
   document.addEventListener('keydown', function(e){
     if(e.key !== 'Escape') return;
+    if(!confirmBackdrop.hidden){ closeConfirm(); return; } // only the popup, not the dialog behind it
     if(!settingsBackdrop.hidden) closeSettings();
     if(!helpBackdrop.hidden) helpBackdrop.hidden = true;
     if(!openBackdrop.hidden) closeOpenProjectsModal();
@@ -88,13 +89,15 @@
     e.target.value = '';
   });
   document.getElementById('logoRemoveBtn').addEventListener('click', function(){
-    if(state.logo && state.logo.url) URL.revokeObjectURL(state.logo.url);
-    state.logo = null;
-    idbHydrationGen++;
-    idbDelete(idbBlobKey('logo'));
-    updateStageLogo();
-    updateLogoSettingsUI();
-    saveState();
+    confirmDelete('Logo entfernen?', function(){
+      if(state.logo && state.logo.url) URL.revokeObjectURL(state.logo.url);
+      state.logo = null;
+      idbHydrationGen++;
+      idbDelete(idbBlobKey('logo'));
+      updateStageLogo();
+      updateLogoSettingsUI();
+      saveState();
+    }, this, 'Entfernen');
   });
   document.getElementById('logoOpacitySlider').addEventListener('input', function(e){
     if(!state.logo) return;
@@ -145,13 +148,15 @@
     e.target.value = '';
   });
   document.getElementById('songRemoveBtn').addEventListener('click', function(){
-    if(state.song && state.song.url) URL.revokeObjectURL(state.song.url);
-    state.song = null;
-    idbHydrationGen++;
-    idbDelete(idbBlobKey('song'));
-    applySongSource();
-    updateSongSettingsUI();
-    saveState();
+    confirmDelete('Lied entfernen?', function(){
+      if(state.song && state.song.url) URL.revokeObjectURL(state.song.url);
+      state.song = null;
+      idbHydrationGen++;
+      idbDelete(idbBlobKey('song'));
+      applySongSource();
+      updateSongSettingsUI();
+      saveState();
+    }, this, 'Entfernen');
   });
 
   var facingToggle = document.getElementById('facingToggle');

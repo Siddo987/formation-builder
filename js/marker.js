@@ -128,12 +128,14 @@
       clearBtn.title = 'Marke entfernen';
       clearBtn.hidden = formationTime(f) === null;
       clearBtn.addEventListener('click', function(){
-        f.time = undefined;
-        timeInput.value = '';
-        clearBtn.hidden = true;
-        saveState();
-        renderMarkerTimeline();
-        updateMarkerWarnings();
+        confirmDelete('Zeitmarke von „' + f.name + '“ entfernen?', function(){
+          f.time = undefined;
+          timeInput.value = '';
+          clearBtn.hidden = true;
+          saveState();
+          renderMarkerTimeline();
+          updateMarkerWarnings();
+        }, clearBtn, 'Entfernen');
       });
 
       timeInput.addEventListener('change', function(){

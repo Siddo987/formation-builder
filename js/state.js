@@ -306,28 +306,35 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     var hue = (i*137.508) % 360;
     return 'hsl(' + hue.toFixed(0) + ',48%,54%)';
   }
-  // Shared "click again to confirm" pattern for small icon-only delete buttons (roster remove,
-  // Bild remove) — same idea as the text-swapping resetBtn confirm, adapted for buttons with no
-  // room for a label: a CSS-driven "armed" state stands in for the text change, and a second
-  // click within the window actually deletes. Attaches its own click listener; callers don't add
-  // one themselves.
+  // Every delete asks first in one shared popup (#2065). The ok button has focus, so Enter confirms
+  // and Escape / Abbrechen / a backdrop click cancel. `btn` (optional) stays highlighted (.armed)
+  // while the popup is open, so it's clear what goes.
+  var confirmBackdrop = document.getElementById('confirmBackdrop');
+  var confirmOkBtn = document.getElementById('confirmOkBtn');
+  var confirmPending = null;
+  function confirmDelete(title, onConfirm, btn, okLabel){
+    closeConfirm();
+    document.getElementById('confirmTitle').textContent = title;
+    confirmOkBtn.textContent = okLabel || 'Löschen';
+    confirmPending = {run:onConfirm, btn:btn || null};
+    if(btn) btn.classList.add('armed');
+    confirmBackdrop.hidden = false;
+    confirmOkBtn.focus();
+  }
+  function closeConfirm(){
+    if(confirmPending && confirmPending.btn) confirmPending.btn.classList.remove('armed');
+    confirmPending = null;
+    confirmBackdrop.hidden = true;
+  }
+  confirmOkBtn.addEventListener('click', function(){ var p = confirmPending; closeConfirm(); if(p) p.run(); });
+  document.getElementById('confirmCancelBtn').addEventListener('click', closeConfirm);
+  document.getElementById('confirmCloseBtn').addEventListener('click', closeConfirm);
+  confirmBackdrop.addEventListener('click', function(e){ if(e.target === confirmBackdrop) closeConfirm(); });
+  // For the small icon-only delete buttons: the button's aria-label ("Bild „X“ löschen") is the question.
   function armDeleteButton(btn, onConfirm){
-    var armed = false, timer = null;
-    function disarm(){
-      armed = false;
-      clearTimeout(timer);
-      btn.classList.remove('armed');
-    }
     btn.addEventListener('click', function(e){
       e.stopPropagation();
-      if(armed){
-        disarm();
-        onConfirm();
-      }else{
-        armed = true;
-        btn.classList.add('armed');
-        timer = setTimeout(disarm, 2500);
-      }
+      confirmDelete(btn.getAttribute('aria-label') + '?', onConfirm, btn);
     });
   }
 

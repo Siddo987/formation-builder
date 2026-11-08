@@ -1332,7 +1332,7 @@
   pairTurnInput.addEventListener('keydown', function(e){
     if(e.key === 'Enter'){ e.preventDefault(); pairTurnBtn.click(); }
   });
-  pairTurnClearBtn.addEventListener('click', clearCoupleTurn);
+  armDeleteButton(pairTurnClearBtn, clearCoupleTurn);
   pairSpinBtn.addEventListener('click', function(){
     var deg = parseAngleInput(pairSpinInput.value);
     if(deg === null){ pairSpinInput.focus(); return; }
@@ -1341,7 +1341,7 @@
   pairSpinInput.addEventListener('keydown', function(e){
     if(e.key === 'Enter'){ e.preventDefault(); pairSpinBtn.click(); }
   });
-  pairSpinClearBtn.addEventListener('click', clearSpin);
+  armDeleteButton(pairSpinClearBtn, clearSpin);
   pairSplitBtn.addEventListener('click', function(){
     if(pairSplitBtn.dataset.couple){ toggleCoupleSplit(pairSplitBtn.dataset.couple); return; }
     var pairId = pairSplitBtn.dataset.pairId;
