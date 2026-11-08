@@ -631,6 +631,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     debounced.flush = function(){ if(timer){ clearTimeout(timer); timer = null; saveState(); } };
     return debounced;
   })();
+  // Closing the tab or switching apps (phones never fire beforeunload) mustn't drop the last edit (#2071).
+  function flushSaveOnHide(){ if(document.visibilityState === 'hidden') saveStateDebounced.flush(); }
+  document.addEventListener('visibilitychange', flushSaveOnHide);
+  window.addEventListener('pagehide', function(){ saveStateDebounced.flush(); });
 
   /* ---------- IndexedDB persistence for logo/song blobs (too large/binary for localStorage) ---------- */
   var IDB_NAME = 'aufstellung-blobs';

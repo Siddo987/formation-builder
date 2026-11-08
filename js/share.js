@@ -360,11 +360,16 @@ window.addEventListener('online', retryPushNow);
 // so ask first. A still-debounced edit goes out right away, so it can land while the dialog shows.
 window.addEventListener('beforeunload', function(e){
   if(!state.sharedId || state.shareReadOnly) return;
-  if(pushDebounceTimer){ clearTimeout(pushDebounceTimer); pushSharedUpdateNow(); }
+  pushDebouncedNow();
   if(!haveLocalPendingEdits()) return;
   e.preventDefault();
   e.returnValue = '';
 });
+// Phones never fire beforeunload, and a hidden tab may be frozen or killed — send now (#2071).
+// Registered after state.js's hide handler, so its flushed save has already scheduled this push.
+function pushDebouncedNow(){ if(pushDebounceTimer){ clearTimeout(pushDebounceTimer); pushSharedUpdateNow(); } }
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') pushDebouncedNow(); });
+window.addEventListener('pagehide', pushDebouncedNow);
 
 function shareLogoMeta(){ return state.logo ? {name:state.logo.name, mime:state.logo.mime, opacity:state.logo.opacity||18} : null; }
 function shareSongMeta(){ return state.song ? {name:state.song.name, mime:state.song.mime} : null; }
