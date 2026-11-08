@@ -244,7 +244,9 @@
     var pts = syncWaypoints();
     if(pts.length < 2) return null;
     var k = 0;
-    while(k < pts.length-1 && ct >= pts[k+1].time) k++;
+    // 1 ms slack: the browser keeps currentTime in whole µs, so seeking to a Bild's place lands
+    // just before it and would show the Bild before (#2033).
+    while(k < pts.length-1 && ct >= pts[k+1].time - 0.001) k++;
     var p0 = pts[k], p1 = pts[Math.min(k+1, pts.length-1)];
 
     var posMap, activeIdx, t;
