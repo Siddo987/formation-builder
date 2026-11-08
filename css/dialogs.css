@@ -95,6 +95,9 @@
   background:var(--danger);color:#fff;font-family:var(--font-mono);font-size:.66rem;font-weight:700;
 }
 .marker-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem;font-weight:600;}
+.marker-row--between{margin-left:1.4rem;background:transparent;}
+.marker-row--between .marker-badge{background:transparent;color:var(--ink-2);border:1px solid var(--line);}
+.marker-row--between .marker-name{font-weight:500;}
 .modal .marker-time-input{width:78px;font-family:var(--font-mono);font-size:.76rem;text-align:center;}
 .modal .marker-now-btn,.modal .marker-clear-btn{height:28px;font-size:.72rem;padding:0 .5rem;}
 .modal .marker-clear-btn{width:28px;padding:0;}

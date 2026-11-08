@@ -797,21 +797,10 @@
       + (span ? 'Zeit im Lied (m:ss.s)' : 'Anteil der Bewegung in % (mit Zeitmarkern an beiden Bildern als Zeit im Lied)')
       + '. Leer = gleichmäßig verteilt.';
   }
-  if(betweenEditTimeInput) betweenEditTimeInput.addEventListener('change', function(){
-    if(!editingBetween) return;
-    var fIdx = editingBetween.fIdx, bIdx = editingBetween.bIdx;
+  // Also used by the Marker dialog (js/marker.js, #2068).
+  function setBetweenAt(fIdx, bIdx, at){
     var list = state.formations[fIdx].betweens || [], between = list[bIdx];
     if(!between) return;
-    var raw = betweenEditTimeInput.value.trim(), span = betweenTimeSpan(fIdx), at = null;
-    if(raw){
-      if(span){
-        var sec = parseTimeInput(raw);
-        if(sec !== null) at = (sec - span.t0) / (span.t1 - span.t0);
-      } else {
-        var pct = parseFloat(raw.replace('%', '').replace(',', '.'));
-        if(isFinite(pct)) at = pct / 100;
-      }
-    }
     if(at === null) delete between.at;
     else {
       // Stays between the nearest timed Zwischenpositionen before and after it.
@@ -824,6 +813,22 @@
     saveState();
     updateBetweenTimeInput();
     updatePlaybarInfo();
+  }
+  if(betweenEditTimeInput) betweenEditTimeInput.addEventListener('change', function(){
+    if(!editingBetween) return;
+    var fIdx = editingBetween.fIdx, bIdx = editingBetween.bIdx;
+    if(!(state.formations[fIdx].betweens || [])[bIdx]) return;
+    var raw = betweenEditTimeInput.value.trim(), span = betweenTimeSpan(fIdx), at = null;
+    if(raw){
+      if(span){
+        var sec = parseTimeInput(raw);
+        if(sec !== null) at = (sec - span.t0) / (span.t1 - span.t0);
+      } else {
+        var pct = parseFloat(raw.replace('%', '').replace(',', '.'));
+        if(isFinite(pct)) at = pct / 100;
+      }
+    }
+    setBetweenAt(fIdx, bIdx, at);
   });
 
   var betweenEditDoneBtn = document.getElementById('betweenEditDoneBtn');

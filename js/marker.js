@@ -66,9 +66,20 @@
     if(markerListEl){
       // Unmarked Bilder show in grey where sync playback spreads them to (syncTimes, js/stage.js).
       var times = isSyncActive() ? syncTimes() : [];
-      Array.prototype.forEach.call(markerListEl.querySelectorAll('.marker-row'), function(row, i){
+      Array.prototype.forEach.call(markerListEl.querySelectorAll('.marker-row:not(.marker-row--between)'), function(row, i){
         row.classList.toggle('marker-row--warn', !!bad[i]);
         row.querySelector('.marker-time-input').placeholder = times[i] != null ? formatTime(times[i]) : 'mm:ss';
+      });
+      // A Zwischenposition's time is a share of its move (sanitizeBetweenAt), so it follows its Bilder.
+      Array.prototype.forEach.call(markerListEl.querySelectorAll('.marker-row--between'), function(row){
+        var fIdx = +row.dataset.f, bIdx = +row.dataset.b, b = ((state.formations[fIdx] || {}).betweens || [])[bIdx];
+        if(!b || fIdx >= state.formations.length - 1) return;
+        var span = betweenTimeSpan(fIdx), at = sanitizeBetweenAt(b.at), input = row.querySelector('.marker-time-input');
+        input.value = at === null ? '' : formatBetweenAt(fIdx, at);
+        input.placeholder = formatBetweenAt(fIdx, betweenTimes(fIdx)[bIdx]);
+        input.disabled = row.querySelector('.marker-now-btn').disabled = !span;
+        row.querySelector('.marker-clear-btn').hidden = at === null;
+        row.title = span ? '' : 'Erst den beiden Bildern drumherum eine Zeitmarke geben';
       });
     }
     if(markerBtn){
@@ -167,8 +178,63 @@
       row.appendChild(nowBtn);
       row.appendChild(clearBtn);
       markerListEl.appendChild(row);
+      if(idx < state.formations.length - 1) (f.betweens || []).forEach(function(b, bIdx){
+        markerListEl.appendChild(buildBetweenMarkerRow(idx, bIdx, b));
+      });
     });
     updateMarkerWarnings();
+  }
+
+  // A Zwischenposition of the move out of Bild fIdx, timed in the song between that Bild's marker
+  // and the next one's (#2068). Values are filled in by updateMarkerWarnings.
+  function buildBetweenMarkerRow(fIdx, bIdx, b){
+    var row = document.createElement('div');
+    row.className = 'marker-row marker-row--between';
+    row.dataset.f = fIdx;
+    row.dataset.b = bIdx;
+
+    var badge = document.createElement('span');
+    badge.className = 'marker-badge';
+    badge.textContent = (fIdx+1) + '.' + (bIdx+1);
+
+    var name = document.createElement('span');
+    name.className = 'marker-name';
+    name.textContent = b.name || 'Zwischenposition ' + (bIdx+1);
+
+    var timeInput = document.createElement('input');
+    timeInput.type = 'text';
+    timeInput.className = 'marker-time-input';
+    timeInput.setAttribute('aria-label', 'Zeitpunkt für ' + name.textContent);
+
+    var nowBtn = document.createElement('button');
+    nowBtn.className = 'btn-ghost marker-now-btn';
+    nowBtn.type = 'button';
+    nowBtn.textContent = 'Jetzt';
+    nowBtn.title = 'Auf aktuelle Abspielposition setzen';
+
+    var clearBtn = document.createElement('button');
+    clearBtn.className = 'btn-ghost danger marker-clear-btn';
+    clearBtn.type = 'button';
+    clearBtn.appendChild(svgIcon('x', 14));
+    clearBtn.setAttribute('aria-label', 'Marke entfernen');
+    clearBtn.title = 'Marke entfernen (dann gleichmäßig verteilt)';
+
+    function setTime(sec){
+      var span = betweenTimeSpan(fIdx);
+      if(sec === null) setBetweenAt(fIdx, bIdx, null);
+      else if(span) setBetweenAt(fIdx, bIdx, (sec - span.t0) / (span.t1 - span.t0));
+      updateMarkerWarnings();
+    }
+    timeInput.addEventListener('change', function(){ setTime(parseTimeInput(timeInput.value)); });
+    nowBtn.addEventListener('click', function(){ setTime(heardSongTime()); });
+    clearBtn.addEventListener('click', function(){ setTime(null); });
+
+    row.appendChild(badge);
+    row.appendChild(name);
+    row.appendChild(timeInput);
+    row.appendChild(nowBtn);
+    row.appendChild(clearBtn);
+    return row;
   }
 
   function renderMarkerTimeline(){
