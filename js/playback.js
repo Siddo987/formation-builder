@@ -286,9 +286,10 @@
     var fr = syncFrameAt(ct);
     if(!fr){ pausePlayback(); return; }
     positionMarkers(fr.pos);
-    if(fr.idx !== state.activeIndex){
-      state.activeIndex = fr.idx;
-      renderFilmstripActiveOnly();
+    var changed = fr.idx !== state.activeIndex;
+    state.activeIndex = fr.idx;
+    renderFilmstripActiveOnly(fr.from, fr.to === fr.from + 1 ? fr.t : 0);
+    if(changed){
       refreshRosterCoords();
       updatePlaybarInfo();
       resetLayoutGhost();
@@ -310,6 +311,7 @@
     // them (evenly where none is set) — instead of a single straight fromPos->toPos interpolation.
     positionMarkers(interpolateThroughBetweens(fromIdx, toIdx, t));
     updateProgress((fromIdx + t)/(state.formations.length - 1)*100);
+    if(t < 1) renderFilmstripActiveOnly(fromIdx, t);
     if(t >= 1){
       state.activeIndex = toIdx;
       positionMarkers(state.formations[toIdx].pos);
@@ -332,11 +334,18 @@
   }
 
   // Only moves the highlight — the Bilder list deliberately does not scroll along during playback,
-  // so it stays where the user left it.
-  function renderFilmstripActiveOnly(){
-    var cards = filmTrackEl.querySelectorAll('.film-card');
-    cards.forEach(function(card, idx){
-      card.classList.toggle('active', idx === state.activeIndex);
+  // so it stays where the user left it. Mid-move (share t of the way on from Bild `from`) the last
+  // Zwischenposition passed is marked instead of its Bild (#2035, #2078).
+  function renderFilmstripActiveOnly(from, t){
+    var passed = -1;
+    if(from === state.activeIndex && t > 0){
+      betweenTimes(from).forEach(function(bt, i){ if(bt <= t) passed = i; });
+    }
+    filmTrackEl.querySelectorAll('.film-card').forEach(function(card, idx){
+      card.classList.toggle('active', idx === state.activeIndex && passed < 0);
+    });
+    filmTrackEl.querySelectorAll('.film-between-chip').forEach(function(chip){
+      chip.classList.toggle('active', +chip.dataset.f === state.activeIndex && +chip.dataset.b === passed);
     });
   }
 
@@ -348,7 +357,7 @@
     var n = state.formations.length;
     if(n < 2) return;
     frac = Math.min(1, Math.max(0, frac));
-    var idx, posMap, hold = null;
+    var idx, posMap, hold = null, mvFrom = -1, mvT = 0;
     if(isSyncActive()){
       var dur = songDurationSec();
       if(!dur) return;
@@ -358,6 +367,7 @@
       songAudioEl.currentTime = ct;
       idx = fr.idx; posMap = fr.pos;
       hold = {sync: true, songTime: ct};
+      if(fr.to === fr.from + 1){ mvFrom = fr.from; mvT = fr.t; }
     }else{
       var x = frac*(n-1);
       var from = Math.min(n-2, Math.floor(x)), t = x - from;
@@ -369,14 +379,15 @@
         idx = from;
         posMap = interpolateThroughBetweens(from, from + 1, t);
         hold = {sync: false, fromIdx: from, toIdx: from + 1, t: t, songTime: freeSongTimeAt(from, t)};
+        mvFrom = from; mvT = t;
       }
     }
     var changed = idx !== state.activeIndex || !hold !== !pausedAt;
     state.activeIndex = idx;
     positionMarkers(posMap); // drops any earlier hold
     pausedAt = hold; // before the redraw: the ghosts depend on it (#2039)
+    renderFilmstripActiveOnly(mvFrom, mvT);
     if(changed){
-      renderFilmstripActiveOnly();
       refreshRosterCoords();
       updatePlaybarInfo();
       resetLayoutGhost();

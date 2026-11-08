@@ -305,6 +305,7 @@
       var chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'film-between-chip' + (editingBetween && editingBetween.fIdx === idx && editingBetween.bIdx === bIdx ? ' active' : '');
+      chip.dataset.f = idx; chip.dataset.b = bIdx; // renderFilmstripActiveOnly (playback.js)
       chip.textContent = String(bIdx + 1);
       chip.title = 'Zwischenposition ' + (bIdx + 1) + (between.name ? ' — ' + between.name : '')
         + ' bearbeiten — zwischen „' + f.name + '“ und „' + (next ? next.name : '?') + '“ (umbenennen per Rechtsklick oder mit dem Stift in der Leiste über der Bühne)';
@@ -845,7 +846,7 @@
     filmTrackEl.innerHTML = '';
     state.formations.forEach(function(f, idx){
       var card = document.createElement('div');
-      card.className = 'film-card' + (idx === state.activeIndex ? ' active' : '');
+      card.className = 'film-card' + (idx === state.activeIndex && !editingBetween ? ' active' : ''); // while posing a Zwischenposition only its chip is marked (#2078)
       card.draggable = true;
       card.dataset.id = f.id;
 

@@ -249,7 +249,7 @@
     transition:background .12s ease,color .12s ease;
   }
   .film-between-chip:hover{background:var(--pair);color:#fff;}
-  .film-between-chip.active{background:var(--pair);color:#fff;box-shadow:0 0 0 3px var(--pair-wash);}
+  .film-between-chip.active{background:var(--pair);color:#fff;box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--pair);transform:scale(1.1);}
   .film-between-chip-remove{
     position:absolute; top:-6px; right:-6px;
     width:15px;height:15px;
