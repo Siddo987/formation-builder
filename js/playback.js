@@ -14,6 +14,7 @@
     activeNameEl.textContent = f.name;
     activeReadoutEl.textContent = String(state.activeIndex+1).padStart(2,'0') + ' / ' + String(state.formations.length).padStart(2,'0');
     updateNoteBtn(); // the toolbar's Notiz button follows what is shown (js/formations.js)
+    if(typeof updateBildLocks === 'function') updateBildLocks(); // someone else may hold this Bild (js/share.js)
     if(!playing && !pausedAt) updateProgress(idleTimelinePct());
   }
 

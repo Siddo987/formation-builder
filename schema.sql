@@ -61,6 +61,19 @@ CREATE TABLE IF NOT EXISTS share_commits (
   INDEX share_commits_by_share (share_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Wer gerade welches Bild offen hat (Bild-Sperre, api/share/presence.php). Kurzlebig: Zeilen ohne
+-- Herzschlag seit 60 s löscht presence.php selbst. Zeiten in ms seit 1970 (Server-Uhr).
+CREATE TABLE IF NOT EXISTS share_presence (
+  share_id     VARCHAR(32) NOT NULL,
+  client_id    VARCHAR(32) NOT NULL,
+  author       VARCHAR(60) NOT NULL DEFAULT '',
+  formation_id VARCHAR(40) NOT NULL DEFAULT '',
+  since_at     BIGINT      NOT NULL,
+  active_at    BIGINT      NOT NULL,
+  seen_at      BIGINT      NOT NULL,
+  PRIMARY KEY (share_id, client_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS figures (
   id              VARCHAR(32)   NOT NULL PRIMARY KEY,
   name            VARCHAR(120)  NOT NULL,

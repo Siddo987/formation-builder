@@ -70,6 +70,18 @@ const DB_MYSQL_TABLES = [
         ],
         'extra' => ['INDEX share_commits_by_share (share_id, created_at)'],
     ],
+    'share_presence' => [
+        'columns' => [
+            'share_id'     => 'VARCHAR(32) NOT NULL',
+            'client_id'    => 'VARCHAR(32) NOT NULL',
+            'author'       => "VARCHAR(60) NOT NULL DEFAULT ''",
+            'formation_id' => "VARCHAR(40) NOT NULL DEFAULT ''",
+            'since_at'     => 'BIGINT NOT NULL',
+            'active_at'    => 'BIGINT NOT NULL',
+            'seen_at'      => 'BIGINT NOT NULL',
+        ],
+        'extra' => ['PRIMARY KEY (share_id, client_id)'],
+    ],
     'figures' => [
         'columns' => [
             'id'             => 'VARCHAR(32) NOT NULL PRIMARY KEY',
@@ -127,6 +139,16 @@ function db_ensure_schema(): void {
         payload_json TEXT NOT NULL
     )");
     $pdo->exec("CREATE INDEX IF NOT EXISTS share_commits_by_share ON share_commits (share_id, created_at)");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS share_presence (
+        share_id TEXT NOT NULL,
+        client_id TEXT NOT NULL,
+        author TEXT NOT NULL DEFAULT '',
+        formation_id TEXT NOT NULL DEFAULT '',
+        since_at INTEGER NOT NULL,
+        active_at INTEGER NOT NULL,
+        seen_at INTEGER NOT NULL,
+        PRIMARY KEY (share_id, client_id)
+    )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS figures (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,

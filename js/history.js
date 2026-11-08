@@ -390,7 +390,7 @@
         base: hb ? vb : undefined,
         mine: hm ? vm : undefined,
         theirs: ht ? vt : undefined,
-        choice: 'mine'
+        choice: null // the merge modal makes the user pick each one (#2076)
       });
     });
 

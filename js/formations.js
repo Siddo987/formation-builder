@@ -954,7 +954,7 @@
     area.value = stop.note || '';
     area.placeholder = 'Notiz zu „' + currentFormation().name + '“';
     area.setAttribute('aria-label', area.placeholder);
-    area.readOnly = !!state.shareReadOnly;
+    area.readOnly = !!state.shareReadOnly || (typeof isBildLocked === 'function' && isBildLocked());
     pop.appendChild(area);
     document.body.appendChild(pop);
     notePopoverEl = pop;
@@ -1185,6 +1185,7 @@
     // Reordering/adding/deleting Bilder can leave the song time markers out of Bild order — keep the
     // toolbar Marker button's warning dot in sync (js/marker.js, loaded after this file).
     if(typeof updateMarkerWarnings === 'function') updateMarkerWarnings();
+    if(typeof updateBildLocks === 'function') updateBildLocks(true); // lock badges of shared Bilder (js/share.js)
   }
 
   // Recomputes each section-start badge's running number without touching the

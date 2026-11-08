@@ -1006,7 +1006,7 @@
     });
     el.addEventListener('keydown', function(e){
       if((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey){
-        if(canCoupleSplit(dancerId)){ e.preventDefault(); toggleCoupleSplit(dancerId); }
+        if(canCoupleSplit(dancerId) && !(typeof isBildLocked === 'function' && isBildLocked())){ e.preventDefault(); toggleCoupleSplit(dancerId); }
         return;
       }
     });
@@ -1537,6 +1537,7 @@
   var posClipboard = null;
   document.addEventListener('keydown', function(e){
     if(e.defaultPrevented || e.altKey || !selectionKeysFree()) return;
+    if(typeof isBildLocked === 'function' && isBildLocked() && !((e.ctrlKey || e.metaKey) && /^[ac]$/i.test(e.key))) return; // someone else edits this Bild (#2076)
     var pos = currentFormation().pos;
     if((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')){
       e.preventDefault();

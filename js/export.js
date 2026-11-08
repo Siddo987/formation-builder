@@ -510,8 +510,10 @@
   // Swap `state` for a new one and re-render. A plain .stg/.auf import uses it fresh (new blobs,
   // drop any live-share binding). Undo/redo/revert/merge (js/history.js) pass keepBinding+keepBlobs
   // so the live-share link and the in-memory logo/song survive — neither is part of a snapshot.
+  // keepView (share sync) stays on the Bild shown here instead of jumping to the sender's (#2076).
   function applyState(next, opts){
     opts = opts || {};
+    var keepId = opts.keepView && state.formations[state.activeIndex] ? state.formations[state.activeIndex].id : null;
     pausePlayback();
     if(opts.keepBlobs){
       next.logo = state.logo;
@@ -527,6 +529,7 @@
     }
     state = next;
     if(!state.localId) state.localId = uid('proj');
+    if(keepId) state.formations.forEach(function(f, i){ if(f.id === keepId) state.activeIndex = i; });
     state.activeIndex = Math.min(Math.max(0, state.activeIndex || 0), state.formations.length - 1);
     // Callers that want the live-share binding kept set next.sharedId themselves (or pass
     // keepBinding); otherwise importing an unrelated file correctly severs it.

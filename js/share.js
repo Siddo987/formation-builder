@@ -454,13 +454,148 @@ var SHARE_POLL_MS = 8000;
 var sharePollTimer = null;
 
 function startSharePolling(){
-  stopSharePolling();
-  if(!state.sharedId) return;
+  if(!state.sharedId){ stopSharePolling(); return; }
+  clearInterval(sharePollTimer); clearInterval(presenceTimer);
   sharePollTimer = setInterval(pollSharedUpdate, SHARE_POLL_MS);
+  presenceTimer = setInterval(sendPresence, PRESENCE_MS);
   pollSharedUpdate();
+  sendPresence();
 }
 function stopSharePolling(){
   if(sharePollTimer){ clearInterval(sharePollTimer); sharePollTimer = null; }
+  if(presenceTimer){ clearInterval(presenceTimer); presenceTimer = null; leavePresence(); }
+}
+
+/* ---------- Bild-Sperre (#2076/#2047): wer ein Bild offen hat, bearbeitet es allein ----------
+   Every editing tab posts a heartbeat (api/share/presence.php) naming the Bild it has open. Per Bild,
+   of the tabs with input in the last 2 min, the one that has had it open longest holds it; everyone
+   else sees it read-only with the holder's name. Global data (Tänzer, Musik, Marker, Reihenfolge …)
+   stays free and merges by itself (the auto-merge in pollSharedUpdate). */
+
+var PRESENCE_MS = 2500;
+var PRESENCE_IDLE_MS = 120000;
+var PRESENCE_ALIVE_MS = 20000; // no heartbeat for this long = tab closed or offline
+var presenceClientId = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+var presenceTimer = null;
+var presenceSent = null;       // {id, token} of the last heartbeat, for the goodbye
+var presenceFormationId = null;
+var presenceOnSince = Date.now();
+var lastActivityAt = Date.now();
+var presenceOthers = [];       // other tabs, times converted to this clock
+var bildLockSig = null;
+var bildLockBanner = document.getElementById('bildLockBanner');
+
+['pointerdown', 'pointermove', 'keydown', 'wheel'].forEach(function(t){
+  document.addEventListener(t, function(){
+    var now = Date.now(), wasIdle = now - lastActivityAt > PRESENCE_IDLE_MS;
+    lastActivityAt = now;
+    // Back from a break: queue up behind whoever took the Bild over meanwhile.
+    if(wasIdle){ presenceOnSince = now; updateBildLocks(); }
+  }, {capture: true, passive: true});
+});
+window.addEventListener('pagehide', leavePresence);
+
+function syncPresenceFormation(){
+  if(playing) return; // playback runs through every Bild — keep claiming the one it started on
+  var f = state.formations[state.activeIndex];
+  var fid = f ? f.id : '';
+  if(fid !== presenceFormationId){ presenceFormationId = fid; presenceOnSince = Date.now(); }
+}
+
+function presenceForm(id, token){
+  var fd = new FormData();
+  fd.append('id', id);
+  fd.append('edit_token', token || '');
+  fd.append('client_id', presenceClientId);
+  fd.append('author', shareAuthor());
+  return fd;
+}
+
+function sendPresence(){
+  if(!state.sharedId || state.shareReadOnly) return;
+  syncPresenceFormation();
+  var id = state.sharedId, now = Date.now();
+  presenceSent = {id: id, token: state.shareEditToken};
+  var fd = presenceForm(id, state.shareEditToken);
+  fd.append('formation_id', presenceFormationId || '');
+  fd.append('on_ms', String(now - presenceOnSince));
+  fd.append('idle_ms', String(now - lastActivityAt));
+  fetch('api/share/presence.php', {method: 'POST', body: fd})
+    .then(function(res){ return res.ok ? res.json() : null; })
+    .then(function(d){
+      if(!d || state.sharedId !== id) return;
+      var at = Date.now();
+      presenceOthers = (d.clients || []).map(function(c){
+        return {client_id: c.client_id, author: c.author, formation_id: c.formation_id,
+          since: at - c.on_ms, active: at - c.idle_ms, seen: at - c.seen_ms};
+      });
+      updateBildLocks();
+      if(d.head_commit && shareBaseCommit && d.head_commit !== shareHeadCommit) pollSharedUpdate(); // live instead of the 8 s tick
+    })
+    .catch(function(){});
+}
+
+function leavePresence(){
+  if(presenceSent){
+    var fd = presenceForm(presenceSent.id, presenceSent.token);
+    fd.append('leave', '1');
+    try{ navigator.sendBeacon('api/share/presence.php', fd); }catch(e){}
+    presenceSent = null;
+  }
+  presenceOthers = [];
+  updateBildLocks();
+}
+
+// The other tab holding Bild `fid`, or null when it's free or ours.
+function bildLockHolder(fid){
+  var now = Date.now(), best = null;
+  presenceOthers.forEach(function(c){
+    if(c.formation_id !== fid || now - c.active > PRESENCE_IDLE_MS || now - c.seen > PRESENCE_ALIVE_MS) return;
+    if(!best || c.since < best.since || (c.since === best.since && c.client_id < best.client_id)) best = c;
+  });
+  if(!best) return null;
+  var mine = presenceFormationId === fid && now - lastActivityAt <= PRESENCE_IDLE_MS;
+  if(mine && (presenceOnSince < best.since || (presenceOnSince === best.since && presenceClientId < best.client_id))) return null;
+  return best;
+}
+
+function isBildLocked(){
+  var f = state.formations[state.activeIndex];
+  return !!(f && bildLockHolder(f.id));
+}
+
+// Banner on the stage + lock badge on every held Bild's card (also called by renderFilmstrip, force).
+function updateBildLocks(force){
+  syncPresenceFormation();
+  var held = {};
+  state.formations.forEach(function(f){ var h = bildLockHolder(f.id); if(h) held[f.id] = h.author || 'Jemand'; });
+  var cur = state.formations[state.activeIndex];
+  var who = cur ? held[cur.id] : null;
+  var sig = JSON.stringify(held) + '|' + (who || '');
+  if(sig === bildLockSig && !force) return;
+  bildLockSig = sig;
+  document.body.classList.toggle('bild-locked', !!who);
+  if(bildLockBanner){
+    bildLockBanner.hidden = !who;
+    bildLockBanner.textContent = bildLockBanner.title = who ? who + ' bearbeitet gerade dieses Bild – du kannst zusehen.' : '';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.film-card'), function(card){
+    var by = held[card.dataset.id];
+    var badge = card.querySelector('.film-lock-badge');
+    card.classList.toggle('film-card--locked', !!by);
+    if(!by){ if(badge) badge.remove(); return; }
+    if(!badge){
+      badge = document.createElement('span');
+      badge.className = 'film-lock-badge';
+      card.querySelector('.film-preview').appendChild(badge);
+    }
+    badge.textContent = by;
+    badge.title = by + ' bearbeitet gerade dieses Bild';
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.film-connector'), function(c){
+    var f = state.formations[+c.dataset.f];
+    c.classList.toggle('film-connector--locked', !!(f && held[f.id]));
+  });
 }
 
 function haveLocalPendingEdits(){ return pushInFlight || !!pushDebounceTimer || pushQueuedAgain || pushUnsaved; }
@@ -515,13 +650,14 @@ function pollSharedUpdate(){
         return;
       }
 
-      var headMoved = newHead && newHead !== shareHeadCommit;
       shareHeadCommit = newHead || shareHeadCommit;
 
       // Our own branch is safe to fast-forward past once its tip is an ancestor of the new head —
       // that means someone merged it into the mainline, our work is already in there.
       var branchMerged = shareBranchId && isAncestorCommit(graph.commits || [], shareBaseCommit, newHead);
-      var canFastForward = headMoved && shareBaseCommit !== newHead && !pollApplyBlocked()
+      // Behind the head with nothing of our own pending — also on a later tick, when the head moved
+      // while applying was blocked (typing, a dialog open …).
+      var canFastForward = newHead && shareBaseCommit !== newHead && !pollApplyBlocked()
         && (!shareBranchId || branchMerged);
 
       if(canFastForward){
@@ -532,7 +668,7 @@ function pollSharedUpdate(){
             return reconstructSharedState(payload).then(function(newState){
               if(state.sharedId !== id || haveLocalPendingEdits()) return;
               suppressSharePush = true;
-              applyState(newState, {keepBinding: true, keepBlobs: false});
+              applyState(newState, {keepBinding: true, keepBlobs: false, keepView: true});
               lastPushedLogoRef = newState.logo;
               lastPushedSongRef = newState.song;
               lastKnownRev = payload.rev || lastKnownRev;
@@ -542,6 +678,12 @@ function pollSharedUpdate(){
               refreshShareBranchUI();
             });
           });
+      }
+      // Our edits landed on a branch because someone else committed first: merge it back by itself
+      // (#2076). Only a real conflict asks — once per head, so cancelling doesn't nag on every tick.
+      if(shareBranchId && !branchMerged && newHead && !pendingMerge && autoMergeTried !== newHead && !pollApplyBlocked()){
+        autoMergeTried = newHead;
+        startMerge(newHead, true);
       }
       refreshShareBranchUI();
     })
@@ -659,9 +801,10 @@ function fetchCommitPayload(commitId){
     .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
 }
 
-var pendingMerge = null; // {ourTip, theirTip, merged, conflicts}
+var pendingMerge = null; // {ourTip, theirTip, merged, conflicts, auto}
+var autoMergeTried = null; // head the poll last auto-merged against
 
-function startMerge(theirTip){
+function startMerge(theirTip, auto){
   if(!state.sharedId || !shareGraph) return;
   refreshShareBranchUI();
   flushPendingCommit().then(function(){
@@ -672,15 +815,21 @@ function startMerge(theirTip){
     return Promise.all([fetchCommitPayload(lca), fetchCommitPayload(ourTip), fetchCommitPayload(theirTip)])
       .then(function(p){
         var res = mergeStates(p[0], p[1], p[2]);
-        pendingMerge = {ourTip: ourTip, theirTip: theirTip, merged: res.merged, conflicts: res.conflicts};
+        pendingMerge = {ourTip: ourTip, theirTip: theirTip, merged: res.merged, conflicts: res.conflicts, auto: !!auto && !res.conflicts.length};
         if(!res.conflicts.length){ finishMerge(); }
         else openMergeModal();
       });
-  }).catch(function(err){ console.error('Merge fehlgeschlagen', err); alert('Zusammenführen fehlgeschlagen.'); });
+  }).catch(function(err){
+    console.error('Merge fehlgeschlagen', err);
+    if(auto) autoMergeTried = null; else alert('Zusammenführen fehlgeschlagen.');
+  });
 }
 
 function finishMerge(){
-  if(!pendingMerge) return;
+  if(!pendingMerge || pendingMerge.conflicts.some(function(c){ return !c.choice; })) return;
+  var auto = pendingMerge.auto;
+  // Silent merge, but the user edited meanwhile: applying it would drop that edit — retry next tick.
+  if(auto && haveLocalPendingEdits()){ pendingMerge = null; autoMergeTried = null; return; }
   var mergedState = applyConflictChoices(pendingMerge.merged, pendingMerge.conflicts); // canonical shape
   var fd = new FormData();
   fd.append('id', state.sharedId);
@@ -695,8 +844,13 @@ function finishMerge(){
     .then(function(res){ return res.json().catch(function(){ return null; }).then(function(d){ return {ok:res.ok, status:res.status, data:d}; }); })
     .then(function(r){
       if(r.ok && r.data && r.data.commit_id){
+        if(auto && haveLocalPendingEdits()){
+          // Edited while the merge was on its way: those edits go onto our branch, the next tick merges again.
+          pendingMerge = null; autoMergeTried = null; pollSharedUpdate();
+          return theirTip;
+        }
         suppressSharePush = true;
-        applyState(mergedState, {keepBinding: true, keepBlobs: true});
+        applyState(mergedState, {keepBinding: true, keepBlobs: true, keepView: true});
         suppressSharePush = false;
         shareBaseCommit = r.data.commit_id;
         shareHeadCommit = r.data.head_commit || r.data.commit_id;
@@ -708,10 +862,12 @@ function finishMerge(){
         return theirTip;
       }
       if(r.status === 409){
-        alert('Der Hauptast hat sich gerade geändert. Ich hole den neuen Stand — bitte erneut zusammenführen.');
+        if(auto) autoMergeTried = null;
+        else alert('Der Hauptast hat sich gerade geändert. Ich hole den neuen Stand — bitte erneut zusammenführen.');
         pendingMerge = null; closeMergeModal(); pollSharedUpdate();
         return null;
       }
+      if(auto){ pendingMerge = null; console.warn('Automatisches Zusammenführen fehlgeschlagen', r.status); return null; }
       alert((r.data && r.data.error) || 'Zusammenführen fehlgeschlagen.');
       return null;
     });
@@ -745,6 +901,10 @@ function openMergeModal(){
   mergeIntroEl.textContent = pendingMerge.conflicts.length === 1
     ? 'Eine Stelle wurde auf beiden Seiten unterschiedlich geändert. Wähle, was gelten soll:'
     : pendingMerge.conflicts.length + ' Stellen wurden auf beiden Seiten unterschiedlich geändert. Wähle jeweils, was gelten soll:';
+  // No default side (#2076): every conflict needs its own decision before "Übernehmen".
+  var open = pendingMerge.conflicts.filter(function(c){ return !c.choice; }).length;
+  if(open) mergeIntroEl.textContent += ' (noch ' + open + ' offen)';
+  if(mergeConfirmBtn) mergeConfirmBtn.disabled = open > 0;
   mergeConflictListEl.innerHTML = '';
   pendingMerge.conflicts.forEach(function(c, i){
     var wrap = document.createElement('div');
