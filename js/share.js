@@ -113,6 +113,8 @@ function isShareReadOnly(){ return !!(state.sharedId && state.shareReadOnly); }
 function applyShareReadonlyUi(){
   var ro = isShareReadOnly();
   document.body.classList.toggle('share-readonly', ro);
+  // „Choreo löschen“ entfernt geteilte Choreos nur lokal – der Link holt sie zurück.
+  document.body.classList.toggle('shared', !!state.sharedId);
   if(readonlyBanner) readonlyBanner.hidden = !ro;
 }
 
