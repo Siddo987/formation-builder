@@ -613,10 +613,10 @@
     });
   }
 
-  // New Zwischenposition's starting pose: exactly what playback shows at the moment it will be
-  // reached — just a seed the user then poses properly by dragging on the stage, same as a freshly
-  // duplicated Bild's pos. Paused in this move: right there, timed to that moment (#2031);
-  // otherwise after the last one so far, untimed, so spread like the others (see betweenAnchors).
+  // New Zwischenposition's starting pose: a plain copy of the selected Bild (or Zwischenposition),
+  // like a freshly duplicated Bild — not the half-way pose of the move. Paused in this move: timed
+  // to that moment (#2031); otherwise after the last one so far, untimed, so spread like the
+  // others (see betweenAnchors).
   function addBetween(fIdx){
     var f = state.formations[fIdx];
     var next = state.formations[fIdx + 1];
@@ -643,7 +643,8 @@
       }
       at = (lo + hi) / 2;
     }
-    between.pos = roundedPoseAt(fIdx, at);
+    var src = currentFormation().pos;
+    Object.keys(src).forEach(function(k){ between.pos[k] = {x: src[k].x, y: src[k].y, rot: src[k].rot || 0}; });
     var legStart = before[idx], legEnd = before[idx + 1];
     splitLegTurns(idx ? f.betweens[idx - 1] : f, between, legEnd > legStart ? Math.min(1, Math.max(0, (target - legStart) / (legEnd - legStart))) : 0.5);
     f.betweens.splice(idx, 0, between);
