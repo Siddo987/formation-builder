@@ -968,7 +968,7 @@
     fitPairBar();
   }
 
-  // Too little room for „Drehung bis …“ next to the rest: show the icons instead, as on phones.
+  // Too little room for „Paardrehung bis …“ next to the rest: show the icons instead, as on phones.
   function fitPairBar(){
     var bar = pairRotateEl.parentNode;
     pairRotateEl.classList.remove('compact');
@@ -1230,7 +1230,7 @@
     var c = selectedCouple();
     pairTurnEl.hidden = !c;
     if(!c) return;
-    pairTurnLabelEl.textContent = 'Drehung bis „' + c.nextName + '“';
+    pairTurnLabelEl.textContent = 'Paardrehung bis „' + c.nextName + '“';
     var turn = coupleTurnOf(c);
     if(document.activeElement !== pairTurnInput) pairTurnInput.value = turn === null ? '' : roundNum(turn) + '°';
     pairTurnClearBtn.hidden = turn === null;
