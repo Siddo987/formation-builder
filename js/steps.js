@@ -18,17 +18,14 @@
     return choices;
   }
 
-  // A couple that's split into Lead & Follow in at least one Bild or Zwischenposition gets one sheet
-  // per role: the Follow's sheet follows the Follow's own spot wherever the couple is split (and the
-  // couple's dot everywhere else), with the other role's spot alongside for reference.
+  // One sheet per couple dot; split marks a couple that's split into Lead & Follow in at least one
+  // Bild or Zwischenposition — its cards then show both spots side by side, equally big.
   function sheetsForDancer(d, partner){
     var split = state.formations.some(function(f){
       return isCoupleSplitIn(f, d.id) || (f.betweens || []).some(function(b){ return isCoupleSplitIn(b, d.id); });
     });
-    if(!split) return [{primary: d, secondary: partner, role: null}];
-    return [{primary: d, secondary: partner, role: 'lead'}, {primary: d, secondary: partner, role: 'follow'}];
+    return [{primary: d, secondary: partner, split: split}];
   }
-  var ROLE_LABELS = {lead: 'Lead', follow: 'Follow'};
 
   function sheetsLabel(sheets){
     var names = [];
@@ -66,9 +63,9 @@
   function getStepsSheetsFor(vals){
     var wanted = {};
     vals.forEach(function(v){
-      getStepsSheets(v).forEach(function(sh){ wanted[sh.primary.id + ':' + sh.role] = true; });
+      getStepsSheets(v).forEach(function(sh){ wanted[sh.primary.id] = true; });
     });
-    return getAllStepsSheets().filter(function(sh){ return wanted[sh.primary.id + ':' + sh.role]; });
+    return getAllStepsSheets().filter(function(sh){ return wanted[sh.primary.id]; });
   }
 
   function fmtSigned(v){
@@ -93,11 +90,12 @@
   // idea as the "heller Ring = graue Zusatzposition" convention the source choreography PDF this
   // app grew out of already used, just with a number instead of a bare ring since there can be more
   // than one.
-  // rolePos: the couple's other role (Lead or Follow) where it's split in this Bild — then both
-  // dots are drawn smaller and lettered L/F, the Follow dashed, same as the stage's role badges.
+  // rolePos: the couple's Follow where it's split in this Bild — then both dots are drawn smaller
+  // and lettered L/F, the Follow dashed, same as the stage's role badges. followBetweens: the
+  // Follow's own Zwischenpositionen where the couple is split there (null elsewhere), dashed too.
   // contextPositions: every other couple's spot in this Bild ("Andere Paare hellgrau einblenden"),
   // drawn as small light-gray dots.
-  function buildStepDiagram(primaryPos, secondaryPos, betweenPositions, rolePos, primaryIsFollow, contextPositions){
+  function buildStepDiagram(primaryPos, secondaryPos, betweenPositions, followBetweens, rolePos, contextPositions){
     var diagram = document.createElement('div');
     diagram.className = 'step-diagram';
     var labels = state.roomLabels || {};
@@ -128,9 +126,9 @@
       room.appendChild(dot);
     }
     // A split couple's Lead and Follow usually stand a step or less apart — closer than two dots
-    // are wide at this scale, so one hid half of the other. The other role's dot is pushed away on
-    // paper only, along the line between them (Lead left of Follow where they coincide); this
-    // sheet's own dot and all printed coordinates stay exact.
+    // are wide at this scale, so one hid half of the other. The Follow's dot is pushed away on
+    // paper only, along the line between them (Lead left of Follow where they coincide); the
+    // Lead's dot and all printed coordinates stay exact.
     var roleAt = null;
     if(primaryPos && rolePos){
       var MIN_SPLIT_GAP = 13; // % of the room — a little more than one lettered dot
@@ -138,37 +136,34 @@
       var dx = gridToPercent(rolePos.x) - px, dy = gridToPercent(rolePos.y) - py;
       var dist = Math.sqrt(dx*dx + dy*dy);
       if(dist < MIN_SPLIT_GAP){
-        if(dist < 0.01){ dx = primaryIsFollow ? -1 : 1; dy = 0; dist = 1; }
+        if(dist < 0.01){ dx = 1; dy = 0; dist = 1; }
         roleAt = {x: px + dx/dist*MIN_SPLIT_GAP, y: py + dy/dist*MIN_SPLIT_GAP};
       }
     }
     (contextPositions || []).forEach(function(cp){ addDot(cp, 'step-dot-context'); });
     // Between-dots first so the main/partner dots (added after, further down) paint on top of them
     // where positions happen to overlap.
-    (betweenPositions || []).forEach(function(bp, i){ addDot(bp, 'step-dot-between', String(i+1)); });
+    (betweenPositions || []).forEach(function(bp, i){
+      addDot(bp, 'step-dot-between', String(i+1));
+      if(followBetweens && followBetweens[i]) addDot(followBetweens[i], 'step-dot-between step-dot-follow', String(i+1));
+    });
     addDot(secondaryPos, 'step-dot-secondary');
-    addDot(rolePos, 'step-dot-role step-dot-split' + (primaryIsFollow ? '' : ' step-dot-follow'), primaryIsFollow ? 'L' : 'F', roleAt);
-    addDot(primaryPos, 'step-dot-primary' + (rolePos ? ' step-dot-split' : '') + (primaryIsFollow ? ' step-dot-follow' : ''),
-      rolePos ? (primaryIsFollow ? 'F' : 'L') : undefined);
+    addDot(rolePos, 'step-dot-role step-dot-split step-dot-follow', 'F', roleAt);
+    addDot(primaryPos, 'step-dot-primary' + (rolePos ? ' step-dot-split' : ''), rolePos ? 'L' : undefined);
     diagram.appendChild(room);
     return diagram;
   }
 
-  function buildStepCard(formationIdx, formation, primary, secondary, role, showContext){
+  function buildStepCard(formationIdx, formation, primary, secondary, coupleSplits, showContext){
     var card = document.createElement('div');
     card.className = 'step-card';
     var fk = followKey(primary.id);
-    var split = !!formation.pos[fk];
-    var ownIsFollow = role === 'follow' && split;
-    var primaryPos = formation.pos[ownIsFollow ? fk : primary.id];
-    var rolePos = split ? formation.pos[ownIsFollow ? primary.id : fk] : null;
+    var primaryPos = formation.pos[primary.id];
+    var rolePos = formation.pos[fk] || null;
     var secondaryPos = secondary ? formation.pos[secondary.id] : null;
     var betweens = Array.isArray(formation.betweens) ? formation.betweens : [];
-    // This sheet's person at a Zwischenposition: on a Follow's sheet the Follow's own spot there, or
-    // the couple's dot where the couple is closed at that one.
-    var ownKey = role === 'follow' ? fk : primary.id;
-    function ownAt(b){ return b.pos[ownKey] || b.pos[primary.id]; }
-    var betweenPositions = betweens.map(ownAt);
+    var betweenPositions = betweens.map(function(b){ return b.pos[primary.id]; });
+    var followBetweens = betweens.map(function(b){ return b.pos[fk] || null; });
     var contextPositions = [];
     if(showContext){
       state.dancers.forEach(function(d){
@@ -177,7 +172,7 @@
       });
     }
 
-    card.appendChild(buildStepDiagram(primaryPos, secondaryPos, betweenPositions, rolePos, ownIsFollow, contextPositions));
+    card.appendChild(buildStepDiagram(primaryPos, secondaryPos, betweenPositions, followBetweens, rolePos, contextPositions));
 
     var info = document.createElement('div');
     info.className = 'step-info';
@@ -190,19 +185,28 @@
     h.textContent = 'Bild ' + (formationIdx+1) + (formation.name ? ' — ' + formation.name : '');
     info.appendChild(h);
 
-    if(primaryPos){
+    // Where the couple stands apart, Lead and Follow get the same big readout side by side, tagged in
+    // the same words as the L/F letters in the sketch.
+    function addCoords(parent, pos, tagText, isFollow){
       var coords = document.createElement('div');
       coords.className = 'step-coords';
-      // Where the couple stands apart, say whose spot the big numbers are, in the same words as the
-      // L/F letters in the sketch.
-      if(rolePos){
+      if(tagText){
         var tag = document.createElement('span');
-        tag.className = 'step-role-tag' + (ownIsFollow ? ' step-role-tag-follow' : '');
-        tag.textContent = ownIsFollow ? 'Follow' : 'Lead';
+        tag.className = 'step-role-tag' + (isFollow ? ' step-role-tag-follow' : '');
+        tag.textContent = tagText;
         coords.appendChild(tag);
       }
-      coords.appendChild(document.createTextNode('X ' + fmtSigned(primaryPos.x) + '   Y ' + fmtSigned(primaryPos.y)));
-      info.appendChild(coords);
+      coords.appendChild(document.createTextNode('X ' + fmtSigned(pos.x) + '   Y ' + fmtSigned(pos.y)));
+      parent.appendChild(coords);
+    }
+    if(primaryPos && rolePos){
+      var both = document.createElement('div');
+      both.className = 'step-coords-split';
+      addCoords(both, primaryPos, 'Lead', false);
+      addCoords(both, rolePos, 'Follow', true);
+      info.appendChild(both);
+    } else if(primaryPos){
+      addCoords(info, primaryPos, coupleSplits ? 'Lead & Follow' : '', false);
     }
 
     // Zwischenpositionen line up right under the main position, in the same order they play in —
@@ -210,11 +214,13 @@
     // positionen. Uses the between's own name (right-click a chip in the filmstrip to set one) when
     // there is one, falling back to a generic "Zwischenposition N" otherwise.
     betweens.forEach(function(b, i){
-      var bp = ownAt(b);
+      var bp = b.pos[primary.id], fp = followBetweens[i];
       if(!bp) return;
       var line = document.createElement('p');
       line.className = 'step-between-line';
-      line.textContent = 'grau x ' + fmtSigned(bp.x) + ' y ' + fmtSigned(bp.y) + ' · ' + (b.name ? b.name : ('Zwischenposition ' + (i+1)));
+      line.textContent = 'grau ' + (fp ? 'L ' : '') + 'x ' + fmtSigned(bp.x) + ' y ' + fmtSigned(bp.y) +
+        (fp ? ' · F x ' + fmtSigned(fp.x) + ' y ' + fmtSigned(fp.y) : '') +
+        ' · ' + (b.name ? b.name : ('Zwischenposition ' + (i+1)));
       info.appendChild(line);
     });
 
@@ -233,17 +239,9 @@
       var turns = sanitizeCoupleTurns(stop.coupleTurns), spins = sanitizeSpins(stop.spins);
       var turn = turns ? (typeof turns[primary.id] === 'number' ? turns[primary.id] : (secondary ? turns[secondary.id] : undefined)) : undefined;
       if(typeof turn === 'number') addTurnLine('Drehung im Paar', turn, toName);
-      if(spins && typeof spins[ownKey] === 'number') addTurnLine('Eigendrehung', spins[ownKey], toName);
+      if(spins && typeof spins[primary.id] === 'number') addTurnLine(coupleSplits ? 'Eigendrehung Lead' : 'Eigendrehung', spins[primary.id], toName);
+      if(spins && typeof spins[fk] === 'number') addTurnLine('Eigendrehung Follow', spins[fk], toName);
     });
-
-    if(role){
-      var roleLine = document.createElement('p');
-      roleLine.className = 'step-secondary';
-      roleLine.textContent = rolePos
-        ? (ownIsFollow ? 'Lead (L)' : 'Follow (F)') + ': x ' + fmtSigned(rolePos.x) + ' y ' + fmtSigned(rolePos.y)
-        : 'Lead & Follow zusammen';
-      info.appendChild(roleLine);
-    }
 
     if(secondary && secondaryPos){
       var sec = document.createElement('p');
@@ -295,17 +293,13 @@
       var title = document.createElement('h2');
       title.className = 'step-sheet-title';
       title.textContent = (state.projectName || 'Aufstellung') + ' — ' + sheet.primary.name +
-        (sheet.role ? ' (' + ROLE_LABELS[sheet.role] + ')' : '') +
         (sheet.secondary ? ' (Partner: ' + sheet.secondary.name + ')' : '');
       stepsPrintArea.appendChild(title);
-      // Role sheets come in Lead/Follow twins that look alike at a glance — spell out whose this
-      // is and how the sketch tells the two apart.
-      if(sheet.role){
+      if(sheet.split){
         var legend = document.createElement('p');
         legend.className = 'step-legend';
-        legend.textContent = 'Blatt für ' + (sheet.role === 'follow' ? 'den Follow' : 'den Lead') +
-          '. Wo ihr getrennt steht, zeigt die Skizze beide: L = Lead, F = Follow (gestrichelt), ' +
-          'deine Position ist orange gefüllt.';
+        legend.textContent = 'Wo Lead und Follow getrennt stehen, stehen beide Positionen nebeneinander. ' +
+          'In der Skizze: L = Lead (gefüllt), F = Follow (gestrichelt).';
         stepsPrintArea.appendChild(legend);
       }
       var lastCategory = null;
@@ -315,7 +309,7 @@
           stepsPrintArea.appendChild(buildStepSectionHeader(cat));
           lastCategory = cat;
         }
-        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.role, showContext));
+        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.split, showContext));
       });
     });
   }

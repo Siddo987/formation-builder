@@ -297,6 +297,11 @@
     font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:#a8701a;
   }
   .step-role-tag-follow{border-style:dashed;}
+  /* Paar geteilt: Lead und Follow gleich groß nebeneinander, Rolle jeweils darüber */
+  .step-coords-split{display:flex; flex-wrap:wrap; gap:.3rem 1.6rem; margin-bottom:.35rem;}
+  .step-coords-split .step-coords{font-size:1.6rem; margin:0;}
+  .step-coords-split .step-role-tag{display:table; margin:0 0 .2rem;}
+  .step-dot-between.step-dot-follow{border-color:#8a7c9c;}
   .step-legend{margin:-.6rem 0 1rem; font-size:.8rem; color:#6b6178;}
   .step-between-line{margin:.15rem 0 0; font-size:.78rem; font-style:italic; color:#999;}
   .step-secondary{margin:.3rem 0 0; font-size:.8rem; font-style:italic; color:#999;}

@@ -400,7 +400,7 @@
         ? (exportWho.length > 1 ? 'Ein Dokument mit den Blättern aller Gewählten, Paar für Paar. ' : '') +
           'Pro Bild eine Karte mit großer, gut lesbarer Koordinatenangabe.'
         : 'Ein Dokument mit den Blättern aller Tänzer – erst Paar 1, dann Paar 2 usw.') +
-        ' Ist ein Paar in einem Bild in Lead & Follow geteilt, gibt es je ein Blatt für Lead und Follow.';
+        ' Ist ein Paar in Lead & Follow geteilt, stehen beide Positionen auf derselben Karte nebeneinander.';
     } else {
       exportWhoHint.textContent = who ? 'Das Video zeigt nur die Gewählten.' : 'Die ganze Choreo mit allen Tänzern.';
     }
