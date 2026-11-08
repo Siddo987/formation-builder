@@ -58,6 +58,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(turns) out.coupleTurns = turns;
       var spins = sanitizeSpins(b.spins);
       if(spins) out.spins = spins;
+      var orbits = sanitizeOrbits(b.orbits);
+      if(orbits) out.orbits = orbits;
       return out;
     });
   }
@@ -102,6 +104,23 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // Follow) -> degrees that person turns around their own axis on the way, same sign and limits as
   // a Drehung im Paar. Unset = the facing turns the short way to the next arrow.
   function sanitizeSpins(v){ return sanitizeCoupleTurns(v); }
+  // Kreisbahn (#2067), stored next to coupleTurns: groups of pos keys — e.g. a circle that turns —
+  // that walk round their shared middle on the way to the next stop instead of straight, by `turn`
+  // degrees (same sign and limits as a Drehung im Paar), while the middle itself walks straight.
+  // A pos key belongs to one group at most.
+  function sanitizeOrbits(v){
+    if(!Array.isArray(v)) return null;
+    var seen = {}, out = [];
+    v.forEach(function(g){
+      if(!g || !Array.isArray(g.ids) || typeof g.turn !== 'number' || !isFinite(g.turn)) return;
+      var turn = Math.round(Math.max(-MAX_COUPLE_TURN, Math.min(MAX_COUPLE_TURN, g.turn)) * 10) / 10;
+      var ids = g.ids.filter(function(k){ return typeof k === 'string' && k && !seen[k]; });
+      if(!turn || ids.length < 2) return;
+      ids.forEach(function(k){ seen[k] = true; });
+      out.push({ids: ids, turn: turn});
+    });
+    return out.length ? out : null;
+  }
   // A move between two Bilder normally interpolates in one straight leg (fromPos -> toPos). If the
   // *from* Bild has Zwischenpositionen — poses along the way that don't get their own Bild/filmstrip
   // card, added via the "+" between filmstrip cards (see formations.js) — the same move instead
@@ -215,6 +234,30 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       var ids = pr.memberIds || [];
       if(ids.length !== 2 || ids.some(function(id){ return !a[id] || !b[id] || a[followKey(id)] || b[followKey(id)]; })) return;
       turnCouple(interp, ids[0], ids[1], a[ids[0]], a[ids[1]], b[ids[0]], b[ids[1]], e, turnOf(ids[0]), centre(ids[0], ids[1]));
+    });
+    // Kreisbahnen: each group's middle walks straight while every member's offset from it turns by
+    // the set amount (its length easing to the new one) — the way round that comes closest to it,
+    // like a Drehung — and their facing turns along.
+    (sanitizeOrbits(leaving.orbits) || []).forEach(function(g){
+      var ids = g.ids.filter(function(k){ return interp[k]; });
+      if(ids.length < 2) return;
+      function mid(w){
+        var x = 0, y = 0;
+        ids.forEach(function(k){ var s = spot(w, k); x += s.x; y += s.y; });
+        return {x: x / ids.length, y: y / ids.length};
+      }
+      var ca = mid(a), cb = mid(b), cx = lerp(ca.x, cb.x, e), cy = lerp(ca.y, cb.y, e);
+      ids.forEach(function(k){
+        var pa = spot(a, k), pb = spot(b, k);
+        var ra = Math.hypot(pa.x - ca.x, pa.y - ca.y), rb = Math.hypot(pb.x - cb.x, pb.y - cb.y);
+        var angA = Math.atan2(pa.y - ca.y, pa.x - ca.x) * 180/Math.PI, angB = Math.atan2(pb.y - cb.y, pb.x - cb.x) * 180/Math.PI;
+        if(ra < 1e-6) angA = angB;
+        if(rb < 1e-6) angB = angA;
+        var ang = (angA + turnSweep(angB - angA, g.turn) * e) * Math.PI/180, r = lerp(ra, rb, e);
+        interp[k].x = cx + Math.cos(ang) * r;
+        interp[k].y = cy + Math.sin(ang) * r;
+        interp[k].rot = normAngle((pa.rot || 0) + turnSweep((pb.rot || 0) - (pa.rot || 0), g.turn) * e);
+      });
     });
     // Eigendrehungen last, so they win over a Drehung's facing: that one person's arrow turns by
     // the set amount over the leg, wherever they're walking.
@@ -533,6 +576,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         f.coupleTurns = sanitizeCoupleTurns(f.coupleTurns);
         // migration: older saves predate Eigendrehungen — see interpolateThroughBetweens()
         f.spins = sanitizeSpins(f.spins);
+        // migration: older saves predate Kreisbahnen (#2067)
+        f.orbits = sanitizeOrbits(f.orbits);
         // migration: older saves predate temporarily split pairs ("Paar lösen") entirely
         f.splitPairs = sanitizeSplitPairs(f.splitPairs);
       });
@@ -858,6 +903,11 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var pairSpinInput = document.getElementById('pairSpinInput');
   var pairSpinBtn = document.getElementById('pairSpinBtn');
   var pairSpinClearBtn = document.getElementById('pairSpinClearBtn');
+  var pairOrbitEl = document.getElementById('pairOrbit');
+  var pairOrbitLabelEl = document.getElementById('pairOrbitLabel');
+  var pairOrbitInput = document.getElementById('pairOrbitInput');
+  var pairOrbitBtn = document.getElementById('pairOrbitBtn');
+  var pairOrbitClearBtn = document.getElementById('pairOrbitClearBtn');
   var rosterListEl = document.getElementById('rosterList');
   var dancerCountEl = document.getElementById('dancerCount');
   var addDancerBtn = document.getElementById('addDancerBtn');

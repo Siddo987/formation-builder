@@ -419,6 +419,9 @@
         goneKeys.forEach(function(k){ delete stop.spins[k]; });
         stop.spins = sanitizeSpins(stop.spins);
       }
+      if(stop.orbits) stop.orbits = sanitizeOrbits(stop.orbits.map(function(g){
+        return {ids: g.ids.filter(function(k){ return goneKeys.indexOf(k) === -1; }), turn: g.turn};
+      }));
     }
     state.formations.forEach(function(f){
       if(Array.isArray(f.splitPairs)) f.splitPairs = f.splitPairs.filter(function(pid){ return gonePairIds.indexOf(pid) === -1; });

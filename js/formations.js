@@ -381,12 +381,13 @@
       var turns = sanitizeCoupleTurns(stop.coupleTurns), spins = sanitizeSpins(stop.spins);
       if(turns) Object.keys(turns).forEach(function(k){ parts.push(markerDisplayName(k) + ' ' + roundNum(turns[k]) + '°'); });
       if(spins) Object.keys(spins).forEach(function(k){ parts.push(markerDisplayName(k) + ' Eigendrehung ' + roundNum(spins[k]) + '°'); });
+      (sanitizeOrbits(stop.orbits) || []).forEach(function(g){ parts.push('Kreisbahn ' + roundNum(g.turn) + '° (' + g.ids.length + ' Punkte)'); });
       if(parts.length) lines.push((i ? 'ab Zwischenposition ' + i : 'ab „' + f.name + '“') + ': ' + parts.join(', '));
     });
     return lines.length ? lines : null;
   }
 
-  // Marks a move with a set Drehung im Paar or Eigendrehung (set in the selection bar under the
+  // Marks a move with a set Drehung im Paar, Eigendrehung or Kreisbahn (set in the selection bar under the
   // stage, in the Bild or in one of its Zwischenpositionen).
   function buildCoupleTurnBadge(lines, next){
     var badge = document.createElement('span');
@@ -630,7 +631,7 @@
     return pos;
   }
 
-  // A new stop `into` splits the leg `leaving` starts: a Drehung im Paar or Eigendrehung set on it
+  // A new stop `into` splits the leg `leaving` starts: a Drehung im Paar, Eigendrehung or Kreisbahn set on it
   // is shared out — `share` stays on `leaving`, the rest moves on with `into` — so the move still
   // turns as far in total.
   function splitLegTurns(leaving, into, share){
@@ -645,6 +646,13 @@
       if(sanitizeCoupleTurns(first)) leaving[field] = sanitizeCoupleTurns(first); else delete leaving[field];
       if(sanitizeCoupleTurns(rest)) into[field] = sanitizeCoupleTurns(rest);
     });
+    var orbits = sanitizeOrbits(leaving.orbits);
+    if(!orbits) return;
+    var firstTurns = orbits.map(function(g){ return Math.round(g.turn * share * 10) / 10; });
+    leaving.orbits = sanitizeOrbits(orbits.map(function(g, i){ return {ids: g.ids, turn: firstTurns[i]}; }));
+    into.orbits = sanitizeOrbits(orbits.map(function(g, i){ return {ids: g.ids.slice(), turn: g.turn - firstTurns[i]}; }));
+    if(!leaving.orbits) delete leaving.orbits;
+    if(!into.orbits) delete into.orbits;
   }
 
   // New Zwischenposition's starting pose: a plain copy of the selected Bild (or Zwischenposition),

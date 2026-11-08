@@ -241,6 +241,8 @@
       if(typeof turn === 'number') addTurnLine('Drehung im Paar', turn, toName);
       if(spins && typeof spins[primary.id] === 'number') addTurnLine(coupleSplits ? 'Eigendrehung Lead' : 'Eigendrehung', spins[primary.id], toName);
       if(spins && typeof spins[fk] === 'number') addTurnLine('Eigendrehung Follow', spins[fk], toName);
+      var orbit = (sanitizeOrbits(stop.orbits) || []).find(function(g){ return g.ids.indexOf(primary.id) !== -1 || g.ids.indexOf(fk) !== -1; });
+      if(orbit) addTurnLine('Kreisbahn', orbit.turn, toName);
     });
 
     if(secondary && secondaryPos){

@@ -976,6 +976,7 @@
     updatePairMidpointMarker(pausedAt && shownPosMap || currentFormation().pos);
     updatePairTurnUI();
     updatePairSpinUI();
+    updateOrbitUI();
     // "Paar lösen/koppeln" is offered for exactly one saved pair, or one partner of a split pair.
     var splitPair = null;
     if(pairSelection.length === 2) splitPair = findPairByMembers(pairSelection);
@@ -1317,6 +1318,66 @@
     afterCoupleTurnChange();
   }
 
+  // Kreisbahn (#2067): three or more points with a spot of their own here and at the next stop.
+  function selectedOrbit(){
+    if(state.shareReadOnly || pairSelection.length < 3) return null;
+    var leg = currentLeg();
+    if(!leg || pairSelection.some(function(k){ return !leg.cur.pos[k] || !leg.next.pos[k]; })) return null;
+    return {ids: pairSelection.slice(), cur: leg.cur, next: leg.next, nextName: leg.nextName};
+  }
+
+  // The selection's other Kreisbahnen on this stop, without its points.
+  function orbitsWithout(o){
+    return (sanitizeOrbits(o.cur.orbits) || []).map(function(g){
+      return {ids: g.ids.filter(function(k){ return o.ids.indexOf(k) === -1; }), turn: g.turn};
+    });
+  }
+
+  // Shown only when the selection is exactly one set group.
+  function orbitOf(o){
+    var key = o.ids.slice().sort().join();
+    var g = (sanitizeOrbits(o.cur.orbits) || []).find(function(g){ return g.ids.slice().sort().join() === key; });
+    return g ? g.turn : null;
+  }
+
+  function updateOrbitUI(){
+    var o = selectedOrbit();
+    pairOrbitEl.hidden = !o;
+    if(!o) return;
+    pairOrbitLabelEl.textContent = 'Kreisbahn bis „' + o.nextName + '“';
+    var turn = orbitOf(o);
+    if(document.activeElement !== pairOrbitInput) pairOrbitInput.value = turn === null ? '' : roundNum(turn) + '°';
+    pairOrbitClearBtn.hidden = turn === null;
+  }
+
+  // Like a Drehung, setting it also poses the selection at the next stop: its shape here, turned by
+  // that angle around the middle it arrives at there.
+  function setOrbit(turn){
+    var o = selectedOrbit();
+    if(!o) return;
+    turn = Math.max(-MAX_COUPLE_TURN, Math.min(MAX_COUPLE_TURN, turn));
+    function mid(pos){
+      var x = 0, y = 0;
+      o.ids.forEach(function(k){ x += pos[k].x; y += pos[k].y; });
+      return {x: x / o.ids.length, y: y / o.ids.length};
+    }
+    var ca = mid(o.cur.pos), cb = mid(o.next.pos), rad = turn * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+    o.ids.forEach(function(k){
+      var p = o.cur.pos[k], dx = p.x - ca.x, dy = p.y - ca.y;
+      o.next.pos[k] = {x: clampGrid(cb.x + dx*cos - dy*sin), y: clampGrid(cb.y + dx*sin + dy*cos), rot: normAngle((p.rot||0) + turn)};
+    });
+    o.cur.orbits = sanitizeOrbits(orbitsWithout(o).concat([{ids: o.ids, turn: turn}]));
+    afterCoupleTurnChange();
+  }
+
+  // Back to straight paths; the next stop keeps where everyone stands.
+  function clearOrbit(){
+    var o = selectedOrbit();
+    if(!o) return;
+    o.cur.orbits = sanitizeOrbits(orbitsWithout(o));
+    afterCoupleTurnChange();
+  }
+
   function afterCoupleTurnChange(){
     saveState();
     renderFilmstrip();
@@ -1342,6 +1403,15 @@
     if(e.key === 'Enter'){ e.preventDefault(); pairSpinBtn.click(); }
   });
   armDeleteButton(pairSpinClearBtn, clearSpin);
+  pairOrbitBtn.addEventListener('click', function(){
+    var deg = parseAngleInput(pairOrbitInput.value);
+    if(deg === null){ pairOrbitInput.focus(); return; }
+    setOrbit(deg);
+  });
+  pairOrbitInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); pairOrbitBtn.click(); }
+  });
+  armDeleteButton(pairOrbitClearBtn, clearOrbit);
   pairSplitBtn.addEventListener('click', function(){
     if(pairSplitBtn.dataset.couple){ toggleCoupleSplit(pairSplitBtn.dataset.couple); return; }
     var pairId = pairSplitBtn.dataset.pairId;
