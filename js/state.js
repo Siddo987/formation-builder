@@ -721,6 +721,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     // Same soft-dependency trick for the undo/redo history (js/history.js) — one debounced snapshot
     // per settled edit, skipped while history itself is applying an undo/redo/merge.
     if(typeof captureHistorySoon === 'function') captureHistorySoon();
+    if(typeof scheduleClashBadges === 'function') scheduleClashBadges(); // too-close warnings per move (js/stage.js)
   }
   var saveStateDebounced = (function(){
     var timer = null;

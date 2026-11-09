@@ -342,44 +342,35 @@
     t[0].addEventListener('change', function(){
       try{ localStorage.setItem(t[1], t[0].checked ? '1' : '0'); }catch(e){}
       renderOnionSkin();
+      scheduleClashBadges();
     });
   });
-  function renderPathLines(layer){
-    var fIdx = state.activeIndex, f = state.formations[fIdx], next = state.formations[fIdx + 1];
-    if(!next || (!pathsToggle.checked && !clashToggle.checked)) return;
+  function pathAt(w, k){ return w[k] || w[baseDancerId(k)]; }
+  // Every dancer key's walk on the move out of Bild fIdx, sampled PATH_SAMPLES times.
+  function movePaths(fIdx){
+    var f = state.formations[fIdx], next = state.formations[fIdx + 1];
     var frames = [];
     for(var i = 0; i <= PATH_SAMPLES; i++) frames.push(interpolateThroughBetweens(fIdx, fIdx + 1, i / PATH_SAMPLES));
-    function at(w, k){ return w[k] || w[baseDancerId(k)]; }
     var keys = [];
     state.dancers.forEach(function(d){
       if(!f.pos[d.id] || !next.pos[d.id]) return;
       keys.push({k: d.id, d: d});
       if(frames.some(function(w){ return w[followKey(d.id)]; })) keys.push({k: followKey(d.id), d: d});
     });
-    if(pathsToggle.checked){
-      var svg = document.createElementNS(SVG_NS, 'svg');
-      svg.setAttribute('class', 'path-lines');
-      svg.setAttribute('viewBox', '0 0 100 100');
-      svg.setAttribute('preserveAspectRatio', 'none');
-      keys.forEach(function(e){
-        var line = document.createElementNS(SVG_NS, 'polyline');
-        line.setAttribute('points', frames.map(function(w){ var p = at(w, e.k); return gridToPercentX(p.x).toFixed(2) + ',' + gridToPercentY(p.y).toFixed(2); }).join(' '));
-        line.setAttribute('stroke', e.d.color);
-        if(isFollowKey(e.k)) line.setAttribute('stroke-dasharray', '4 3');
-        svg.appendChild(line);
-      });
-      layer.appendChild(svg);
-    }
-    if(!clashToggle.checked) return;
-    // Only what the walk itself causes: two points that get closer on the way than in any of the
-    // poses they were placed in (the Bilder and Zwischenpositionen), and closer than CLASH_DIST.
-    var stops = [f].concat(f.betweens || [], [next]);
+    return {frames: frames, keys: keys};
+  }
+  // Only what the walk itself causes: two points that get closer on the way than in any of the
+  // poses they were placed in (the Bilder and Zwischenpositionen), and closer than CLASH_DIST.
+  function moveClashes(fIdx, mv){
+    mv = mv || movePaths(fIdx);
+    var f = state.formations[fIdx], frames = mv.frames, keys = mv.keys, out = [];
+    var stops = [f].concat(f.betweens || [], [state.formations[fIdx + 1]]);
     function partners(a, b){
       return baseDancerId(a) === baseDancerId(b) || (state.pairs || []).some(function(p){
         return p.memberIds.indexOf(baseDancerId(a)) !== -1 && p.memberIds.indexOf(baseDancerId(b)) !== -1;
       });
     }
-    function dist(w, a, b){ var p = at(w, a), q = at(w, b); return p && q ? Math.hypot(p.x - q.x, p.y - q.y) : Infinity; }
+    function dist(w, a, b){ var p = pathAt(w, a), q = pathAt(w, b); return p && q ? Math.hypot(p.x - q.x, p.y - q.y) : Infinity; }
     keys.forEach(function(ea, i){
       keys.slice(i + 1).forEach(function(eb){
         if(partners(ea.k, eb.k)) return;
@@ -387,16 +378,68 @@
         var min = Infinity, m = -1;
         frames.forEach(function(w, s){ var d = dist(w, ea.k, eb.k); if(d < min){ min = d; m = s; } });
         if(min >= CLASH_DIST || min >= posed - 1e-6) return;
-        var p = at(frames[m], ea.k), q = at(frames[m], eb.k);
-        var mark = document.createElement('span');
-        mark.className = 'path-clash';
-        mark.style.left = gridToPercentX((p.x + q.x) / 2) + '%';
-        mark.style.top = gridToPercentY((p.y + q.y) / 2) + '%';
-        var label = document.createElement('span');
-        label.textContent = markerDisplayName(ea.k) + ' · ' + markerDisplayName(eb.k);
-        mark.appendChild(label);
-        layer.appendChild(mark);
+        var p = pathAt(frames[m], ea.k), q = pathAt(frames[m], eb.k);
+        out.push({a: ea.k, b: eb.k, x: (p.x + q.x) / 2, y: (p.y + q.y) / 2});
       });
+    });
+    return out;
+  }
+  function renderPathLines(layer){
+    var fIdx = state.activeIndex, next = state.formations[fIdx + 1];
+    if(!next || (!pathsToggle.checked && !clashToggle.checked)) return;
+    var mv = movePaths(fIdx), frames = mv.frames, keys = mv.keys;
+    if(pathsToggle.checked){
+      var svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('class', 'path-lines');
+      svg.setAttribute('viewBox', '0 0 100 100');
+      svg.setAttribute('preserveAspectRatio', 'none');
+      keys.forEach(function(e){
+        var line = document.createElementNS(SVG_NS, 'polyline');
+        line.setAttribute('points', frames.map(function(w){ var p = pathAt(w, e.k); return gridToPercentX(p.x).toFixed(2) + ',' + gridToPercentY(p.y).toFixed(2); }).join(' '));
+        line.setAttribute('stroke', e.d.color);
+        if(isFollowKey(e.k)) line.setAttribute('stroke-dasharray', '4 3');
+        svg.appendChild(line);
+      });
+      layer.appendChild(svg);
+    }
+    if(!clashToggle.checked) return;
+    moveClashes(fIdx, mv).forEach(function(c){
+      var mark = document.createElement('span');
+      mark.className = 'path-clash';
+      mark.style.left = gridToPercentX(c.x) + '%';
+      mark.style.top = gridToPercentY(c.y) + '%';
+      var label = document.createElement('span');
+      label.textContent = markerDisplayName(c.a) + ' · ' + markerDisplayName(c.b);
+      mark.appendChild(label);
+      layer.appendChild(mark);
+    });
+  }
+
+  // Filmstrip: a warning on every move with a clash, not only the one on stage (#2057). It walks
+  // the whole choreo, so it runs a moment after the last change and only redoes moves that changed.
+  var clashBadgeTimer = null, clashCache = {};
+  function scheduleClashBadges(){ clearTimeout(clashBadgeTimer); clashBadgeTimer = setTimeout(updateClashBadges, 300); }
+  function updateClashBadges(){
+    Array.prototype.forEach.call(document.querySelectorAll('.film-connector'), function(wrap){
+      var fIdx = +wrap.dataset.f, f = state.formations[fIdx], next = state.formations[fIdx + 1];
+      var badge = wrap.querySelector('.film-between-clash'), list = [];
+      if(clashToggle.checked && f && next){
+        var key = JSON.stringify([f, next, state.pairs, state.dancers.length]), c = clashCache[f.id];
+        if(!c || c.key !== key) c = clashCache[f.id] = {key: key, list: moveClashes(fIdx)};
+        list = c.list;
+      }
+      wrap.classList.toggle('clash-set', list.length > 0);
+      if(!list.length){ if(badge) badge.remove(); return; }
+      if(!badge){
+        badge = document.createElement('button');
+        badge.type = 'button';
+        badge.className = 'film-between-clash';
+        badge.textContent = '!';
+        badge.addEventListener('click', function(){ selectFormation(+wrap.dataset.f); });
+        wrap.appendChild(badge);
+      }
+      badge.title = 'Zu eng auf dem Weg zu „' + next.name + '“: ' + list.map(function(c){ return markerDisplayName(c.a) + ' · ' + markerDisplayName(c.b); }).join(', ') + ' (klicken zeigt die Stelle)';
+      badge.setAttribute('aria-label', badge.title);
     });
   }
 

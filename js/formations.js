@@ -1186,6 +1186,7 @@
     // toolbar Marker button's warning dot in sync (js/marker.js, loaded after this file).
     if(typeof updateMarkerWarnings === 'function') updateMarkerWarnings();
     if(typeof updateBildLocks === 'function') updateBildLocks(true); // lock badges of shared Bilder (js/share.js)
+    scheduleClashBadges(); // too-close warnings per move (js/stage.js)
   }
 
   // Recomputes each section-start badge's running number without touching the
