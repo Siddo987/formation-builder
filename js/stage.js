@@ -464,7 +464,8 @@
   var activeLayoutPinIndex = null; // ghost dot tapped to stay put while another one is dragged
 
   // Grundformen for n pairs, centered around (0,0), +y = front (towards the audience). Spacing
-  // shrinks once a shape would leave the -7..7 stage.
+  // shrinks once a shape would leave the stage — W × D is its width and depth (#2060).
+  var W = 14, D = 14;
   function rowPoints(n, len){
     var s = n > 1 ? Math.min(3, len/(n-1)) : 0, pts = [];
     for(var i=0; i<n; i++) pts.push({x: (i-(n-1)/2)*s, y: 0});
@@ -486,9 +487,9 @@
     return pts;
   }
   var LAYOUT_SHAPES = [
-    {id:'form-reihe', name:'Reihe', points: function(n){ return rowPoints(n, 14); }},
+    {id:'form-reihe', name:'Reihe', points: function(n){ return rowPoints(n, W); }},
     {id:'form-doppelreihe', name:'Doppelreihe (versetzt)', points: function(n){
-      var f = Math.ceil(n/2), b = n-f, s = f > 1 ? Math.min(3, 12/(f-1)) : 3, pts = [];
+      var f = Math.ceil(n/2), b = n-f, s = f > 1 ? Math.min(3, (W-2)/(f-1)) : 3, pts = [];
       for(var i=0; i<f; i++) pts.push({x: (i-(f-1)/2)*s, y: 1.5});
       for(var j=0; j<b; j++) pts.push({x: (j-(b-1)/2)*s + (b === f ? s/2 : 0), y: -1.5});
       return pts;
@@ -496,19 +497,19 @@
     {id:'form-block', name:'Block', points: function(n){
       var cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n/cols), counts = [];
       for(var r=0; r<rows; r++) counts.push(Math.min(cols, n - r*cols));
-      var s = Math.min(3, cols > 1 ? 12/(cols-1) : 3, rows > 1 ? 12/(rows-1) : 3);
+      var s = Math.min(3, cols > 1 ? (W-2)/(cols-1) : 3, rows > 1 ? (D-2)/(rows-1) : 3);
       return gridRows(counts, s, s);
     }},
     {id:'form-keil', name:'Keil (Spitze vorn)', points: function(n){
       var counts = [];
       for(var k=1, left=n; left > 0; k++){ counts.push(Math.min(k, left)); left -= k; }
-      var s = Math.min(2.5, counts.length > 1 ? 12/(counts.length-1) : 2.5);
-      return gridRows(counts, s, Math.min(2, 12/Math.max(1, counts.length-1)));
+      var s = Math.min(2.5, counts.length > 1 ? (W-2)/(counts.length-1) : 2.5);
+      return gridRows(counts, s, Math.min(2, (D-2)/Math.max(1, counts.length-1)));
     }},
     {id:'form-v', name:'V-Form (Spitze vorn)', points: function(n){
       // odd: one pair on the tip; even: the V stays open at the front (first pair at x=±1)
       var pts = [], odd = n % 2, steps = Math.max(1, Math.ceil(n/2)-1), x0 = odd ? 0 : 1;
-      var dx = Math.min(2, (6.5-x0)/steps), dy = Math.min(2, 12/steps);
+      var dx = Math.min(2, (W/2-0.5-x0)/steps), dy = Math.min(2, (D-2)/steps);
       if(odd) pts.push({x: 0, y: 0});
       for(var j=odd; pts.length < n; j++){
         pts.push({x: -(x0 + j*dx), y: -j*dy}, {x: x0 + j*dx, y: -j*dy});
@@ -516,10 +517,10 @@
       return pts;
     }},
     {id:'form-kreis', name:'Kreis', points: function(n){
-      return ringPoints(n, 0, Math.max(2.5, Math.min(6, n*3/(2*Math.PI))));
+      return ringPoints(n, 0, Math.max(2.5, Math.min(Math.min(W, D)/2-1, n*3/(2*Math.PI))));
     }},
     {id:'form-halbkreis', name:'Halbkreis (vorn offen)', points: function(n){
-      var r = Math.max(3, Math.min(6.5, (n-1)*3/Math.PI)), pts = [];
+      var r = Math.max(3, Math.min(W/2-0.5, D-1, (n-1)*3/Math.PI)), pts = [];
       for(var i=0; i<n; i++){
         var a = Math.PI + (n > 1 ? i/(n-1) : 0.5)*Math.PI;
         pts.push({x: Math.cos(a)*r, y: Math.sin(a)*r});
@@ -527,22 +528,22 @@
       return pts;
     }},
     {id:'form-zwei-kreise', name:'Zwei Kreise', points: function(n){
-      var a = Math.ceil(n/2), r = function(c){ return Math.max(1.5, Math.min(3, c*2.5/(2*Math.PI))); };
-      return ringPoints(a, -3.5, r(a)).concat(ringPoints(n-a, 3.5, r(n-a)));
+      var a = Math.ceil(n/2), r = function(c){ return Math.max(1.5, Math.min(W/4-0.5, D/2-1, c*2.5/(2*Math.PI))); };
+      return ringPoints(a, -W/4, r(a)).concat(ringPoints(n-a, W/4, r(n-a)));
     }},
     {id:'form-diagonale', name:'Diagonale', points: function(n){
-      return rowPoints(n, 17).map(function(p){ return {x: p.x/Math.SQRT2, y: p.x/Math.SQRT2}; });
+      return rowPoints(n, (Math.min(W, D)-2)*Math.SQRT2).map(function(p){ return {x: p.x/Math.SQRT2, y: p.x/Math.SQRT2}; });
     }},
     {id:'form-kolonne', name:'Kolonne (hintereinander)', points: function(n){
-      return rowPoints(n, 14).map(function(p){ return {x: 0, y: -p.x}; });
+      return rowPoints(n, D).map(function(p){ return {x: 0, y: -p.x}; });
     }},
     {id:'form-gasse', name:'Gasse', points: function(n){
       var a = Math.ceil(n/2);
-      return rowPoints(a, 14).map(function(p){ return {x: -3, y: -p.x}; })
-        .concat(rowPoints(n-a, 14).map(function(p){ return {x: 3, y: -p.x}; }));
+      return rowPoints(a, D).map(function(p){ return {x: -3, y: -p.x}; })
+        .concat(rowPoints(n-a, D).map(function(p){ return {x: 3, y: -p.x}; }));
     }},
     {id:'form-zickzack', name:'Zickzack', points: function(n){
-      return rowPoints(n, 14).map(function(p, i){ return {x: p.x, y: i % 2 ? -1.5 : 1.5}; });
+      return rowPoints(n, W).map(function(p, i){ return {x: p.x, y: i % 2 ? -1.5 : 1.5}; });
     }}
   ];
   // One ghost point per pair: every dot is a couple, except the Follow of an older saved pair.
@@ -555,6 +556,7 @@
   function activeLayout(){
     var shape = activeLayoutId && LAYOUT_SHAPES.find(function(l){ return l.id === activeLayoutId; });
     if(!shape) return null;
+    W = stageSize().w; D = stageSize().d;
     var pts = shape.points(layoutUnits().length);
     var xs = pts.map(function(p){ return p.x; }), ys = pts.map(function(p){ return p.y; });
     var cx = (Math.min.apply(null, xs) + Math.max.apply(null, xs))/2 || 0;
