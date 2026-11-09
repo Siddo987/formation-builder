@@ -570,13 +570,21 @@
     histPointer = index;
     clearTimeout(histCaptureTimer); histCaptureTimer = null;
     suppressHistoryCapture = true;
-    var e = histEntries[index], v = entryView(e);
+    var e = histEntries[index], v = entryView(e), snap = hClone(e.snapshot);
+    // Bilder someone else holds right now (#2076, js/share.js) keep their current state — undo
+    // must not take back that person's work.
+    if(typeof bildLockHolder === 'function' && snap.formations.some(function(f){ return bildLockHolder(f.id); })){
+      var nowFormations = serializableState(state).formations;
+      snap.formations = snap.formations.map(function(f){
+        return (bildLockHolder(f.id) && nowFormations.filter(function(c){ return c.id === f.id; })[0]) || f;
+      });
+    }
     try{
       // A step that only changed the view mustn't re-render everything (and reload the song).
-      if(hEq(stripVolatile(e.snapshot), stripVolatile(serializableState(state)))){
+      if(hEq(stripVolatile(snap), stripVolatile(serializableState(state)))){
         if(v.i !== state.activeIndex) selectFormation(Math.min(v.i, state.formations.length - 1));
       }else{
-        applyState(hClone(e.snapshot), {keepBinding: true, keepBlobs: true});
+        applyState(snap, {keepBinding: true, keepBlobs: true});
       }
       selectedDancerId = v.sel;
       pairSelection = v.ps.slice();

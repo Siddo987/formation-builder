@@ -77,9 +77,10 @@
         var span = betweenTimeSpan(fIdx), at = sanitizeBetweenAt(b.at), input = row.querySelector('.marker-time-input');
         input.value = at === null ? '' : formatBetweenAt(fIdx, at);
         input.placeholder = formatBetweenAt(fIdx, betweenTimes(fIdx)[bIdx]);
-        input.disabled = row.querySelector('.marker-now-btn').disabled = !span;
-        row.querySelector('.marker-clear-btn').hidden = at === null;
-        row.title = span ? '' : 'Erst den beiden Bildern drumherum eine Zeitmarke geben';
+        var holder = typeof bildLockHolder === 'function' ? bildLockHolder(state.formations[fIdx].id) : null; // #2076
+        input.disabled = row.querySelector('.marker-now-btn').disabled = !span || !!holder;
+        row.querySelector('.marker-clear-btn').hidden = at === null || !!holder;
+        row.title = holder ? (holder.author || 'Jemand') + ' bearbeitet gerade dieses Bild' : span ? '' : 'Erst den beiden Bildern drumherum eine Zeitmarke geben';
       });
     }
     if(markerBtn){

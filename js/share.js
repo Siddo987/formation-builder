@@ -589,6 +589,7 @@ function updateBildLocks(force){
   var who = cur ? held[cur.id] : null;
   var sig = JSON.stringify(held) + '|' + (who || '');
   if(sig === bildLockSig && !force) return;
+  if(sig !== bildLockSig && typeof updateMarkerWarnings === 'function') updateMarkerWarnings(); // its Zwischenzeiten follow the locks
   bildLockSig = sig;
   document.body.classList.toggle('bild-locked', !!who);
   if(bildLockBanner){
