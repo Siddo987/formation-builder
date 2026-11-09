@@ -480,6 +480,19 @@ var presenceTimer = null;
 var presenceSent = null;       // {id, token} of the last heartbeat, for the goodbye
 var presenceFormationId = null;
 var presenceOnSince = Date.now();
+// A reload keeps this tab's id and its claim on the open Bild (#2079) — otherwise the new page
+// queues behind its own old entry. Taken out on load and put back on pagehide, so a duplicated tab
+// (which copies sessionStorage) still starts with an id of its own.
+var PRESENCE_KEEP_KEY = 'aufstellung-presence';
+try{
+  var keptPresence = JSON.parse(sessionStorage.getItem(PRESENCE_KEEP_KEY));
+  sessionStorage.removeItem(PRESENCE_KEEP_KEY);
+  if(keptPresence && /^[A-Za-z0-9]{8,32}$/.test(keptPresence.id)){
+    presenceClientId = keptPresence.id;
+    presenceFormationId = keptPresence.fid;
+    presenceOnSince = keptPresence.since;
+  }
+}catch(e){}
 var lastActivityAt = Date.now();
 var presenceOthers = [];       // other tabs, times converted to this clock
 var bildLockSig = null;
@@ -493,7 +506,10 @@ var bildLockBanner = document.getElementById('bildLockBanner');
     if(wasIdle){ presenceOnSince = now; updateBildLocks(); }
   }, {capture: true, passive: true});
 });
-window.addEventListener('pagehide', leavePresence);
+window.addEventListener('pagehide', function(){
+  try{ sessionStorage.setItem(PRESENCE_KEEP_KEY, JSON.stringify({id: presenceClientId, fid: presenceFormationId, since: presenceOnSince})); }catch(e){}
+  leavePresence();
+});
 
 function syncPresenceFormation(){
   if(playing) return; // playback runs through every Bild — keep claiming the one it started on
