@@ -264,6 +264,10 @@
     border:1px solid #ccc; border-radius:10px;
   }
   .step-room{position:absolute; inset:22px;}
+  .step-path{position:absolute; inset:0; width:100%; height:100%; overflow:visible;}
+  .step-path polyline{fill:none; stroke:#888; stroke-width:1.5; vector-effect:non-scaling-stroke;}
+  .step-path .step-path-follow{stroke-dasharray:4 3;}
+  .step-dot.step-dot-target{width:8px; height:8px; background:#fff; border:1.5px solid #888;}
   .step-cross{position:absolute; left:50%; top:50%; width:14px; height:14px; transform:translate(-50%,-50%);}
   .step-cross::before,.step-cross::after{content:"";position:absolute;background:#ccc;}
   .step-cross::before{left:0;right:0;top:50%;height:2px;transform:translateY(-50%);}

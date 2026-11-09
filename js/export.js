@@ -324,6 +324,8 @@
   var exportGhostToggle = document.getElementById('exportGhostToggle');
   var exportNotesOption = document.getElementById('exportNotesOption');
   var exportNotesToggle = document.getElementById('exportNotesToggle');
+  var exportPathsOption = document.getElementById('exportPathsOption');
+  var exportPathsToggle = document.getElementById('exportPathsToggle');
   var exportPdfHint = document.getElementById('exportPdfHint');
   var filenameInput = document.getElementById('filenameInput');
   var filenameExt = document.getElementById('filenameExt');
@@ -417,7 +419,8 @@
     exportContextOption.hidden = !media || (exportFormat === 'video' && !who);
     exportGhostOption.hidden = exportFormat !== 'video';
     exportNotesOption.hidden = exportFormat !== 'pdf';
-    exportOptionsSection.hidden = exportContextOption.hidden && exportGhostOption.hidden && exportNotesOption.hidden;
+    exportPathsOption.hidden = exportFormat !== 'pdf' && exportFormat !== 'video';
+    exportOptionsSection.hidden = exportContextOption.hidden && exportGhostOption.hidden && exportNotesOption.hidden && exportPathsOption.hidden;
     exportPdfHint.hidden = exportFormat !== 'pdf';
     filenameExt.textContent = exportExt();
     if(!filenameEdited) filenameInput.value = exportDefaultName();
@@ -429,6 +432,7 @@
     fillExportWhoList();
     if((!state.dancers.length || !state.formations.length) && exportNeedsDancers(exportFormat)) exportFormat = 'stg';
     filenameEdited = false;
+    exportPathsToggle.checked = pathsToggle.checked; // starts like the stage's own Weglinien setting
     syncExportDialog();
     exportBackdrop.hidden = false;
     requestAnimationFrame(function(){
@@ -465,9 +469,9 @@
     var showContext = !exportContextOption.hidden && exportContextToggle.checked;
     closeExportDialog();
     if(exportFormat === 'video'){
-      startVideoExport(base + videoExportExt(), sheets ? stepsFocusIds(sheets) : null, exportGhostToggle.checked, showContext);
+      startVideoExport(base + videoExportExt(), sheets ? stepsFocusIds(sheets) : null, exportGhostToggle.checked, showContext, exportPathsToggle.checked);
     } else {
-      printStepsSheets(sheets || getAllStepsSheets(), base, showContext, exportNotesToggle.checked);
+      printStepsSheets(sheets || getAllStepsSheets(), base, showContext, exportNotesToggle.checked, exportPathsToggle.checked);
     }
   }
 
@@ -713,17 +717,23 @@
   // Schritte-Video "Andere Paare hellgrau einblenden": dancers outside focusIds are drawn as plain
   // light-gray context dots instead of being left out. Set per export like exportIncludeGhosts.
   var exportShowContext = false;
+  // "Weglinien einzeichnen": the move's walk (movePaths, js/stage.js), cached per Bild for the run.
+  var exportIncludePaths = false, exportPathCache = {};
 
   // The onion-skin ghost source Bilder for a timeline segment — mirrors renderOnionSkin() in
   // js/stage.js: gray = the Bild *behind* you (the previous Bild while holding, the move's origin
-  // while moving), faint colour = the Bild *ahead*. Returns null when the option is off or the
-  // neighbour doesn't exist.
+  // while moving), faint colour = the Bild *ahead* — plus, with Weglinien on, the walk of the move
+  // out of the Bild shown (like the stage). Returns null when both options are off.
   function ghostsFor(seg){
-    if(!exportIncludeGhosts || !seg) return null;
+    if((!exportIncludeGhosts && !exportIncludePaths) || !seg) return null;
     var pIdx = seg.type === 'move' ? seg.from : seg.idx - 1;
     var nIdx = seg.type === 'move' ? seg.to   : seg.idx + 1;
     var prev = state.formations[pIdx], next = state.formations[nIdx];
-    return { prev: prev ? prev.pos : null, next: next ? next.pos : null };
+    var fIdx = seg.type === 'move' ? seg.from : seg.idx, paths = null;
+    if(exportIncludePaths && state.formations[fIdx + 1]) paths = exportPathCache[fIdx] || (exportPathCache[fIdx] = movePaths(fIdx));
+    return exportIncludeGhosts
+      ? { prev: prev ? prev.pos : null, next: next ? next.pos : null, paths: paths }
+      : { prev: null, next: null, paths: paths };
   }
 
   function setExportingUI(active){
@@ -953,6 +963,20 @@
 
     // Onion-skin ghosts, drawn under the dancers: gray = where they came from, faint colour = where
     // they're going. Only present when the video export's "Herkunfts-/Zielpunkte" option is on.
+    if(ghosts && ghosts.paths){
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = Math.max(2, radius * 0.14);
+      ghosts.paths.keys.forEach(function(e){
+        if(focusIds && focusIds.indexOf(e.d.id) === -1) return;
+        ctx.strokeStyle = e.d.color;
+        ctx.setLineDash(isFollowKey(e.k) ? [radius * 0.4, radius * 0.3] : []);
+        ctx.beginPath();
+        ghosts.paths.frames.forEach(function(w, i){ var p = pathAt(w, e.k); if(p) ctx[i ? 'lineTo' : 'moveTo'](gx(p.x), gy(p.y)); });
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
     if(ghosts){
       var ghostR = radius * 0.42;
       var drawGhosts = function(map, fixedFill, alpha){
@@ -1145,8 +1169,10 @@
   });
 
   // focusIds: see renderCanvasFrame's comment — passed through unchanged all the way down.
-  function startVideoExport(filename, focusIds, includeGhosts, showContext){
+  function startVideoExport(filename, focusIds, includeGhosts, showContext, includePaths){
     exportIncludeGhosts = !!includeGhosts;
+    exportIncludePaths = !!includePaths;
+    exportPathCache = {};
     exportShowContext = !!showContext;
     pausePlayback();
     videoBackdrop.hidden = false;

@@ -95,7 +95,7 @@
   // Follow's own Zwischenpositionen where the couple is split there (null elsewhere), dashed too.
   // contextPositions: every other couple's spot in this Bild ("Andere Paare hellgrau einblenden"),
   // drawn as small light-gray dots.
-  function buildStepDiagram(primaryPos, secondaryPos, betweenPositions, followBetweens, rolePos, contextPositions){
+  function buildStepDiagram(primaryPos, secondaryPos, betweenPositions, followBetweens, rolePos, contextPositions, paths){
     var diagram = document.createElement('div');
     diagram.className = 'step-diagram';
     // The room (180 px less 22 px all round) in the stage's proportions (#2060), never bigger.
@@ -144,6 +144,20 @@
         roleAt = {x: px + dx/dist*MIN_SPLIT_GAP, y: py + dy/dist*MIN_SPLIT_GAP};
       }
     }
+    if(paths && paths.length){
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'step-path');
+      svg.setAttribute('viewBox', '0 0 100 100');
+      svg.setAttribute('preserveAspectRatio', 'none');
+      paths.forEach(function(p){
+        var line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        line.setAttribute('points', p.points);
+        if(p.follow) line.setAttribute('class', 'step-path-follow');
+        svg.appendChild(line);
+      });
+      room.appendChild(svg);
+      paths.forEach(function(p){ addDot(p.end, 'step-dot-target'); }); // where the walk ends: the next Bild
+    }
     (contextPositions || []).forEach(function(cp){ addDot(cp, 'step-dot-context'); });
     // Between-dots first so the main/partner dots (added after, further down) paint on top of them
     // where positions happen to overlap.
@@ -158,7 +172,19 @@
     return diagram;
   }
 
-  function buildStepCard(formationIdx, formation, primary, secondary, coupleSplits, showContext, showNotes){
+  // The walk to the next Bild of this sheet's dancer (Lead and, split, Follow) in percent of the room.
+  var stepPathCache = {};
+  function stepPaths(formationIdx, primaryId){
+    if(!state.formations[formationIdx + 1]) return null;
+    var mv = stepPathCache[formationIdx] || (stepPathCache[formationIdx] = movePaths(formationIdx));
+    return [primaryId, followKey(primaryId)].map(function(k, i){
+      if(i && !mv.frames.some(function(w){ return w[k]; })) return null;
+      var pts = mv.frames.map(function(w){ var p = pathAt(w, k); return p ? gridToPercentX(p.x).toFixed(2) + ',' + gridToPercentY(p.y).toFixed(2) : null; }).filter(Boolean);
+      return pts.length ? {points: pts.join(' '), follow: i === 1, end: pathAt(mv.frames[mv.frames.length - 1], k)} : null;
+    }).filter(Boolean);
+  }
+
+  function buildStepCard(formationIdx, formation, primary, secondary, coupleSplits, showContext, showNotes, showPaths){
     var card = document.createElement('div');
     card.className = 'step-card';
     var fk = followKey(primary.id);
@@ -176,7 +202,7 @@
       });
     }
 
-    card.appendChild(buildStepDiagram(primaryPos, secondaryPos, betweenPositions, followBetweens, rolePos, contextPositions));
+    card.appendChild(buildStepDiagram(primaryPos, secondaryPos, betweenPositions, followBetweens, rolePos, contextPositions, showPaths ? stepPaths(formationIdx, primary.id) : null));
 
     var info = document.createElement('div');
     info.className = 'step-info';
@@ -303,8 +329,9 @@
     return sheets;
   }
 
-  function buildStepsPrintDocument(sheets, showContext, showNotes){
+  function buildStepsPrintDocument(sheets, showContext, showNotes, showPaths){
     stepsPrintArea.innerHTML = '';
+    stepPathCache = {};
     sheets.forEach(function(sheet, sheetIdx){
       var title = document.createElement('h2');
       title.className = 'step-sheet-title';
@@ -325,7 +352,7 @@
           stepsPrintArea.appendChild(buildStepSectionHeader(cat));
           lastCategory = cat;
         }
-        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.split, showContext, showNotes));
+        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.split, showContext, showNotes, showPaths));
       });
     });
   }
@@ -335,8 +362,8 @@
   // print() — modern Chrome's print dialog is asynchronous, print() returns immediately and the
   // preview renders afterward, so restoring on a fixed timer could win the race and hand the dialog
   // the old title back before it ever reads the new one), and opens the print dialog.
-  function printStepsSheets(sheets, title, showContext, showNotes){
-    buildStepsPrintDocument(sheets, showContext, showNotes);
+  function printStepsSheets(sheets, title, showContext, showNotes, showPaths){
+    buildStepsPrintDocument(sheets, showContext, showNotes, showPaths);
     var prevTitle = document.title;
     document.title = title;
     window.addEventListener('afterprint', function restoreTitle(){
