@@ -102,7 +102,7 @@
   // .stg writer below and js/share.js (share links POST this same shape as JSON alongside the
   // logo/song as separate upload fields, rather than embedding them in a binary container).
   function buildProjectHeader(s, logoMeta, songMeta){
-    return {
+    var header = {
       version: 1,
       projectName: s.projectName || '',
       dancers: s.dancers.map(function(dc){ return {id:dc.id, name:dc.name, color:dc.color}; }),
@@ -154,6 +154,9 @@
       logo: logoMeta || null,
       song: songMeta || null
     };
+    var beats = sanitizeBeats(s.beats);
+    if(beats) header.beats = beats; // only when there are any, so older snapshots stay comparable
+    return header;
   }
 
   function buildStgBlob(s){
@@ -263,6 +266,7 @@
         left: (header.roomLabels && typeof header.roomLabels.left === 'string') ? header.roomLabels.left : 'FENSTER'
       },
       stage: sanitizeStage(header.stage),
+      beats: sanitizeBeats(header.beats),
       pairs: pairs,
       customFigures: customFigures,
       activeIndex: typeof header.activeIndex === 'number' ? header.activeIndex : 0,

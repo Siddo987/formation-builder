@@ -1263,7 +1263,7 @@
       var songTimes = syncTimes(), n = state.formations.length;
       if(i > 0 && formationTime(prev) === null) prev.time = snapTime(songTimes[i]);
       if(i + 1 < n - 1 && formationTime(next) === null) next.time = snapTime(songTimes[i + 1]);
-      f.time = snapTime(paused.songTime);
+      f.time = snapTime(beatSnap(paused.songTime));
     }
     // Default names follow the position: the new one is "Bild i+2", the untouched "Bild N" after it move up one
     state.formations.forEach(function(g, k){ if(k > i && g.name === 'Bild ' + (k + 1)) g.name = 'Bild ' + (k + 2); });

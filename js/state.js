@@ -23,6 +23,15 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     return {w: side(v && v.w), d: side(v && v.d)};
   }
   // While a project is still being loaded (`state` not assigned yet) it's the default size.
+  // Schläge im Lied (#2041, js/beats.js): sorted seconds, or null. Belong to the song — a new or
+  // removed song clears them (js/main.js).
+  function sanitizeBeats(v){
+    if(!Array.isArray(v)) return null;
+    var out = v.filter(function(t){ return typeof t === 'number' && isFinite(t) && t >= 0 && t < 36000; })
+      .map(function(t){ return Math.round(t * 1000) / 1000; })
+      .sort(function(a, b){ return a - b; }).slice(0, 20000);
+    return out.length ? out : null;
+  }
   function stageSize(){ return (state && state.stage) || {w: STAGE_DEFAULT, d: STAGE_DEFAULT}; }
   function stageMargin(){ var s = stageSize(); return Math.max(s.w, s.d) * GRID_INSET / (100 - 2 * GRID_INSET); }
   // Width : height of the stage with its floor margin — the stage element, thumbnails, PDF and video.
@@ -486,6 +495,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       showFacing: true,
       roomLabels: {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'},
       stage: sanitizeStage(null),
+      beats: null,
       pairs: [],
       customFigures: [],
       logo: null,
@@ -550,6 +560,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(typeof parsed.projectName !== 'string' || !parsed.projectName.trim()) parsed.projectName = 'Meine Formation';
       if(!Array.isArray(parsed.axes)) parsed.axes = [];
       parsed.stage = sanitizeStage(parsed.stage);
+      parsed.beats = sanitizeBeats(parsed.beats);
       if(typeof parsed.showAxes !== 'boolean') parsed.showAxes = true;
       if(typeof parsed.showFacing !== 'boolean'){
         parsed.showFacing = true;
@@ -644,6 +655,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         showFacing: state.showFacing !== false,
         roomLabels: state.roomLabels,
         stage: state.stage,
+        beats: state.beats,
         pairs: state.pairs,
         customFigures: state.customFigures,
         activeIndex: state.activeIndex,

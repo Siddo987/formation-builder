@@ -143,6 +143,7 @@
     // An .mp4 (e.g. a downloaded music video) works too — <audio> just plays its sound track.
     var mime = file.type || (/\.(mp4|m4a)$/i.test(file.name) ? 'audio/mp4' : 'audio/mpeg');
     state.song = { name:file.name, mime:mime, blob:file, url:URL.createObjectURL(file) };
+    state.beats = null; // they belonged to the old song (#2041)
     idbHydrationGen++;
     idbPut(idbBlobKey('song'), { name:state.song.name, mime:state.song.mime, blob:state.song.blob });
     applySongSource();
@@ -154,6 +155,7 @@
     confirmDelete('Lied entfernen?', function(){
       if(state.song && state.song.url) URL.revokeObjectURL(state.song.url);
       state.song = null;
+      state.beats = null;
       idbHydrationGen++;
       idbDelete(idbBlobKey('song'));
       applySongSource();

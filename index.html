@@ -364,11 +364,26 @@ if ('serviceWorker' in navigator) {
           <div class="marker-timeline" id="markerTimeline">
             <div class="marker-timeline-bar">
               <div class="marker-timeline-played" id="markerTimelinePlayed"></div>
+              <canvas class="marker-timeline-beats" id="markerTimelineBeats" aria-hidden="true"></canvas>
               <div class="marker-timeline-head" id="markerTimelineHead"></div>
             </div>
             <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
           </div>
           <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken.</p>
+        </section>
+
+        <section class="settings-section">
+          <h3>Schläge</h3>
+          <p class="settings-hint">Erkennt die Schläge im Lied, je Abschnitt im Tempo seines Tanzes (steht im Abschnittsnamen, z.&nbsp;B. „Rumba“). „Jetzt“ setzt Marken dann genau auf einen Schlag. Die Taktanfänge („die 1“) erkennt es nicht. Das Lied verlässt dabei nicht dieses Gerät.</p>
+          <div class="settings-row">
+            <button class="btn-ghost" id="beatDetectBtn" type="button">Schläge erkennen</button>
+            <button class="btn-ghost" id="beatSnapAllBtn" type="button" hidden>Alle Marken auf Schläge rücken</button>
+            <button class="btn-ghost danger" id="beatClearBtn" type="button" hidden>Entfernen</button>
+          </div>
+          <p class="settings-hint" id="beatStatus" aria-live="polite"></p>
+          <div class="beat-summary" id="beatSummary"></div>
+          <label class="toggle-label"><input type="checkbox" id="beatSnapToggle"> „Jetzt“ rastet auf den nächsten Schlag ein</label>
+          <label class="toggle-label"><input type="checkbox" id="beatClickToggle"> Beim Vorhören jeden Schlag mitklicken</label>
         </section>
 
         <section class="settings-section">
@@ -763,6 +778,7 @@ if ('serviceWorker' in navigator) {
 <script src="js/formations.js?v=49"></script>
 <script src="js/playback.js?v=49"></script>
 <script src="js/marker.js?v=49"></script>
+<script src="js/beats.js?v=49"></script>
 <script src="js/music.js?v=49"></script>
 <script src="js/export.js?v=49"></script>
 <script src="js/history.js?v=49"></script>

@@ -165,7 +165,7 @@
       nowBtn.textContent = 'Jetzt';
       nowBtn.title = 'Auf aktuelle Abspielposition setzen';
       nowBtn.addEventListener('click', function(){
-        f.time = snapTime(heardSongTime()); // js/playback.js — minus the Bluetooth delay (#2059)
+        f.time = snapTime(beatSnap(heardSongTime())); // js/playback.js — minus the Bluetooth delay (#2059)
         timeInput.value = formatTime(f.time);
         clearBtn.hidden = false;
         saveState();
@@ -227,7 +227,7 @@
       updateMarkerWarnings();
     }
     timeInput.addEventListener('change', function(){ setTime(parseTimeInput(timeInput.value)); });
-    nowBtn.addEventListener('click', function(){ setTime(heardSongTime()); });
+    nowBtn.addEventListener('click', function(){ setTime(beatSnap(heardSongTime())); });
     clearBtn.addEventListener('click', function(){ setTime(null); });
 
     row.appendChild(badge);
@@ -241,6 +241,7 @@
   function renderMarkerTimeline(){
     var dur = (isFinite(songAudioEl.duration) && songAudioEl.duration > 0) ? songAudioEl.duration : 0;
     markerTimelineFlags.innerHTML = '';
+    renderBeats(); // js/beats.js — ticks and tempo follow the marks and Abschnitte
     if(dur <= 0) return;
     state.formations.forEach(function(f, idx){
       var t = formationTime(f);
@@ -292,13 +293,13 @@
     var hasSong = !!(state.song && state.song.url);
     markerNoSongHint.hidden = hasSong;
     markerSongArea.hidden = !hasSong;
+    markerBackdrop.hidden = false; // first, so the beat ticks canvas has a width
     if(hasSong){
       renderMarkerList();
       renderMarkerTimeline();
       updateMarkerPlayheadUI();
       updateMarkerWarnings();
     }
-    markerBackdrop.hidden = false;
   }
   function closeMarkerModal(){
     songAudioEl.pause();
