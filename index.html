@@ -33,10 +33,6 @@ if ('serviceWorker' in navigator) {
   <button class="save-error-retry" id="saveErrorRetryBtn" type="button">Jetzt erneut versuchen</button>
 </div>
 
-<div class="tab-copy-banner" id="tabCopyBanner" role="status" hidden>
-  <span>Dieses Projekt ist schon in einem anderen Tab offen — hier bearbeitest du ab jetzt eine eigene Kopie.</span>
-  <button class="tab-copy-close" id="tabCopyBannerClose" type="button">OK</button>
-</div>
 
 <div class="app">
   <header class="topbar">
@@ -765,6 +761,22 @@ if ('serviceWorker' in navigator) {
       <div class="filename-actions">
         <button class="btn-ghost" id="confirmCancelBtn" type="button">Abbrechen</button>
         <button class="btn-ghost danger" id="confirmOkBtn" type="button">Löschen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dieselbe Choreo in zwei Tabs (#2086, js/state.js): nur einer arbeitet daran, kein Schließen ohne Wahl. -->
+<div class="modal-backdrop" id="tabTakenBackdrop" hidden>
+  <div class="modal modal-narrow" role="alertdialog" aria-modal="true" aria-labelledby="tabTakenTitle" aria-describedby="tabTakenText">
+    <div class="modal-header">
+      <h2 id="tabTakenTitle">In einem anderen Tab offen</h2>
+    </div>
+    <div class="modal-body">
+      <p class="settings-hint" id="tabTakenText"></p>
+      <div class="filename-actions">
+        <button class="btn-ghost" id="tabTakenCloseBtn" type="button">Diesen Tab schließen</button>
+        <button class="btn-ghost btn-accent" id="tabTakenHereBtn" type="button">Hier weiterarbeiten</button>
       </div>
     </div>
   </div>

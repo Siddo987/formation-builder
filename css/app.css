@@ -242,22 +242,6 @@ body{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidd
   font-size:.74rem;font-weight:700;white-space:nowrap;cursor:pointer;
 }
 .save-error-retry:disabled{opacity:.6;cursor:default;}
-/* Projekt war schon in einem anderen Tab offen, dieser Tab arbeitet an einer Kopie (js/state.js, forkTabProject) */
-.tab-copy-banner{
-  flex:none;
-  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.35rem .8rem;
-  background:var(--warn-bg);color:var(--warn-ink);
-  font-size:.76rem;font-weight:700;text-align:center;
-  padding:.35rem 1rem;
-  border-bottom:1px solid rgba(0,0,0,.06);
-}
-.tab-copy-banner[hidden]{display:none;}
-.tab-copy-close{
-  height:26px;padding:0 .7rem;
-  border:1px solid currentColor;border-radius:6px;
-  background:transparent;color:inherit;
-  font-size:.74rem;font-weight:700;cursor:pointer;
-}
 body.share-readonly .stage-wrap,
 body.share-readonly .layout-select-wrap,
 body.share-readonly .roster-list > *,

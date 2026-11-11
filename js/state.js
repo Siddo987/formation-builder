@@ -643,6 +643,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // Writes this tab's project to localStorage (its own key plus the STORAGE_KEY copy) and marks it as
   // the one this tab has open. No share push or history entry — saveState() adds those.
   function writeLocalProject(){
+    if(tabResting) return;
     var id = state.localId, json;
     try{ sessionStorage.setItem(TAB_PROJECT_KEY, id); }catch(e){}
     try{
@@ -731,6 +732,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   }
 
   function saveState(){
+    if(tabResting) return;
     writeLocalProject();
     // Every mutation in the app funnels through saveState() (directly or via saveStateDebounced),
     // so this is the one choke point that guarantees "bound to a live share -> every edit
@@ -857,21 +859,29 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   }
 
   // Two tabs on the same project would keep overwriting each other's saves. That happens when a tab
-  // is duplicated (sessionStorage comes along) or a fresh tab opens the STORAGE_KEY copy while the
-  // tab that saved it is still open. So each tab asks the others whether its project is already open
-  // — at startup and whenever it comes back into view — and if one answers, carries on with its own
-  // copy under a new localId. Called from js/main.js once every script has loaded.
+  // is duplicated (sessionStorage comes along), a fresh tab opens the STORAGE_KEY copy, or the same
+  // share link is opened twice. So each tab asks the others whether its project is already open — at
+  // startup and whenever it comes back into view — and if one answers, asks whether to work on here
+  // (the other tab then rests) or close this one (#2086). Called from js/main.js once every script has loaded.
   var tabChannel = null;
   var tabInstanceId = uid('tab');
+  var tabResting = false; // another tab works on this project: this one neither saves nor syncs
+  var onTabReleased = null;
   function startTabProjectGuard(askNow){
     if(typeof BroadcastChannel !== 'function') return;
     tabChannel = new BroadcastChannel('aufstellung-tabs');
     tabChannel.onmessage = function(e){
       var m = e.data || {};
-      if(m.type === 'who' && m.from !== tabInstanceId && m.id === state.localId){
+      if(m.type === 'who' && m.from !== tabInstanceId && m.id === state.localId && !tabResting){
         tabChannel.postMessage({type:'mine', id:m.id, to:m.from});
       }else if(m.type === 'mine' && m.to === tabInstanceId && m.id === state.localId){
-        forkTabProject();
+        restTab('„' + state.projectName + '“ ist schon in einem anderen Tab offen. Damit sich die beiden nicht gegenseitig überschreiben, arbeitet immer nur ein Tab daran.');
+      }else if(m.type === 'takeover' && m.from !== tabInstanceId && m.id === state.localId){
+        if(!tabResting) saveStateDebounced.flush(); // the last edit goes along to the other tab
+        restTab('„' + state.projectName + '“ wird jetzt in einem anderen Tab bearbeitet. Hier ruht sie, bis du sie zurückholst.');
+        tabChannel.postMessage({type:'released', id:m.id, to:m.from});
+      }else if(m.type === 'released' && m.to === tabInstanceId && onTabReleased){
+        onTabReleased();
       }else if(m.type === 'ping' && m.from !== tabInstanceId){
         tabChannel.postMessage({type:'pong', id:state.localId, to:m.from});
       }else if(m.type === 'pong' && m.to === tabInstanceId && onOpenTabProject){
@@ -883,7 +893,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     window.addEventListener('pageshow', function(e){ if(e.persisted) askWhoHasTabProject(); });
   }
   function askWhoHasTabProject(){
-    if(tabChannel) tabChannel.postMessage({type:'who', id:state.localId, from:tabInstanceId});
+    if(tabChannel && !tabResting) tabChannel.postMessage({type:'who', id:state.localId, from:tabInstanceId});
   }
   // Every other open tab answers with the localId it has open; onAnswer runs once per answer.
   var onOpenTabProject = null;
@@ -891,24 +901,31 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     onOpenTabProject = onAnswer;
     if(tabChannel) tabChannel.postMessage({type:'ping', from:tabInstanceId});
   }
-  function forkTabProject(){
-    var oldId = state.localId, newId = uid('proj'), myGen = idbHydrationGen;
-    state.localId = newId;
-    ['logo', 'song'].forEach(function(kind){
-      idbGet(idbBlobKey(kind, oldId)).then(function(rec){
-        if(rec && idbHydrationGen === myGen) idbPut(idbBlobKey(kind, newId), rec);
-      });
-    });
-    writeLocalProject();
-    // A share-bound project stays one project across tabs (both sync through the share), so neither
-    // a separate history nor the note applies there.
-    if(state.sharedId) return;
-    if(typeof initHistory === 'function') initHistory();
-    var banner = document.getElementById('tabCopyBanner');
-    if(!banner) return;
-    banner.hidden = false;
-    document.getElementById('tabCopyBannerClose').onclick = function(){ banner.hidden = true; };
+  function restTab(text){
+    tabResting = true;
+    if(typeof pausePlayback === 'function') pausePlayback();
+    if(typeof stopSharePolling === 'function') stopSharePolling(); // also leaves the presence (js/share.js)
+    document.getElementById('tabTakenText').textContent = text;
+    document.getElementById('tabTakenBackdrop').hidden = false;
   }
+  // „Hier weiterarbeiten“: the other tab saves its last edit and rests, then this one reloads that save.
+  document.getElementById('tabTakenHereBtn').addEventListener('click', function(){
+    var id = state.localId, done = false;
+    function reload(){
+      if(done) return;
+      done = true;
+      try{ sessionStorage.setItem(TAB_PROJECT_KEY, id); }catch(e){}
+      location.reload();
+    }
+    onTabReleased = reload;
+    setTimeout(reload, 1500); // the other tab may be gone (or frozen) meanwhile
+    tabChannel.postMessage({type:'takeover', id:id, from:tabInstanceId});
+  });
+  document.getElementById('tabTakenCloseBtn').addEventListener('click', function(){
+    window.close();
+    // Browsers only let a page close a tab it opened itself.
+    document.getElementById('tabTakenText').textContent = 'Du kannst diesen Tab jetzt schließen.';
+  });
 
   var state = loadState();
   // ?project= / ?neu have done their job once loadState() read them; a reload goes by sessionStorage again.
