@@ -1180,13 +1180,13 @@
 
     addWrap.appendChild(addCard);
     filmTrackEl.appendChild(addWrap);
-    filmTrackEl.scrollTop = keepTop; filmTrackEl.scrollLeft = keepLeft;
     renumberFilmCategories();
     // Reordering/adding/deleting Bilder can leave the song time markers out of Bild order — keep the
     // toolbar Marker button's warning dot in sync (js/marker.js, loaded after this file).
     if(typeof updateMarkerWarnings === 'function') updateMarkerWarnings();
     if(typeof updateBildLocks === 'function') updateBildLocks(true); // lock badges of shared Bilder (js/share.js)
-    scheduleClashBadges(); // too-close warnings per move (js/stage.js)
+    updateClashBadges(); // too-close warnings per move (js/stage.js) — now, cached, so rows don't grow after the scroll is restored (#2084)
+    filmTrackEl.scrollTop = keepTop; filmTrackEl.scrollLeft = keepLeft;
   }
 
   // Recomputes each section-start badge's running number without touching the
