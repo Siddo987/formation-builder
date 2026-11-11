@@ -1643,7 +1643,7 @@
   /* ---------- Rechtsklick-Menü ----------
      A right-click (or long press) on a dancer, a pair or the selection's cross selects like a plain
      click and then floats the selection bar right there as a menu — the same controls, so it always
-     offers exactly what the bar does (Drehen, Drehung bis …, Eigendrehung, Paar lösen …). */
+     offers exactly what the bar does (Auf diesem Bild drehen, Drehung bis …, Eigendrehung, Paar lösen …). */
 
   var LONG_PRESS_MS = 500;
   var selectionMenuAt = null;

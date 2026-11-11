@@ -636,6 +636,8 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 }
 .pair-turn-ico{display:none;flex:none;color:var(--pair);margin-right:.1rem;}
 .pair-rotate.compact .pair-turn-label{display:none;}
+.pair-rotate-short,.pair-rotate.compact .pair-rotate-long{display:none;}
+.pair-rotate.compact .pair-rotate-short{display:inline;}
 .pair-rotate.compact .pair-turn-ico{display:block;}
 .stage-area .pair-split-btn,.pair-split-btn{color:var(--split);border-color:color-mix(in srgb,var(--split) 45%,transparent);}
 .stage-area .pair-split-btn:hover{background:var(--split-wash);border-color:var(--split);}
