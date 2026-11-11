@@ -7,6 +7,9 @@
     iconPlay.hidden = playing;
     iconPause.hidden = !playing;
     playBtn.setAttribute('aria-label', playing ? 'Pausieren' : 'Abspielen');
+    // The Vorlage is for placing — greyed out while the Bilder move (#2080).
+    document.body.classList.toggle('playing', playing);
+    Array.prototype.forEach.call(document.querySelectorAll('#layoutSelectWrap select, #layoutSelectWrap input'), function(el){ el.disabled = playing; });
   }
 
   function updatePlaybarInfo(){

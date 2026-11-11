@@ -279,6 +279,8 @@ body.bild-locked .roster-list .coord-input,
 .film-connector--locked{pointer-events:none;}
 .film-card--locked .film-remove{display:none;}
 .film-connector--locked{opacity:.55;}
+body.playing .layout-select-wrap{opacity:.45;}
+body.playing .layout-ghost-dot{pointer-events:none;}
 .stage-toolbar > .bild-lock-banner{flex:0 1 auto;min-width:0;}
 .bild-lock-banner{
   display:flex;align-items:center;height:var(--ctl-h);
