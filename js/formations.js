@@ -359,7 +359,7 @@
       if(over === betweenDragEl) return;
       if(!over || over.parentNode !== chips){ if(betweenDragEl.parentNode !== chips) chips.appendChild(betweenDragEl); return; }
       var rect = over.getBoundingClientRect();
-      var before = getComputedStyle(chips).flexDirection === 'column' ? (e.clientY - rect.top) < rect.height / 2 : (e.clientX - rect.left) < rect.width / 2;
+      var before = getComputedStyle(wrap).flexDirection === 'column' ? (e.clientY - rect.top) < rect.height / 2 : (e.clientX - rect.left) < rect.width / 2; // chips flow in the move's own row (#2089)
       chips.insertBefore(betweenDragEl, before ? over : over.nextSibling);
     });
     wrap.addEventListener('drop', function(e){ if(betweenDragEl) e.preventDefault(); });
