@@ -1001,6 +1001,8 @@ body.roster-open .roster{display:flex;}
 .turn-overview h4{margin:0 0 .3rem;font-size:.82rem;}
 .turn-overview h5{margin:.45rem 0 .15rem;font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--pair);}
 .turn-overview p{margin:.1rem 0;}
+.turn-overview .turn-overview-warn{color:var(--danger);}
+.film-between-turn.film-between-turn--warn{border-color:var(--danger);background:var(--danger-wash);color:var(--danger);}
 .turn-overview .turn-overview-legend{margin-top:.45rem;color:var(--ink-3);font-size:.7rem;}
 .between-rename-popover{
   position:fixed;transform:translateX(-50%);z-index:50;

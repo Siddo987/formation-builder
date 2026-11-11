@@ -387,6 +387,57 @@
     return lines.length ? lines : null;
   }
 
+  // How far each turn set on the move out of Bild fIdx really goes (#2083). The move always ends on
+  // the next stop, so once that stop changed after the turn was set, the turn takes the way round
+  // that fits it and comes closest to the setting (turnSweep, js/state.js) — which can differ.
+  // One entry per setting: {i: leg, field, key: dancer key or orbit ids, set, actual}.
+  function moveTurnChecks(fIdx){
+    var f = state.formations[fIdx], next = state.formations[fIdx + 1], out = [];
+    if(!f || !next) return out;
+    var stops = [f].concat(f.betweens || [], [next]);
+    function spot(w, k){ return w[k] || w[baseDancerId(k)] || null; }
+    function ang(p, q){ return Math.hypot(p.x - q.x, p.y - q.y) < 1e-6 ? null : Math.atan2(p.y - q.y, p.x - q.x) * 180 / Math.PI; }
+    function sweep(a0, a1, set){ return a0 === null || a1 === null ? null : turnSweep(a1 - a0, set); }
+    function check(i, field, key, set, vals){
+      var off = vals.filter(function(v){ return v !== null && Math.abs(v - set) > 1; })[0];
+      out.push({i: i, field: field, key: key, set: set, actual: off === undefined ? set : off});
+    }
+    stops.slice(0, -1).forEach(function(s, i){
+      var a = s.pos || {}, b = stops[i + 1].pos || {};
+      ['coupleTurns', 'spins'].forEach(function(field){
+        var set = sanitizeCoupleTurns(s[field]);
+        if(set) Object.keys(set).forEach(function(k){
+          var pa = spot(a, k), pb = spot(b, k), vals = [];
+          if(pa && pb){
+            vals.push(turnSweep((pb.rot || 0) - (pa.rot || 0), set[k]));
+            // A split couple (or a saved pair) turns its Follow→Lead axis too.
+            var fk = followKey(k), pr = field === 'coupleTurns' && (state.pairs || []).filter(function(p){ return p.memberIds && p.memberIds[0] === k; })[0];
+            var q = field !== 'coupleTurns' ? null : a[fk] && b[fk] ? fk : pr && a[pr.memberIds[1]] && b[pr.memberIds[1]] ? pr.memberIds[1] : null;
+            if(q) vals.unshift(sweep(ang(pa, a[q]), ang(pb, b[q]), set[k]));
+          }
+          check(i, field, k, set[k], vals);
+        });
+      });
+      (sanitizeOrbits(s.orbits) || []).forEach(function(g){
+        var ids = g.ids.filter(function(k){ return spot(a, k) && spot(b, k); }), vals = [];
+        function mid(w){
+          var x = 0, y = 0;
+          ids.forEach(function(k){ x += spot(w, k).x; y += spot(w, k).y; });
+          return {x: x / ids.length, y: y / ids.length};
+        }
+        if(ids.length >= 2){
+          var ca = mid(a), cb = mid(b);
+          ids.forEach(function(k){ vals.push(sweep(ang(spot(a, k), ca), ang(spot(b, k), cb), g.turn)); });
+        }
+        check(i, 'orbits', g.ids.join(), g.turn, vals);
+      });
+    });
+    return out;
+  }
+  function moveTurnMismatch(fIdx){
+    return moveTurnChecks(fIdx).some(function(c){ return c.actual !== c.set; });
+  }
+
   // Marks a move with a set Drehung im Paar, Eigendrehung or Kreisbahn (set in the selection bar under the
   // stage, in the Bild or in one of its Zwischenpositionen).
   function buildCoupleTurnBadge(lines, fIdx){
@@ -398,6 +449,10 @@
     badge.setAttribute('aria-haspopup', 'dialog');
     badge.appendChild(svgIcon('turn', 12));
     badge.title = 'Drehungen auf dem Weg zu „' + state.formations[fIdx + 1].name + '“ — ' + lines.join('; ') + ' (klicken für die Übersicht)';
+    if(moveTurnMismatch(fIdx)){
+      badge.classList.add('film-between-turn--warn');
+      badge.title = 'Eine Drehung passt nicht mehr zu „' + state.formations[fIdx + 1].name + '“ — ' + badge.title;
+    }
     badge.addEventListener('click', function(){
       if(turnOverviewEl && turnOverviewEl.dataset.f === String(fIdx)){ closeTurnOverview(); return; }
       openTurnOverview(badge, fIdx);
@@ -426,7 +481,16 @@
     var f = state.formations[fIdx], next = state.formations[fIdx + 1];
     var stops = [f].concat(f.betweens || []);
     function toName(i){ var b = (f.betweens || [])[i]; return b ? (b.name || 'Zwischenposition ' + (i + 1)) : next.name; }
-    function part(v, i){ return roundNum(Math.abs(v)) + '° ' + (v > 0 ? '↻' : '↺') + (stops.length > 1 ? ' bis „' + toName(i) + '“' : ''); }
+    var checks = {};
+    moveTurnChecks(fIdx).forEach(function(c){ checks[c.field + '|' + c.i + '|' + c.key] = c.actual; });
+    var anyOff = false;
+    function deg(v){ return roundNum(Math.abs(v)) + '°' + (v > 0 ? ' ↻' : v < 0 ? ' ↺' : ''); }
+    function part(v, i, field, key){
+      var actual = checks[field + '|' + i + '|' + key], text = deg(v) + (stops.length > 1 ? ' bis „' + toName(i) + '“' : '');
+      if(actual === undefined || actual === v) return text;
+      anyOff = true;
+      return text + ' ⚠ tatsächlich ' + deg(actual);
+    }
     function order(k){ return state.dancers.findIndex(function(d){ return d.id === baseDancerId(k); }) * 2 + (isFollowKey(k) ? 1 : 0); }
     var pop = document.createElement('div');
     pop.className = 'between-rename-popover turn-overview';
@@ -443,6 +507,7 @@
       pop.appendChild(h);
       rows.forEach(function(r){
         var row = document.createElement('p');
+        if(r.parts.join().indexOf('⚠') !== -1) row.className = 'turn-overview-warn';
         var who = document.createElement('b');
         who.textContent = r.who;
         row.appendChild(who);
@@ -454,7 +519,7 @@
       var byKey = {};
       stops.forEach(function(s, i){
         var set = sanitizeCoupleTurns(s[field]);
-        if(set) Object.keys(set).forEach(function(k){ (byKey[k] = byKey[k] || []).push(part(set[k], i)); });
+        if(set) Object.keys(set).forEach(function(k){ (byKey[k] = byKey[k] || []).push(part(set[k], i, field, k)); });
       });
       section(field === 'spins' ? 'Eigendrehung' : 'Paardrehung', Object.keys(byKey).sort(function(a, b){ return order(a) - order(b); }).map(function(k){
         return {who: markerDisplayName(k), parts: byKey[k]};
@@ -462,12 +527,12 @@
     });
     var orbits = [];
     stops.forEach(function(s, i){
-      (sanitizeOrbits(s.orbits) || []).forEach(function(g){ orbits.push({who: g.ids.map(markerDisplayName).join(', ') + ':', parts: [part(g.turn, i)]}); });
+      (sanitizeOrbits(s.orbits) || []).forEach(function(g){ orbits.push({who: g.ids.map(markerDisplayName).join(', ') + ':', parts: [part(g.turn, i, 'orbits', g.ids.join())]}); });
     });
     section('Kreisbahn', orbits);
     var legend = document.createElement('p');
     legend.className = 'turn-overview-legend';
-    legend.textContent = '↻ im Uhrzeigersinn, ↺ dagegen';
+    legend.textContent = '↻ im Uhrzeigersinn, ↺ dagegen' + (anyOff ? '. ⚠ Die Bewegung endet immer auf dem nächsten Bild. Steht dort jemand anders, als die Drehung ergibt, dreht er so weit, wie es dorthin passt — neu setzen oder das Bild anpassen.' : '');
     pop.appendChild(legend);
     document.body.appendChild(pop);
     turnOverviewEl = pop;
