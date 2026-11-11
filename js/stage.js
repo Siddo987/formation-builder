@@ -1463,22 +1463,12 @@
     pairOrbitClearBtn.hidden = turn === null;
   }
 
-  // Like a Drehung, setting it also poses the selection at the next stop: its shape here, turned by
-  // that angle around the middle it arrives at there.
+  // Only the way there (#2087): the next stop keeps its spots, the circle takes the way round to
+  // them that comes closest to this angle (interpolateThroughBetweens, js/state.js).
   function setOrbit(turn){
     var o = selectedOrbit();
     if(!o) return;
     turn = Math.max(-MAX_COUPLE_TURN, Math.min(MAX_COUPLE_TURN, turn));
-    function mid(pos){
-      var x = 0, y = 0;
-      o.ids.forEach(function(k){ x += pos[k].x; y += pos[k].y; });
-      return {x: x / o.ids.length, y: y / o.ids.length};
-    }
-    var ca = mid(o.cur.pos), cb = mid(o.next.pos), rad = turn * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
-    o.ids.forEach(function(k){
-      var p = o.cur.pos[k], dx = p.x - ca.x, dy = p.y - ca.y;
-      o.next.pos[k] = {x: clampX(cb.x + dx*cos - dy*sin), y: clampY(cb.y + dx*sin + dy*cos), rot: normAngle((p.rot||0) + turn)};
-    });
     o.cur.orbits = sanitizeOrbits(orbitsWithout(o).concat([{ids: o.ids, turn: turn}]));
     afterCoupleTurnChange();
   }
