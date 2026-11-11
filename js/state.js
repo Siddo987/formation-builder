@@ -594,7 +594,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(typeof parsed.localId !== 'string' || !parsed.localId) parsed.localId = uid('proj');
       if(copyId){
         parsed.localId = copyId;
-        parsed.projectName += ' (Kopie)';
+        parsed.projectName = forkName(parsed.projectName);
         parsed.sharedId = null;
         parsed.shareEditToken = null;
         parsed.shareReadOnly = false;
@@ -715,6 +715,14 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         sharedId: typeof p.sharedId === 'string' && p.sharedId ? p.sharedId : null
       };
     }).filter(Boolean);
+  }
+  // „Kopie der aktuellen“: "<Name> - Fork <n>", n one past the highest fork of that name on this device (#2082).
+  function forkName(name){
+    var base = name.replace(/ - Fork \d+$/, ''), n = 0;
+    listLocalProjects().forEach(function(p){
+      if(p.name.slice(0, base.length + 8) === base + ' - Fork ' && /^\d+$/.test(p.name.slice(base.length + 8))) n = Math.max(n, +p.name.slice(base.length + 8));
+    });
+    return base + ' - Fork ' + (n + 1);
   }
   // Opening the same share link again reuses its local copy instead of filing a duplicate.
   function localProjectForShare(sharedId){
