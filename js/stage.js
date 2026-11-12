@@ -1535,10 +1535,48 @@
   }
   pairRotateClearBtn.addEventListener('click', clearSelection);
   // Ein Klick auf leere Bühne (oder ihren Rand) hebt die Auswahl auf; Tänzer & Co. liegen darüber (#2046).
+  // Ziehen spannt ein Auswahlrechteck auf (#2044): nach rechts zählt, was ganz drin liegt, nach links
+  // alles, was es berührt. Mit Strg/Cmd oder Shift kommt es zur Auswahl dazu.
   stageEl.parentNode.addEventListener('pointerdown', function(e){
-    if(e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if(e.button !== 0) return;
     if(e.target !== stageEl && e.target !== stageEl.parentNode) return;
-    if(pairSelection.length || selectedDancerId != null) clearSelection();
+    var add = e.ctrlKey || e.metaKey || e.shiftKey;
+    if(!add && (pairSelection.length || selectedDancerId != null)) clearSelection();
+    if(playing) return;
+    var base = pairSelection.slice(), x0 = e.clientX, y0 = e.clientY, rectEl = null;
+    function onMove(ev){
+      if(!rectEl && Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 4) return;
+      if(!rectEl){
+        rectEl = document.createElement('div');
+        rectEl.className = 'select-rect';
+        document.body.appendChild(rectEl);
+      }
+      var l = Math.min(x0, ev.clientX), t = Math.min(y0, ev.clientY), r = Math.max(x0, ev.clientX), b = Math.max(y0, ev.clientY);
+      var touching = ev.clientX < x0;
+      rectEl.classList.toggle('select-rect--touch', touching);
+      rectEl.style.left = l + 'px'; rectEl.style.top = t + 'px';
+      rectEl.style.width = (r - l) + 'px'; rectEl.style.height = (b - t) + 'px';
+      var hits = Object.keys(currentFormation().pos).filter(function(id){
+        if(!stageMarkers[id] || base.indexOf(id) !== -1) return false;
+        var m = stageMarkers[id].getBoundingClientRect();
+        return touching ? m.right >= l && m.left <= r && m.bottom >= t && m.top <= b
+                        : m.left >= l && m.right <= r && m.top >= t && m.bottom <= b;
+      });
+      pairSelection = base.concat(hits);
+      if(pairSelection.indexOf(selectedDancerId) === -1) selectedDancerId = pairSelection[0] || null;
+      ensureMarkers(); // the bar (and its undo step) only once the rectangle is let go
+    }
+    function onUp(){
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      if(!rectEl) return;
+      rectEl.remove();
+      updatePairRotateUI();
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
   });
   // Esc hebt die Auswahl auf – aber nur, wenn kein Dialog/Menü/Popover offen ist (die schließen dann
   // zuerst) und nicht gerade in ein Feld getippt wird. Capture-Phase, damit der Zustand vor den
