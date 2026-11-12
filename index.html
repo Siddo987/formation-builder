@@ -493,6 +493,16 @@ if ('serviceWorker' in navigator) {
       </section>
       <section class="settings-section" id="exportOptionsSection" hidden>
         <h3>Optionen</h3>
+        <div id="exportQualityOption">
+          <div class="settings-row"><label for="exportQualitySelect">Qualität</label>
+            <select id="exportQualitySelect">
+              <option value="entwurf">Entwurf – 900 × 480, am schnellsten</option>
+              <option value="standard" selected>Standard – 1500 × 800</option>
+              <option value="hoch">Hoch – 1920 × 1024, dauert länger</option>
+            </select>
+          </div>
+          <p class="settings-hint" id="exportRealtimeHint" hidden>Dieser Browser kann das Video nur in Echtzeit aufnehmen – das dauert so lang wie das Lied. Chrome oder Edge rendern es in einem Bruchteil der Zeit.</p>
+        </div>
         <label class="toggle-label" id="exportContextOption"><input type="checkbox" id="exportContextToggle"> Andere Paare hellgrau einblenden</label>
         <div id="exportGhostOption">
           <label class="toggle-label"><input type="checkbox" id="exportGhostToggle"> Herkunfts- und Zielpunkte einblenden</label>

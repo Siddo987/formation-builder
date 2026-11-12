@@ -1024,6 +1024,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var videoBackdrop = document.getElementById('videoBackdrop');
   var videoProgressFill = document.getElementById('videoProgressFill');
   var videoStatusText = document.getElementById('videoStatusText');
+  var videoTitle = document.getElementById('videoTitle');
   var videoCancelBtn = document.getElementById('videoCancelBtn');
   var songAudioEl = new Audio();
   songAudioEl.preload = 'auto';

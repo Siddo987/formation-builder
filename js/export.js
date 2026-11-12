@@ -331,6 +331,9 @@
   var exportPathsOption = document.getElementById('exportPathsOption');
   var exportPathsToggle = document.getElementById('exportPathsToggle');
   var exportPdfHint = document.getElementById('exportPdfHint');
+  var exportQualityOption = document.getElementById('exportQualityOption');
+  var exportQualitySelect = document.getElementById('exportQualitySelect');
+  var exportRealtimeHint = document.getElementById('exportRealtimeHint');
   var filenameInput = document.getElementById('filenameInput');
   var filenameExt = document.getElementById('filenameExt');
   // Kept across openings, so a second video right after the first needs one click.
@@ -424,6 +427,8 @@
     exportGhostOption.hidden = exportFormat !== 'video';
     exportNotesOption.hidden = exportFormat !== 'pdf';
     exportPathsOption.hidden = exportFormat !== 'pdf' && exportFormat !== 'video';
+    exportQualityOption.hidden = exportFormat !== 'video';
+    exportRealtimeHint.hidden = fastVideoExportPossible();
     exportOptionsSection.hidden = exportContextOption.hidden && exportGhostOption.hidden && exportNotesOption.hidden && exportPathsOption.hidden;
     exportPdfHint.hidden = exportFormat !== 'pdf';
     filenameExt.textContent = exportExt();
@@ -1135,7 +1140,7 @@
     Promise.all([firstSupportedConfig(VideoEncoder, video), firstSupportedConfig(window.AudioEncoder, audio)]).then(function(found){
       if(!found[0]) return;
       fastVideoCodecs = {video:found[0], audio:found[1]};
-      if(!exportBackdrop.hidden) filenameExt.textContent = exportExt();
+      if(!exportBackdrop.hidden) syncExportDialog();
     }).catch(function(){});
   })();
 
@@ -1183,6 +1188,8 @@
     videoProgressFill.classList.remove('indeterminate');
     videoProgressFill.style.width = '0%';
     videoStatusText.textContent = 'Wird vorbereitet…';
+    videoTitle.textContent = 'Video wird gerendert…';
+    videoProgressT0 = 0;
     setExportingUI(true);
 
     var logoPromise = (state.logo && state.logo.url) ? loadImage(state.logo.url) : Promise.resolve(null);
@@ -1270,17 +1277,32 @@
     };
   }
 
+  var videoProgressT0 = 0; // when the first frame went out, for the time left (#2073)
   function showVideoProgress(seg, fraction){
     videoProgressFill.style.width = Math.min(100, fraction*100) + '%';
     var displayIdx = (seg.type === 'hold' ? seg.idx : seg.to) + 1;
-    videoStatusText.textContent = 'Bild ' + displayIdx + ' / ' + state.formations.length;
+    var text = 'Bild ' + displayIdx + ' / ' + state.formations.length;
+    var now = performance.now();
+    if(!videoProgressT0) videoProgressT0 = now;
+    else if(fraction > 0.02 && fraction < 1){
+      var left = Math.ceil((now - videoProgressT0)/fraction*(1 - fraction)/1000);
+      text += ' · noch ca. ' + (left < 60 ? left + ' s' : Math.round(left/60) + ' min');
+    }
+    videoStatusText.textContent = text;
   }
 
   // The stage itself keeps its old 1200×800 footprint — the left info panel (drawVideoInfoPanel)
   // is added alongside it, not carved out of it, so the dance display doesn't shrink to make room.
+  // Every frame is drawn in that layout and scaled to the chosen quality: the encoder's time grows
+  // with the pixels, so Entwurf is the quick one (#2094).
+  var VIDEO_W = 1200 + VIDEO_INFO_PANEL_W, VIDEO_H = 800;
+  var VIDEO_QUALITIES = {entwurf:{scale:0.6, bitrate:2000000}, standard:{scale:1, bitrate:6000000}, hoch:{scale:1.28, bitrate:12000000}};
+  function videoQuality(){ return VIDEO_QUALITIES[exportQualitySelect.value] || VIDEO_QUALITIES.standard; }
   function createVideoCanvas(){
-    var canvas = document.createElement('canvas');
-    canvas.width = 1200 + VIDEO_INFO_PANEL_W; canvas.height = 800;
+    var canvas = document.createElement('canvas'), q = videoQuality();
+    // H.264 only takes even sizes
+    canvas.width = 2*Math.round(VIDEO_W*q.scale/2); canvas.height = 2*Math.round(VIDEO_H*q.scale/2);
+    canvas.getContext('2d').scale(canvas.width/VIDEO_W, canvas.height/VIDEO_H);
     return canvas;
   }
 
@@ -1344,7 +1366,7 @@
     exportState = { cancelled:false };
     var codecs = fastVideoCodecs;
     var canvas = createVideoCanvas();
-    var W = canvas.width, H = canvas.height;
+    var W = VIDEO_W, H = VIDEO_H;
     var ctx = canvas.getContext('2d');
     // decodeAudioData resamples to the context's rate, so the samples come out at FAST_AUDIO_RATE.
     var songPromise = (state.song && state.song.url) ? fetch(state.song.url).then(function(res){ return res.arrayBuffer(); }).then(function(buf){
@@ -1365,7 +1387,7 @@
 
       var muxer = new Mp4.Muxer({
         target: new Mp4.ArrayBufferTarget(),
-        video: {codec: codecs.video.muxer, width: W, height: H, frameRate: FAST_VIDEO_FPS},
+        video: {codec: codecs.video.muxer, width: canvas.width, height: canvas.height, frameRate: FAST_VIDEO_FPS},
         audio: audioBuf ? {codec: codecs.audio.muxer, numberOfChannels: 2, sampleRate: FAST_AUDIO_RATE} : undefined,
         fastStart: 'in-memory',
         firstTimestampBehavior: 'offset'
@@ -1376,7 +1398,7 @@
         output: function(chunk, meta){ try{ muxer.addVideoChunk(chunk, meta); }catch(e){ fail(e); } },
         error: fail
       });
-      videoEncoder.configure(codecs.video.config);
+      videoEncoder.configure(Object.assign({}, codecs.video.config, {width: canvas.width, height: canvas.height, bitrate: videoQuality().bitrate}));
       var audioEncoder = null;
       if(audioBuf){
         audioEncoder = new AudioEncoder({
@@ -1457,8 +1479,10 @@
   }
 
   function recordVideoRealtime(logoImg, filename, focusIds){
+    videoTitle.textContent = 'Video wird in Echtzeit aufgenommen…';
+    videoProgressT0 = 0;
     var canvas = createVideoCanvas();
-    var W = canvas.width, H = canvas.height;
+    var W = VIDEO_W, H = VIDEO_H;
     var ctx = canvas.getContext('2d');
 
     var exportAudioEl = (state.song && state.song.url) ? new Audio(state.song.url) : null;
@@ -1501,7 +1525,7 @@
   function recordSegments(segments, totalDuration, tracks, manualCaptureTrack, canvas, ctx, W, H, logoImg, exportAudioEl, audioCtx, filename, focusIds){
     var combinedStream = new MediaStream(tracks);
     var mimeType = bestVideoMime().mime; // MP4/H.264 where supported, else WebM — matches the extension shown in the Exportieren dialog
-    var recorder = new MediaRecorder(combinedStream, mimeType ? {mimeType:mimeType, videoBitsPerSecond:6000000} : undefined);
+    var recorder = new MediaRecorder(combinedStream, mimeType ? {mimeType:mimeType, videoBitsPerSecond:videoQuality().bitrate} : undefined);
     var chunks = [];
     recorder.ondataavailable = function(e){ if(e.data && e.data.size) chunks.push(e.data); };
 
