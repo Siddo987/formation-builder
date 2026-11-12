@@ -718,8 +718,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     }).filter(Boolean);
   }
   // „Kopie der aktuellen“: "<Name> - Fork <n>", n one past the highest fork of that name on this device (#2082).
+  // A fork of a fork keeps the whole chain: "Original - Fork 1 - Fork 1" (#2142).
   function forkName(name){
-    var base = name.replace(/ - Fork \d+$/, ''), n = 0;
+    var base = name, n = 0;
     listLocalProjects().forEach(function(p){
       if(p.name.slice(0, base.length + 8) === base + ' - Fork ' && /^\d+$/.test(p.name.slice(base.length + 8))) n = Math.max(n, +p.name.slice(base.length + 8));
     });
