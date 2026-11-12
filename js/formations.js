@@ -938,7 +938,7 @@
   }
   function formatBetweenAt(fIdx, at){
     var span = betweenTimeSpan(fIdx);
-    if(span) return formatTime(span.t0 + (span.t1 - span.t0) * at);
+    if(span) return formatTime(span.t0 + (span.t1 - span.t0) * at, 2);
     return roundNum(Math.round(at * 1000) / 10) + ' %';
   }
   function updateBetweenTimeInput(){

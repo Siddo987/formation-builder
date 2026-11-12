@@ -78,6 +78,9 @@
 .marker-timeline-bar{position:absolute;inset:0;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);overflow:hidden;}
 .marker-timeline-played{position:absolute;top:0;bottom:0;left:0;background:var(--accent-wash);}
 .marker-timeline-flags{position:absolute;inset:0;}
+.marker-timeline-wave{position:absolute;inset:0;width:100%;height:100%;color:var(--ink-3);opacity:.45;pointer-events:none;}
+.marker-zoom{display:inline-flex;gap:3px;margin-left:auto;}
+.modal .marker-nudge-btn{width:26px;height:28px;padding:0;justify-content:center;font-size:.9rem;font-weight:700;}
 .marker-timeline-beats{position:absolute;inset:0;width:100%;height:100%;color:var(--ink-3);opacity:.35;pointer-events:none;}
 #markerSongArea:not([hidden]){display:flex;flex-direction:column;gap:1.1rem;}
 .beat-summary{display:flex;flex-direction:column;gap:.2rem;font-size:.78rem;font-variant-numeric:tabular-nums;}

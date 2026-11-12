@@ -153,11 +153,13 @@
   function drawBeatTicks(){
     var w = beatCanvas.clientWidth, h = beatCanvas.clientHeight, dpr = window.devicePixelRatio || 1;
     beatCanvas.width = Math.round(w * dpr); beatCanvas.height = Math.round(h * dpr);
-    var g = beatCanvas.getContext('2d'), dur = songAudioEl.duration;
+    var g = beatCanvas.getContext('2d'), v = markerView(); // js/marker.js — the zoomed part (#2091)
     g.clearRect(0, 0, beatCanvas.width, beatCanvas.height);
-    if(!state.beats || !isFinite(dur) || dur <= 0) return;
+    if(!state.beats || v.t1 <= v.t0) return;
     g.fillStyle = getComputedStyle(beatCanvas).color;
-    state.beats.forEach(function(t){ g.fillRect(Math.round(t / dur * beatCanvas.width), 0, Math.max(1, dpr), beatCanvas.height); });
+    state.beats.forEach(function(t){
+      if(t >= v.t0 && t <= v.t1) g.fillRect(Math.round((t - v.t0) / (v.t1 - v.t0) * beatCanvas.width), 0, Math.max(1, dpr), beatCanvas.height);
+    });
   }
 
   // Moves every Bild mark onto its nearest beat (marks in a pause of the music stay).

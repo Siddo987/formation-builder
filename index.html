@@ -356,16 +356,21 @@ if ('serviceWorker' in navigator) {
               <span class="icon-pause" id="markerIconPause" hidden><i></i><i></i></span>
             </button>
             <span class="marker-time" id="markerTimeReadout">0:00 / 0:00</span>
+            <span class="marker-zoom">
+              <button class="btn-ghost marker-nudge-btn" id="markerZoomOutBtn" type="button" aria-label="Zeitleiste herauszoomen" title="Herauszoomen">−</button>
+              <button class="btn-ghost marker-nudge-btn" id="markerZoomInBtn" type="button" aria-label="Zeitleiste hineinzoomen" title="Hineinzoomen (auch Strg + Mausrad)">+</button>
+            </span>
           </div>
           <div class="marker-timeline" id="markerTimeline">
             <div class="marker-timeline-bar">
+              <canvas class="marker-timeline-wave" id="markerTimelineWave" aria-hidden="true"></canvas>
               <div class="marker-timeline-played" id="markerTimelinePlayed"></div>
               <canvas class="marker-timeline-beats" id="markerTimelineBeats" aria-hidden="true"></canvas>
               <div class="marker-timeline-head" id="markerTimelineHead"></div>
             </div>
             <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
           </div>
-          <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken.</p>
+          <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder Strg + Mausrad) zoomen, seitlich wischen verschiebt. Bei jeder Marke rückt − / + sie um 0,01 s.</p>
         </section>
 
         <section class="settings-section">
