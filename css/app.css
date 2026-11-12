@@ -948,7 +948,8 @@ body.roster-open .roster{display:flex;}
   display:flex;flex-direction:row;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:.25rem;
   padding:6px 0 6px calc(var(--cp) + 1px + var(--pv) / 2 - 10px); /* same for every move, whatever icons it shows (#2089) */
 }
-.film-between-chips{display:contents;} /* chips and the icons after them flow as one row (#2089) */
+.film-between-chips{display:contents;} /* chips and the icons flow as one row (#2089) */
+.film-between-add,.film-between-speed{order:-1;} /* first, so they sit at the same spot whatever chips follow (#2141) */
 .film-between-chip-wrap{position:relative;}
 .film-between-chip{
   width:20px;height:20px;
@@ -1265,8 +1266,8 @@ body.roster-open .roster{display:flex;}
   .film-category-input{text-overflow:ellipsis;}
   .film-card:not(.active) .film-category-input::placeholder{color:transparent;}
   .film-connector{
-    width:26px;min-height:0;margin:0 -.15rem;padding:0;
-    flex-direction:column;flex-wrap:nowrap;justify-content:center;align-self:stretch;
+    width:26px;min-height:0;margin:0 -.15rem;padding:0; /* icons on top, chips below them (#2141) */
+    flex-direction:column;flex-wrap:nowrap;justify-content:flex-start;align-self:stretch;
   }
   .film-add-wrap{width:64px;height:auto;align-self:stretch;margin:0 0 0 .3rem;}
 
