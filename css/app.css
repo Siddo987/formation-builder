@@ -894,7 +894,7 @@ body.roster-open .roster{display:flex;}
 .film-category-input::placeholder{color:var(--ink-3);opacity:.55;}
 .film-card:not(.active):not(:hover) .film-category-input:placeholder-shown:not(:focus){opacity:0;}
 .film-preview{
-  grid-area:prev;align-self:center;width:var(--pv);
+  grid-area:prev;align-self:start;width:var(--pv); /* top, so a long name doesn't shift it off the icons above (#2141) */
   aspect-ratio:1;border-radius:5px;
   background:linear-gradient(160deg,var(--floor-1),var(--floor-2));
   box-shadow:0 0 0 1px var(--line);
