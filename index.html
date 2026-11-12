@@ -136,6 +136,10 @@ if ('serviceWorker' in navigator) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
             <span class="roster-toggle-lbl">Notiz</span>
           </button>
+          <button class="float-pill" id="videosBtn" type="button" aria-haspopup="dialog" title="Videos zu den Abschnitten">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="m16 10 6-3.5v11L16 14"/></svg>
+            <span class="roster-toggle-lbl">Videos</span>
+          </button>
           <button class="float-pill roster-toggle" id="rosterToggleBtn" type="button" aria-controls="rosterDrawer" aria-expanded="false" title="Tänzerliste ein-/ausblenden">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>
             <span class="roster-toggle-lbl">Tänzer</span> <span class="count" id="rosterToggleCount">0</span>
@@ -676,6 +680,26 @@ if ('serviceWorker' in navigator) {
   </div>
 </div>
 
+<!-- Videos zu Abschnitten (#2092): js/videos.js -->
+<div class="modal-backdrop" id="videosBackdrop" hidden>
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="videosTitle">
+    <div class="modal-header">
+      <h2 id="videosTitle">Videos zu Abschnitten</h2>
+      <button class="modal-close" id="videosCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="settings-hint">Schritte zum Nachtanzen: Ein Video gehört zu einem oder mehreren Abschnitten. In einer geteilten Choreo sehen es alle mit dem Link. Höchstens 200 MB je Video.</p>
+      <video id="videoPlayer" class="video-player" controls playsinline hidden></video>
+      <div id="videoList" class="video-list"></div>
+      <div class="settings-row">
+        <button class="btn-ghost" id="videoAddBtn" type="button">Video hinzufügen</button>
+        <input type="file" id="videoFileInput" accept="video/*" multiple hidden>
+      </div>
+      <p class="settings-hint" id="videoStatus" role="status" hidden></p>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="historyBackdrop" hidden>
   <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
     <div class="modal-header">
@@ -847,6 +871,7 @@ if ('serviceWorker' in navigator) {
 <script src="js/export.js?v=52"></script>
 <script src="js/history.js?v=52"></script>
 <script src="js/share.js?v=52"></script>
+<script src="js/videos.js?v=52"></script>
 <script src="js/steps.js?v=52"></script>
 <script src="js/main.js?v=52"></script>
 

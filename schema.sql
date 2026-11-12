@@ -73,6 +73,21 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   INDEX user_sessions_by_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Videos zu Abschnitten (#2092), höchstens 200 MB je Video, Dateien unter
+-- api/uploads/shares/<share_id>/videos/. sections: JSON-Liste der Ids der Bilder, mit denen die
+-- Abschnitte beginnen.
+CREATE TABLE IF NOT EXISTS share_videos (
+  id         VARCHAR(32)  NOT NULL PRIMARY KEY,
+  share_id   VARCHAR(32)  NOT NULL,
+  name       VARCHAR(200) NOT NULL,
+  mime       VARCHAR(100) NOT NULL DEFAULT '',
+  size       BIGINT       NOT NULL,
+  path       VARCHAR(255) NOT NULL,
+  sections   TEXT         NOT NULL,
+  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX share_videos_by_share (share_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS share_commits (
   commit_id    VARCHAR(32)  NOT NULL PRIMARY KEY,
   share_id     VARCHAR(32)  NOT NULL,

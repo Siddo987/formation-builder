@@ -80,6 +80,20 @@ const DB_MYSQL_TABLES = [
         ],
         'extra' => ['INDEX user_sessions_by_user (user_id)'],
     ],
+    // #2092: videos to one or more Abschnitte (sections = JSON list of the Abschnitt-starting Bild ids)
+    'share_videos' => [
+        'columns' => [
+            'id'         => 'VARCHAR(32) NOT NULL PRIMARY KEY',
+            'share_id'   => 'VARCHAR(32) NOT NULL',
+            'name'       => 'VARCHAR(200) NOT NULL',
+            'mime'       => 'VARCHAR(100) NOT NULL DEFAULT \'\'',
+            'size'       => 'BIGINT NOT NULL',
+            'path'       => 'VARCHAR(255) NOT NULL',
+            'sections'   => 'TEXT NOT NULL',
+            'created_at' => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
+        ],
+        'extra' => ['INDEX share_videos_by_share (share_id)'],
+    ],
     'share_commits' => [
         'columns' => [
             'commit_id'    => 'VARCHAR(32) NOT NULL PRIMARY KEY',
@@ -187,6 +201,16 @@ function db_ensure_schema(): void {
         user_id TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS share_videos (
+        id TEXT PRIMARY KEY,
+        share_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        mime TEXT NOT NULL DEFAULT '',
+        size INTEGER NOT NULL,
+        path TEXT NOT NULL,
+        sections TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS figures (
         id TEXT PRIMARY KEY,

@@ -236,6 +236,7 @@ shareCreateBtn.addEventListener('click', function(){
         startSharePolling();        // first poll bootstraps shareBaseCommit from the graph head
         if(typeof initHistory === 'function') initHistory(); // re-file the Verlauf under the share id
         showShareLink(data.id);
+        if(typeof moveLocalVideosToShare === 'function') moveLocalVideosToShare(); // js/videos.js
       }else if(xhr.status === 413){
         showShareError('Das Projekt ist zu groß zum Teilen. Meist liegt es am Lied — ohne Lied teilen, oder das Server-Limit (SHARE_MAX_BYTES) erhöhen.');
       }else{

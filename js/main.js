@@ -29,6 +29,7 @@
     if(!markerBackdrop.hidden) closeMarkerModal();
     if(!musicBackdrop.hidden) closeMusicModal();
     if(!addBildBackdrop.hidden) closeAddBildModal();
+    if(!videosBackdrop.hidden) closeVideos();
     var hb = document.getElementById('historyBackdrop');
     if(hb && !hb.hidden && typeof closeHistoryPanel === 'function') closeHistoryPanel();
     var mb = document.getElementById('mergeBackdrop');

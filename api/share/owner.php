@@ -36,7 +36,12 @@ if ($action === 'delete') {
     }
     share_media_delete($share['logo_path']);
     share_media_delete($share['song_path']);
-    foreach (['share_commits', 'share_presence'] as $table) db()->prepare("DELETE FROM {$table} WHERE share_id = :id")->execute([':id' => $id]);
+    $videos = db()->prepare('SELECT path FROM share_videos WHERE share_id = :id');
+    $videos->execute([':id' => $id]);
+    foreach ($videos->fetchAll(PDO::FETCH_COLUMN) as $path) share_media_delete($path);
+    @rmdir(__DIR__ . '/../uploads/shares/' . $id . '/videos');
+    @rmdir(__DIR__ . '/../uploads/shares/' . $id);
+    foreach (['share_commits', 'share_presence', 'share_videos'] as $table) db()->prepare("DELETE FROM {$table} WHERE share_id = :id")->execute([':id' => $id]);
     db()->prepare('DELETE FROM shares WHERE id = :id')->execute([':id' => $id]);
     json_response(['deleted' => true]);
 }
