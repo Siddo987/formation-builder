@@ -43,8 +43,9 @@ function account_set_cookie(string $value, int $expires): void {
 function account_start_session(string $userId): void {
     $token = random_id(40);
     $now = gmdate('Y-m-d H:i:s');
-    db()->prepare('INSERT INTO user_sessions (token_hash, user_id, created_at, last_seen_at) VALUES (:h, :u, :c, :c)')
-        ->execute([':h' => hash('sha256', $token), ':u' => $userId, ':c' => $now]);
+    // each placeholder once: MariaDB with native prepares rejects a repeated name (SQLite doesn't)
+    db()->prepare('INSERT INTO user_sessions (token_hash, user_id, created_at, last_seen_at) VALUES (:h, :u, :c, :l)')
+        ->execute([':h' => hash('sha256', $token), ':u' => $userId, ':c' => $now, ':l' => $now]);
     account_set_cookie($token, time() + 365 * 86400);
 }
 
