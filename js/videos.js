@@ -14,18 +14,27 @@
   var videoFileInput = document.getElementById('videoFileInput');
   var videoStatus = document.getElementById('videoStatus');
   var videoPlayer = document.getElementById('videoPlayer');
-  var videos = [], videosCanEdit = true, videoPlayingUrl = null;
+  var videos = [], videosCanEdit = true, playingId = null;
+  var blobUrls = {}; // local videos: id -> object URL, released when the dialog closes
 
-  // Every Bild with a category starts an Abschnitt.
+  // A Bild whose category differs from the one before starts an Abschnitt, numbered per dance like
+  // the film strip does it (renumberFilmCategories in js/formations.js): „1. Tango“, „2. Tango“.
   function videoSections(){
-    var out = [];
-    state.formations.forEach(function(f, i){ if(f.category) out.push({id: f.id, name: f.category, idx: i}); });
+    var out = [], counts = {}, prev = null;
+    state.formations.forEach(function(f, i){
+      var key = (f.category || '').trim().toLowerCase();
+      if(!key || key === prev) return; // blank or the same name again: still the same Abschnitt
+      counts[key] = (counts[key] || 0) + 1;
+      prev = key;
+      out.push({id: f.id, name: counts[key] + '. ' + f.category.trim(), idx: i});
+    });
     return out;
   }
   // The Abschnitt of the active Bild — a new video goes there first.
   function activeSectionId(){
-    for(var i = state.activeIndex; i >= 0; i--){ var f = state.formations[i]; if(f && f.category) return f.id; }
-    return null;
+    var id = null;
+    videoSections().forEach(function(s){ if(s.idx <= state.activeIndex) id = s.id; });
+    return id;
   }
 
   function showVideoStatus(msg){ videoStatus.hidden = !msg; videoStatus.textContent = msg || ''; }
@@ -95,7 +104,7 @@
     return done.then(function(list){ videos = list; renderVideos(); }, function(err){ showVideoStatus(err.message); renderVideos(); });
   }
   function deleteVideo(v){
-    if(videoPlayingUrl && videoPlayer.dataset.videoId === v.id) stopVideo();
+    if(playingId === v.id) stopVideo();
     var done = state.sharedId
       ? postVideo({action: 'delete', video_id: v.id})
       : idbDelete('video:' + v.id).then(function(){
@@ -104,25 +113,31 @@
     return done.then(function(list){ videos = list; renderVideos(); }, function(err){ showVideoStatus(err.message); });
   }
 
+  function videoUrl(v){
+    if(v.url) return Promise.resolve(v.url);
+    if(blobUrls[v.id]) return Promise.resolve(blobUrls[v.id]);
+    return idbGet('video:' + v.id).then(function(blob){
+      if(!blob) throw new Error('Die Videodatei fehlt auf diesem Gerät.');
+      return (blobUrls[v.id] = URL.createObjectURL(blob));
+    });
+  }
   function stopVideo(){
     videoPlayer.pause();
     videoPlayer.removeAttribute('src');
     videoPlayer.load();
     videoPlayer.hidden = true;
-    if(videoPlayingUrl && videoPlayingUrl.indexOf('blob:') === 0) URL.revokeObjectURL(videoPlayingUrl);
-    videoPlayingUrl = null;
+    playingId = null;
   }
-  function playVideo(v){
+  // The one player opens inside the video's card; its thumbnail toggles it.
+  function toggleVideo(v){
+    var wasPlaying = playingId === v.id;
     stopVideo();
-    var ready = v.url ? Promise.resolve(v.url) : idbGet('video:' + v.id).then(function(blob){
-      if(!blob) throw new Error('Die Videodatei fehlt auf diesem Gerät.');
-      return URL.createObjectURL(blob);
-    });
-    ready.then(function(url){
-      videoPlayingUrl = url;
-      videoPlayer.dataset.videoId = v.id;
+    if(wasPlaying){ renderVideos(); return; }
+    videoUrl(v).then(function(url){
+      playingId = v.id;
       videoPlayer.src = url;
       videoPlayer.hidden = false;
+      renderVideos();
       videoPlayer.play().catch(function(){});
     }, function(err){ showVideoStatus(err.message); });
   }
@@ -139,6 +154,7 @@
     var list = videos.slice().sort(function(a, b){ return firstSec(a) - firstSec(b); });
     videoAddBtn.hidden = !videosCanEdit;
     videoList.textContent = '';
+    if(!playingId) videoList.parentNode.insertBefore(videoPlayer, videoList); // parked, hidden, until a card plays
     if(!list.length){
       var empty = document.createElement('p');
       empty.className = 'settings-hint';
@@ -147,17 +163,27 @@
       return;
     }
     list.forEach(function(v){
+      var playing = playingId === v.id;
       var item = document.createElement('div');
-      item.className = 'video-item';
+      item.className = 'video-item' + (playing ? ' playing' : '');
       var head = document.createElement('div');
       head.className = 'video-item-head';
-      var play = document.createElement('button');
-      play.type = 'button';
-      play.className = 'btn-ghost btn-icon-only';
-      play.setAttribute('aria-label', '„' + v.name + '“ abspielen');
-      play.appendChild(svgIcon('play', 14));
-      play.addEventListener('click', function(){ playVideo(v); });
-      head.appendChild(play);
+      var thumb = document.createElement('button');
+      thumb.type = 'button';
+      thumb.className = 'video-thumb';
+      thumb.setAttribute('aria-label', '„' + v.name + '“ ' + (playing ? 'schließen' : 'abspielen'));
+      var still = document.createElement('video');
+      still.muted = true;
+      still.preload = 'metadata';
+      still.setAttribute('playsinline', '');
+      videoUrl(v).then(function(url){ still.src = url + '#t=0.5'; }, function(){}); // a frame from the start as preview
+      thumb.appendChild(still);
+      var badge = document.createElement('span');
+      badge.className = 'video-thumb-icon';
+      badge.appendChild(svgIcon(playing ? 'x' : 'play', 14));
+      thumb.appendChild(badge);
+      thumb.addEventListener('click', function(){ toggleVideo(v); });
+      head.appendChild(thumb);
       var name = document.createElement('input');
       name.type = 'text';
       name.className = 'video-name';
@@ -166,11 +192,14 @@
       name.readOnly = !videosCanEdit;
       name.setAttribute('aria-label', 'Name des Videos');
       name.addEventListener('change', function(){ updateVideo(v, {name: name.value.trim() || 'Video'}); });
-      head.appendChild(name);
       var size = document.createElement('span');
       size.className = 'video-size';
       size.textContent = fmtVideoSize(v.size) + (state.sharedId ? '' : ' · nur auf diesem Gerät');
-      head.appendChild(size);
+      var meta = document.createElement('div');
+      meta.className = 'video-meta';
+      meta.appendChild(name);
+      meta.appendChild(size);
+      head.appendChild(meta);
       if(videosCanEdit){
         var del = document.createElement('button');
         del.type = 'button';
@@ -181,6 +210,7 @@
         head.appendChild(del);
       }
       item.appendChild(head);
+      if(playing) item.appendChild(videoPlayer); // moved back in the same task, so it keeps playing
       var chips = document.createElement('div');
       chips.className = 'video-sections';
       secs.forEach(function(s){
@@ -220,7 +250,13 @@
       .then(loadVideos)
       .then(function(list){ videos = list; renderVideos(); }, function(err){ videoList.textContent = ''; showVideoStatus(err.message); });
   }
-  function closeVideos(){ stopVideo(); videosBackdrop.hidden = true; }
+  function closeVideos(){
+    stopVideo();
+    videosBackdrop.hidden = true;
+    videoList.textContent = ''; // drops the previews before their object URLs go
+    Object.keys(blobUrls).forEach(function(id){ URL.revokeObjectURL(blobUrls[id]); });
+    blobUrls = {};
+  }
 
   // A choreo that just got shared (or wasn't online the last time) takes its local videos along.
   var movingVideos = null;
