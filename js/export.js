@@ -510,7 +510,9 @@
     confirmExport();
   });
 
-  function showImportError(){
+  var importErrorText = importErrorEl.textContent;
+  function showImportError(msg){
+    importErrorEl.textContent = msg || importErrorText; // a share link says why it failed (gone, switched off)
     importErrorEl.hidden = false;
     setTimeout(function(){ importErrorEl.hidden = true; }, 3500);
   }

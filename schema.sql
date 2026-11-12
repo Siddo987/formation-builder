@@ -47,6 +47,32 @@ ALTER TABLE shares ADD COLUMN IF NOT EXISTS head_commit VARCHAR(32) NULL;
 -- funktionieren.
 ALTER TABLE shares ADD COLUMN IF NOT EXISTS edit_token VARCHAR(64) NULL;
 
+-- Konten (#2104): Wer Rechte festlegen will, legt ein Konto an (Nutzername + Passwort) und
+-- übernimmt die Choreo. Ohne Besitzer gilt wie bisher: Bearbeiten-Link = alles erlaubt.
+-- link_rights: was der Bearbeiten-Link darf, kommagetrennt (edit,rename,delete,media,videos);
+-- NULL = alles.
+ALTER TABLE shares ADD COLUMN IF NOT EXISTS owner_id VARCHAR(32) NULL;
+ALTER TABLE shares ADD COLUMN IF NOT EXISTS view_link_enabled TINYINT(1) NOT NULL DEFAULT 1;
+ALTER TABLE shares ADD COLUMN IF NOT EXISTS edit_link_enabled TINYINT(1) NOT NULL DEFAULT 1;
+ALTER TABLE shares ADD COLUMN IF NOT EXISTS link_rights VARCHAR(200) NULL;
+
+CREATE TABLE IF NOT EXISTS users (
+  id            VARCHAR(32)  NOT NULL PRIMARY KEY,
+  username      VARCHAR(40)  NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY users_username (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Anmeldung per Cookie: nur der SHA-256 des Tokens liegt hier.
+CREATE TABLE IF NOT EXISTS user_sessions (
+  token_hash   CHAR(64)    NOT NULL PRIMARY KEY,
+  user_id      VARCHAR(32) NOT NULL,
+  created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX user_sessions_by_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS share_commits (
   commit_id    VARCHAR(32)  NOT NULL PRIMARY KEY,
   share_id     VARCHAR(32)  NOT NULL,

@@ -14,6 +14,7 @@
 
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/http.php';
+require_once __DIR__ . '/../lib/account.php';
 require_once __DIR__ . '/../lib/commits.php';
 
 require_method('GET');
@@ -26,6 +27,7 @@ $shareStmt = db()->prepare('SELECT * FROM shares WHERE id = :id');
 $shareStmt->execute([':id' => $id]);
 $share = $shareStmt->fetch();
 if (!$share) json_error('Dieser Link wurde nicht gefunden oder ist nicht mehr gültig', 404);
+$access = share_assert_can_view($share);
 
 $head = commits_ensure_root($share);
 $commits = commits_all($id);
@@ -45,4 +47,5 @@ json_response([
     'head_commit' => $head,
     'commits'     => $slim,
     'branches'    => commits_branch_tips($commits, $head),
+    'access'      => share_access_info($share, $access), // rights change while a tab is open (#2104)
 ]);

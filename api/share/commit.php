@@ -24,6 +24,7 @@
 
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/http.php';
+require_once __DIR__ . '/../lib/account.php';
 require_once __DIR__ . '/../lib/commits.php';
 require_once __DIR__ . '/_media.php';
 
@@ -37,7 +38,7 @@ $shareStmt = db()->prepare('SELECT * FROM shares WHERE id = :id');
 $shareStmt->execute([':id' => $id]);
 $share = $shareStmt->fetch();
 if (!$share) json_error('Dieser Link wurde nicht gefunden oder ist nicht mehr gültig', 404);
-share_assert_can_write($share);
+$access = share_assert_can_write($share);
 
 $payloadRaw = $_POST['payload'] ?? '';
 $payload = json_decode($payloadRaw, true);
@@ -69,6 +70,13 @@ if ($base === '' || !commit_fetch($id, $base)) {
 }
 
 $isFastForward = ($base === $head);
+
+$baseRow = commit_fetch($id, $base);
+share_assert_payload_rights($access, $baseRow ? json_decode((string) $baseRow['payload_json'], true) : null, $payload);
+if ($isFastForward) {
+    share_assert_media_rights($access, $share, ($_POST['logo_present'] ?? '0') === '1', ($_POST['song_present'] ?? '0') === '1',
+        $logoFile || $logoUploadId, $songFile || $songUploadId);
+}
 
 if ($isFastForward) {
     $branchId = $headBranch;

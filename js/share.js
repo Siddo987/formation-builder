@@ -109,6 +109,26 @@ function shareEditUrlFor(id, token){ return shareUrlFor(id) + '&t=' + token; }
 
 function isShareReadOnly(){ return !!(state.sharedId && state.shareReadOnly); }
 
+// What the server lets this tab do with the bound share (#2104): {owner, owned, owner_name, rights,
+// and for the owner the link settings}. Comes with every get.php/history.php; null until the first.
+var shareAccess = null;
+function shareLacks(right){ return !!(state.sharedId && shareAccess && shareAccess.rights.indexOf(right) === -1); }
+function shareQuery(id, token){
+  token = token === undefined ? state.shareEditToken : token;
+  return 'id=' + encodeURIComponent(id) + (token ? '&t=' + encodeURIComponent(token) : '');
+}
+function applyShareAccess(access){
+  if(!access || !state.sharedId) return;
+  shareAccess = access;
+  var ro = access.rights.indexOf('edit') === -1;
+  // The owner on another device came in through the view link: hand them the edit link too.
+  var newToken = access.edit_token && access.edit_token !== state.shareEditToken;
+  if(newToken) state.shareEditToken = access.edit_token;
+  if(newToken || ro !== state.shareReadOnly){ state.shareReadOnly = ro; writeLocalProject(); }
+  applyShareReadonlyUi();
+  if(!shareBackdrop.hidden && state.sharedId) showShareLink(state.sharedId);
+}
+
 // Blendet Banner + Sperr-Klasse für den Nur-Ansehen-Modus ein/aus.
 function applyShareReadonlyUi(){
   var ro = isShareReadOnly();
@@ -116,6 +136,9 @@ function applyShareReadonlyUi(){
   // „Choreo löschen“ entfernt geteilte Choreos nur lokal – der Link holt sie zurück.
   document.body.classList.toggle('shared', !!state.sharedId);
   if(readonlyBanner) readonlyBanner.hidden = !ro;
+  document.body.classList.toggle('share-no-delete', shareLacks('delete'));
+  document.body.classList.toggle('share-no-media', shareLacks('media'));
+  projectNameInput.readOnly = ro || shareLacks('rename');
 }
 
 function showShareLink(id){
@@ -133,6 +156,7 @@ function showShareLink(id){
   shareViewOnlyNote.hidden = !isShareReadOnly();
   shareLegacyNote.hidden = !legacy;
   shareMainLinkHeading.textContent = legacy ? 'Link' : 'Nur zum Ansehen';
+  renderShareOwner();
 }
 
 function resetShareModal(){
@@ -145,9 +169,10 @@ function resetShareModal(){
     shareIntroEl.hidden = false;
     shareProgressEl.hidden = true;
     shareResultEl.hidden = true;
+    shareOwnerSection.hidden = true;
   }
 }
-function openShareModal(){ resetShareModal(); shareBackdrop.hidden = false; }
+function openShareModal(){ resetShareModal(); shareBackdrop.hidden = false; refreshShareAccount(); }
 function closeShareModal(){ shareBackdrop.hidden = true; }
 
 shareBtn.addEventListener('click', openShareModal);
@@ -259,6 +284,114 @@ shareUnlinkBtn.addEventListener('click', function(){
   }, shareUnlinkBtn, 'Aufheben');
 });
 
+/* ---------- Besitz & Rechte (#2104) ----------
+   Without an account nothing changes: nobody owns the choreo, the edit link may do everything. Signed
+   in, whoever holds the edit link can take the choreo over; the owner then switches the links on and
+   off, picks what the edit link may do, renews it and can delete the choreo for good. The server
+   (api/lib/account.php) enforces all of it; this only shows the controls that fit. */
+var shareOwnerSection = document.getElementById('shareOwnerSection');
+var shareOwnerStatus = document.getElementById('shareOwnerStatus');
+var shareAccountForm = document.getElementById('shareAccountForm');
+var shareAccountName = document.getElementById('shareAccountName');
+var shareAccountPw = document.getElementById('shareAccountPw');
+var shareClaimBtn = document.getElementById('shareClaimBtn');
+var shareOwnerSettings = document.getElementById('shareOwnerSettings');
+var shareViewLinkToggle = document.getElementById('shareViewLinkToggle');
+var shareEditLinkToggle = document.getElementById('shareEditLinkToggle');
+var shareRightsInputs = Array.prototype.slice.call(document.querySelectorAll('#shareRightsList input'));
+var shareRotateBtn = document.getElementById('shareRotateBtn');
+var shareDeleteBtn = document.getElementById('shareDeleteBtn');
+var shareAccountLine = document.getElementById('shareAccountLine');
+var shareOwnerError = document.getElementById('shareOwnerError');
+var accountName = null; // signed in on this device (api/account/me.php), null if not
+var SHARE_RIGHTS_ALL = ['edit', 'rename', 'delete', 'media', 'videos'];
+var SHARE_RIGHT_LABELS = {edit: 'bearbeiten', rename: 'umbenennen', delete: 'Bilder löschen', media: 'Lied und Logo ändern', videos: 'Videos hochladen und löschen'};
+
+function renderShareOwner(){
+  var a = shareAccess;
+  shareOwnerSection.hidden = !state.sharedId || !a;
+  if(shareOwnerSection.hidden) return;
+  var full = a.rights.length === SHARE_RIGHTS_ALL.length;
+  shareOwnerStatus.textContent = !a.owned
+    ? 'Gehört niemandem: Wer den Bearbeiten-Link hat, darf alles.' + (full ? ' Mit einem Konto kannst du die Choreo übernehmen und festlegen, was der Bearbeiten-Link darf.' : '')
+    : a.owner ? 'Gehört dir.'
+    : 'Gehört ' + (a.owner_name || 'jemandem') + '. ' + (a.rights.length
+      ? 'Du darfst: ' + a.rights.map(function(r){ return SHARE_RIGHT_LABELS[r]; }).join(', ') + '.'
+      : 'Du darfst nur ansehen.');
+  shareAccountForm.hidden = !!accountName || a.owner || (!a.owned && !full);
+  shareClaimBtn.hidden = !accountName || a.owned || !full;
+  shareOwnerSettings.hidden = !a.owner;
+  if(a.owner){
+    shareViewLinkToggle.checked = a.view_link_enabled;
+    shareEditLinkToggle.checked = a.edit_link_enabled;
+    shareRightsInputs.forEach(function(inp){ inp.checked = a.link_rights.indexOf(inp.value) !== -1; });
+  }
+  shareDeleteBtn.hidden = !(a.owner || (!a.owned && full));
+  shareAccountLine.hidden = !accountName;
+  document.getElementById('shareAccountUser').textContent = accountName || '';
+}
+
+function showOwnerError(msg){ shareOwnerError.hidden = !msg; shareOwnerError.textContent = msg || ''; }
+function postForm(url, fields){
+  var fd = new FormData();
+  Object.keys(fields).forEach(function(k){ fd.append(k, fields[k]); });
+  return fetch(url, {method: 'POST', body: fd}).then(function(res){
+    return res.json().catch(function(){ return {}; }).then(function(data){
+      if(!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      return data;
+    });
+  });
+}
+function ownerAction(action, extra){
+  showOwnerError('');
+  var fields = {id: state.sharedId, edit_token: state.shareEditToken || '', action: action};
+  Object.keys(extra || {}).forEach(function(k){ fields[k] = extra[k]; });
+  return postForm('api/share/owner.php', fields).catch(function(err){ showOwnerError(err.message); throw err; });
+}
+// Re-reads who is signed in and what they may do here (after login/logout, or opening the dialog).
+function refreshShareAccount(){
+  if(!state.sharedId) return;
+  fetch('api/account/me.php').then(function(r){ return r.json(); }).then(function(me){
+    accountName = me.username || null;
+    return fetch('api/share/history.php?' + shareQuery(state.sharedId)).then(function(r){ return r.ok ? r.json() : null; });
+  }).then(function(graph){
+    if(graph) applyShareAccess(graph.access); else renderShareOwner();
+  }).catch(function(){});
+}
+function accountSubmit(register){
+  showOwnerError('');
+  postForm('api/account/login.php', {username: shareAccountName.value, password: shareAccountPw.value, register: register ? '1' : '0'})
+    .then(function(){ shareAccountPw.value = ''; refreshShareAccount(); })
+    .catch(function(err){ showOwnerError(err.message); });
+}
+document.getElementById('shareLoginBtn').addEventListener('click', function(){ accountSubmit(false); });
+document.getElementById('shareRegisterBtn').addEventListener('click', function(){ accountSubmit(true); });
+shareAccountPw.addEventListener('keydown', function(e){ if(e.key === 'Enter') accountSubmit(false); });
+document.getElementById('shareLogoutBtn').addEventListener('click', function(){
+  postForm('api/account/logout.php', {}).then(refreshShareAccount, function(err){ showOwnerError(err.message); });
+});
+shareClaimBtn.addEventListener('click', function(){
+  ownerAction('claim').then(function(data){ applyShareAccess(data.access); }, function(){});
+});
+function saveShareSettings(){
+  ownerAction('settings', {
+    view_link_enabled: shareViewLinkToggle.checked ? '1' : '0',
+    edit_link_enabled: shareEditLinkToggle.checked ? '1' : '0',
+    link_rights: shareRightsInputs.filter(function(inp){ return inp.checked; }).map(function(inp){ return inp.value; }).join(',')
+  }).then(function(data){ applyShareAccess(data.access); }, function(){ renderShareOwner(); });
+}
+[shareViewLinkToggle, shareEditLinkToggle].concat(shareRightsInputs).forEach(function(inp){ inp.addEventListener('change', saveShareSettings); });
+shareRotateBtn.addEventListener('click', function(){
+  confirmDelete('Neuen Bearbeiten-Link erzeugen? Der alte bearbeitet dann nichts mehr.', function(){
+    ownerAction('rotate').then(function(data){ applyShareAccess(data.access); }, function(){});
+  }, shareRotateBtn, 'Erzeugen');
+});
+shareDeleteBtn.addEventListener('click', function(){
+  confirmDelete('Choreo endgültig löschen? Alle Links hören auf zu funktionieren, der Verlauf ist weg. Deine Kopie auf diesem Gerät bleibt.', function(){
+    ownerAction('delete').then(function(){ detachShare(); resetShareModal(); }, function(){});
+  }, shareDeleteBtn, 'Endgültig löschen');
+});
+
 /* ---------- syncing a bound share as a commit graph -------------------------------------------
    Every edit that reaches the server is a commit (api/share/commit.php). While this client sits on
    the mainline tip its commits fast-forward it; once it has diverged (someone else committed
@@ -368,6 +501,7 @@ function detachShare(){
   state.sharedId = null;
   state.shareEditToken = null;
   state.shareReadOnly = false;
+  shareAccess = null;
   shareBaseCommit = null; shareBranchId = null; shareHeadCommit = null; shareGraph = null;
   clearPushFailure();
   stopSharePolling();
@@ -631,22 +765,23 @@ function pollApplyBlocked(){
 function pollSharedUpdate(){
   if(!state.sharedId || document.visibilityState !== 'visible') return;
   var id = state.sharedId;
-  fetch('api/share/history.php?id=' + encodeURIComponent(id))
+  fetch('api/share/history.php?' + shareQuery(id))
     .then(function(res){
-      if(res.status === 404) throw {notFound:true};
+      if(res.status === 404 || res.status === 403) throw {notFound:true}; // deleted, or the link was switched off
       if(!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     })
     .then(function(graph){
       if(state.sharedId !== id) return;
       shareGraph = graph;
+      applyShareAccess(graph.access);
       var newHead = graph.head_commit;
 
       if(!shareBaseCommit){
         shareHeadCommit = newHead;
         if(shareNeedsInitialPull){
           shareNeedsInitialPull = false;
-          return fetch('api/share/get.php?id=' + encodeURIComponent(id))
+          return fetch('api/share/get.php?' + shareQuery(id))
             .then(function(r){ return r.json(); })
             .then(function(payload){
               return reconstructSharedState(payload).then(function(newState){
@@ -678,7 +813,7 @@ function pollSharedUpdate(){
         && (!shareBranchId || branchMerged);
 
       if(canFastForward){
-        return fetch('api/share/get.php?id=' + encodeURIComponent(id))
+        return fetch('api/share/get.php?' + shareQuery(id))
           .then(function(r){ return r.json(); })
           .then(function(payload){
             if(state.sharedId !== id || haveLocalPendingEdits()) return;
@@ -814,7 +949,7 @@ function findLCA(commits, a, b){
 }
 
 function fetchCommitPayload(commitId){
-  return fetch('api/share/get.php?id=' + encodeURIComponent(state.sharedId) + '&commit=' + encodeURIComponent(commitId))
+  return fetch('api/share/get.php?' + shareQuery(state.sharedId) + '&commit=' + encodeURIComponent(commitId))
     .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
 }
 
@@ -1056,17 +1191,19 @@ function loadSharedProjectFromUrl(){
   }
   // ?t=<edit_token> im Link => Bearbeiten erlaubt; ohne t => reiner Nur-Ansehen-Link.
   var editToken = params.get('t') || null;
-  fetch('api/share/get.php?id=' + encodeURIComponent(id))
+  var access = null;
+  fetch('api/share/get.php?' + shareQuery(id, editToken))
     .then(function(res){
       if(!res.ok){
         return res.json().catch(function(){ return {}; }).then(function(err){
-          throw new Error(err.error || ('HTTP ' + res.status));
+          var e = new Error(err.error || ('HTTP ' + res.status)); e.fromServer = true; throw e;
         });
       }
       return res.json();
     })
     .then(function(payload){
       lastKnownRev = payload.rev || null;
+      access = payload.access;
       return reconstructSharedState(payload);
     })
     .then(function(newState){
@@ -1077,6 +1214,7 @@ function loadSharedProjectFromUrl(){
       suppressSharePush = true;     // loading the link must not turn around and commit it back
       applyImportedState(newState);
       suppressSharePush = false;
+      applyShareAccess(access);
       applyShareReadonlyUi();
       lastPushedLogoRef = newState.logo;
       lastPushedSongRef = newState.song;
@@ -1090,7 +1228,7 @@ function loadSharedProjectFromUrl(){
     })
     .catch(function(err){
       console.error('Konnte geteilten Link nicht laden:', err);
-      showImportError();
+      showImportError(err.fromServer ? err.message : null);
       if(typeof initHistory === 'function') initHistory();
     });
 }

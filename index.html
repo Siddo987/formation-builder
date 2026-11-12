@@ -639,6 +639,38 @@ if ('serviceWorker' in navigator) {
         <p class="settings-hint" id="shareLiveHint">Beide Links bleiben live: neue Änderungen sind für alle mit dem jeweiligen Link sofort sichtbar.</p>
         <button class="btn-ghost danger" id="shareUnlinkBtn" type="button">Verknüpfung aufheben</button>
       </div>
+      <section class="settings-section" id="shareOwnerSection" hidden>
+        <h3>Besitz &amp; Rechte</h3>
+        <p class="settings-hint" id="shareOwnerStatus"></p>
+        <div id="shareAccountForm" hidden>
+          <div class="share-account-fields">
+            <input type="text" id="shareAccountName" placeholder="Nutzername" autocomplete="username" maxlength="40" aria-label="Nutzername">
+            <input type="password" id="shareAccountPw" placeholder="Passwort" autocomplete="current-password" maxlength="200" aria-label="Passwort">
+          </div>
+          <div class="settings-row">
+            <button class="btn-ghost" id="shareLoginBtn" type="button">Anmelden</button>
+            <button class="btn-ghost" id="shareRegisterBtn" type="button">Konto anlegen</button>
+          </div>
+          <p class="settings-hint">Ein Konto brauchst du nur, um Rechte festzulegen. Es gibt kein Zurücksetzen per E-Mail – merk dir dein Passwort.</p>
+        </div>
+        <button class="btn-ghost" id="shareClaimBtn" type="button" hidden>Choreo übernehmen</button>
+        <div id="shareOwnerSettings" hidden>
+          <label class="toggle-label"><input type="checkbox" id="shareViewLinkToggle"> Ansehen-Link aktiv</label>
+          <label class="toggle-label"><input type="checkbox" id="shareEditLinkToggle"> Bearbeiten-Link aktiv</label>
+          <p class="settings-hint">Wer den Bearbeiten-Link hat, darf:</p>
+          <div id="shareRightsList">
+            <label class="toggle-label"><input type="checkbox" value="edit"> Bearbeiten (Aufstellungen, Bilder, Marken …)</label>
+            <label class="toggle-label"><input type="checkbox" value="rename"> Choreo umbenennen</label>
+            <label class="toggle-label"><input type="checkbox" value="delete"> Bilder löschen</label>
+            <label class="toggle-label"><input type="checkbox" value="media"> Lied und Logo ändern</label>
+            <label class="toggle-label"><input type="checkbox" value="videos"> Videos hochladen und löschen</label>
+          </div>
+          <button class="btn-ghost" id="shareRotateBtn" type="button">Neuen Bearbeiten-Link erzeugen</button>
+        </div>
+        <button class="btn-ghost danger" id="shareDeleteBtn" type="button" hidden>Choreo endgültig löschen</button>
+        <p class="settings-hint" id="shareAccountLine" hidden>Angemeldet als <strong id="shareAccountUser"></strong> · <button class="btn-link" id="shareLogoutBtn" type="button">Abmelden</button></p>
+        <p class="settings-hint import-error-inline" id="shareOwnerError" hidden></p>
+      </section>
       <p class="settings-hint import-error-inline" id="shareErrorText" hidden></p>
     </div>
   </div>

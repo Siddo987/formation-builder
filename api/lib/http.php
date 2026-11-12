@@ -41,21 +41,6 @@ function read_json_body(): array {
     return $data;
 }
 
-/**
- * Nur-Ansehen-Links: hat die shares-Zeile ein `edit_token`, muss ein Schreib-Request es im
- * POST-Feld `edit_token` mitliefern. Alt-Links (edit_token leer/NULL, aus der Zeit vor diesem
- * Feature) bleiben ohne Prüfung schreibbar, damit bereits verschickte Links weiter funktionieren.
- * Bei fehlendem/falschem Token bricht die Funktion mit 403 ab.
- */
-function share_assert_can_write(array $share): void {
-    $needed = (string) ($share['edit_token'] ?? '');
-    if ($needed === '') return;
-    $given = (string) ($_POST['edit_token'] ?? '');
-    if (!hash_equals($needed, $given)) {
-        json_error('Dieser Link ist nur zum Ansehen — Bearbeiten ist damit nicht möglich.', 403);
-    }
-}
-
 /** Opaque, non-sequential id (base62, default 22 chars ≈ 131 bits — plenty to resist guessing). */
 function random_id(int $length = 22): string {
     $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

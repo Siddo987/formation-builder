@@ -8,6 +8,7 @@
 
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/http.php';
+require_once __DIR__ . '/../lib/account.php';
 
 require_method('GET');
 db_ensure_schema();
@@ -17,10 +18,11 @@ if (!preg_match('/^[A-Za-z0-9]{6,32}$/', $id)) {
     json_error('Ungültige Link-ID', 400);
 }
 
-$stmt = db()->prepare('SELECT project_name, payload_json, logo_path, song_path, version FROM shares WHERE id = :id');
+$stmt = db()->prepare('SELECT * FROM shares WHERE id = :id');
 $stmt->execute([':id' => $id]);
 $row = $stmt->fetch();
 if (!$row) json_error('Dieser Link wurde nicht gefunden oder ist nicht mehr gültig', 404);
+$access = share_assert_can_view($row);
 
 // ?commit=<id> — the payload of one specific commit (for viewing/merging a branch, js/share.js).
 // Logo/song still come from the `shares` row: media only ever lives on the mainline.
@@ -58,5 +60,7 @@ if ($row['song_path']) {
 } else {
     $payload['song'] = null;
 }
+
+$payload['access'] = share_access_info($row, $access); // js/share.js takes it off before the payload becomes state
 
 json_response($payload);

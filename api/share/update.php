@@ -24,6 +24,7 @@
 
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/http.php';
+require_once __DIR__ . '/../lib/account.php';
 require_once __DIR__ . '/_media.php';
 
 require_method('POST');
@@ -34,11 +35,11 @@ if (!preg_match('/^[A-Za-z0-9]{6,32}$/', $id)) {
     json_error('Ungültige Link-ID', 400);
 }
 
-$existing = db()->prepare('SELECT logo_path, song_path, edit_token FROM shares WHERE id = :id');
+$existing = db()->prepare('SELECT * FROM shares WHERE id = :id');
 $existing->execute([':id' => $id]);
 $row = $existing->fetch();
 if (!$row) json_error('Dieser Link wurde nicht gefunden oder ist nicht mehr gültig', 404);
-share_assert_can_write($row);
+$access = share_assert_can_write($row);
 
 $maxBytes = (int) env_get('SHARE_MAX_BYTES', 104857600);
 
@@ -62,6 +63,8 @@ if ($totalBytes > $maxBytes) {
 
 $logoPresent = ($_POST['logo_present'] ?? '0') === '1';
 $songPresent = ($_POST['song_present'] ?? '0') === '1';
+share_assert_payload_rights($access, json_decode((string) $row['payload_json'], true), $payload);
+share_assert_media_rights($access, $row, $logoPresent, $songPresent, $logoFile || $logoUploadId, $songFile || $songUploadId);
 
 [$logoPath, $songPath, $touchLogo, $touchSong] = share_apply_media(
     $id, $row['logo_path'], $row['song_path'], $logoPresent, $songPresent,

@@ -1359,6 +1359,7 @@
 
   function deleteFormation(id){
     if(state.formations.length <= 1) return;
+    if(typeof shareLacks === 'function' && shareLacks('delete')) return; // #2104: the edit link may not drop Bilder
     var idx = state.formations.findIndex(function(f){ return f.id === id; });
     if(idx < 0) return;
     if(editingBetween){ editingBetween = null; updateBetweenEditBanner(); } // deleting a Bild can shift every fIdx after it — simplest to just drop out

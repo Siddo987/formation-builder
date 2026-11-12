@@ -15,6 +15,7 @@
 
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/http.php';
+require_once __DIR__ . '/../lib/account.php';
 require_once __DIR__ . '/../lib/commits.php';
 
 require_method('POST');
@@ -27,7 +28,7 @@ $shareStmt = db()->prepare('SELECT * FROM shares WHERE id = :id');
 $shareStmt->execute([':id' => $id]);
 $share = $shareStmt->fetch();
 if (!$share) json_error('Dieser Link wurde nicht gefunden oder ist nicht mehr gültig', 404);
-share_assert_can_write($share);
+$access = share_assert_can_write($share);
 
 $head = commits_ensure_root($share);
 
@@ -45,6 +46,8 @@ if (!commit_valid_payload($payload)) json_error('Ungültige oder fehlende payloa
 
 $maxBytes = (int) env_get('SHARE_MAX_BYTES', 26214400);
 if (strlen($payloadRaw) > $maxBytes) json_error('Payload zu groß', 413);
+
+share_assert_payload_rights($access, json_decode((string) $share['payload_json'], true), $payload);
 
 $author = trim((string) ($_POST['author'] ?? ''));
 $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE);

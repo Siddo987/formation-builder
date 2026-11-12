@@ -54,8 +54,31 @@ const DB_MYSQL_TABLES = [
             'delete_token' => 'VARCHAR(64) NULL',
             'head_commit'  => 'VARCHAR(32) NULL',
             'edit_token'   => 'VARCHAR(64) NULL',
+            // #2104: a share can belong to an account; only then do the link settings below apply.
+            'owner_id'          => 'VARCHAR(32) NULL',
+            'view_link_enabled' => 'TINYINT(1) NOT NULL DEFAULT 1',
+            'edit_link_enabled' => 'TINYINT(1) NOT NULL DEFAULT 1',
+            'link_rights'       => 'VARCHAR(200) NULL', // what the edit link may do, comma-separated; NULL = everything
         ],
         'extra' => [],
+    ],
+    'users' => [
+        'columns' => [
+            'id'            => 'VARCHAR(32) NOT NULL PRIMARY KEY',
+            'username'      => 'VARCHAR(40) NOT NULL',
+            'password_hash' => 'VARCHAR(255) NOT NULL',
+            'created_at'    => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
+        ],
+        'extra' => ['UNIQUE KEY users_username (username)'],
+    ],
+    'user_sessions' => [
+        'columns' => [
+            'token_hash'   => 'CHAR(64) NOT NULL PRIMARY KEY',
+            'user_id'      => 'VARCHAR(32) NOT NULL',
+            'created_at'   => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
+            'last_seen_at' => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
+        ],
+        'extra' => ['INDEX user_sessions_by_user (user_id)'],
     ],
     'share_commits' => [
         'columns' => [
@@ -126,6 +149,10 @@ function db_ensure_schema(): void {
     try { $pdo->exec("ALTER TABLE shares ADD COLUMN version TEXT NOT NULL DEFAULT ''"); } catch (Throwable $e) {}
     try { $pdo->exec("ALTER TABLE shares ADD COLUMN head_commit TEXT"); } catch (Throwable $e) {}
     try { $pdo->exec("ALTER TABLE shares ADD COLUMN edit_token TEXT"); } catch (Throwable $e) {}
+    try { $pdo->exec("ALTER TABLE shares ADD COLUMN owner_id TEXT"); } catch (Throwable $e) {}
+    try { $pdo->exec("ALTER TABLE shares ADD COLUMN view_link_enabled INTEGER NOT NULL DEFAULT 1"); } catch (Throwable $e) {}
+    try { $pdo->exec("ALTER TABLE shares ADD COLUMN edit_link_enabled INTEGER NOT NULL DEFAULT 1"); } catch (Throwable $e) {}
+    try { $pdo->exec("ALTER TABLE shares ADD COLUMN link_rights TEXT"); } catch (Throwable $e) {}
     $pdo->exec("UPDATE shares SET updated_at = created_at WHERE updated_at = ''");
     $pdo->exec("UPDATE shares SET version = lower(hex(randomblob(12))) WHERE version = ''");
     $pdo->exec("CREATE TABLE IF NOT EXISTS share_commits (
@@ -148,6 +175,18 @@ function db_ensure_schema(): void {
         active_at INTEGER NOT NULL,
         seen_at INTEGER NOT NULL,
         PRIMARY KEY (share_id, client_id)
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS user_sessions (
+        token_hash TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS figures (
         id TEXT PRIMARY KEY,
