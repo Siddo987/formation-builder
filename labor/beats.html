@@ -9,7 +9,7 @@
      etwas davon in die App kommt. Nicht verlinkt; das Lied bleibt im Browser. -->
 <style>
   :root{--bg:#f6f6f8;--panel:#fff;--ink:#1b1b22;--ink-2:#5b5b6b;--line:#dcdce4;--accent:#6c5ce7;
-    --c0:#e17055;--c1:#0984e3;--c2:#00b894;}
+    --c0:#e17055;--c1:#0984e3;--c2:#00b894;--c3:#d63384;}
   @media (prefers-color-scheme: dark){:root{--bg:#16161a;--panel:#202027;--ink:#ececf1;--ink-2:#a0a0b0;--line:#34343e;}}
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,sans-serif;}
@@ -23,7 +23,7 @@
   button:disabled{opacity:.5;cursor:default;}
   select,input[type=number]{font:inherit;padding:.25rem;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);}
   canvas{display:block;width:100%;border-radius:6px;background:var(--bg);cursor:pointer;}
-  .lib0{color:var(--c0);} .lib1{color:var(--c1);} .lib2{color:var(--c2);}
+  .lib0{color:var(--c0);} .lib1{color:var(--c1);} .lib2{color:var(--c2);} .lib3{color:var(--c3);}
   table{width:100%;border-collapse:collapse;font-size:.85rem;}
   th,td{text-align:left;padding:.3rem .4rem;border-bottom:1px solid var(--line);vertical-align:top;}
   th{color:var(--ink-2);font-weight:600;}
@@ -37,9 +37,9 @@
 <body>
 <main>
   <h1>Beat-Labor</h1>
-  <p class="sub">Probiert drei fertige Beat-Erkennungen an deinem Lied aus — pro Tanz-Abschnitt eines Medleys.
+  <p class="sub">Probiert vier fertige Beat-Erkennungen an deinem Lied aus — pro Tanz-Abschnitt eines Medleys.
     Das Lied bleibt in deinem Browser. Lizenzen: <span class="lib0">web-audio-beat-detector</span> MIT ·
-    <span class="lib1">Essentia</span> AGPL-3 · <span class="lib2">aubio</span> GPL-3 — hier nur zum Testen, nicht in Aufstellung eingebaut.</p>
+    <span class="lib1">Essentia</span> AGPL-3 · <span class="lib2">aubio</span> GPL-3 · <span class="lib3">Beat This</span> MIT (#2103, erkennt auch die „1“) — hier nur zum Testen, nicht in Aufstellung eingebaut.</p>
 
   <section>
     <div class="row">
@@ -50,18 +50,18 @@
   </section>
 
   <section>
-    <canvas id="wave" height="150" aria-label="Ganzes Lied: Klick springt dorthin"></canvas>
+    <canvas id="wave" height="170" aria-label="Ganzes Lied: Klick springt dorthin"></canvas>
     <p class="muted">Oben das ganze Lied (Klick = springen), darunter je Baustein eine Zeile mit den erkannten Schlägen. Senkrechte Striche = Abschnittsgrenzen.</p>
     <canvas id="tempo" height="110" aria-label="Erkanntes Tempo über die Zeit"></canvas>
     <p class="muted">Tempo über die Zeit (Schläge pro Minute, aus dem Abstand je zweier Schläge, ungefaltet).</p>
-    <canvas id="zoom" height="120" aria-label="Ausschnitt 8 Sekunden um die Abspielposition"></canvas>
+    <canvas id="zoom" height="135" aria-label="Ausschnitt 8 Sekunden um die Abspielposition"></canvas>
     <p class="muted">Lupe: 8 Sekunden um die Abspielposition.</p>
     <div class="row" style="margin-top:.5rem">
       <button id="play" disabled>▶ Abspielen</button>
       <span class="time" id="time">0:00.0</span>
       <button id="cut" disabled title="Setzt an der Abspielposition eine Grenze zwischen zwei Tänzen (Taste G)">Grenze hier (G)</button>
       <label>Klick von
-        <select id="clickLib"><option value="-1">keinem</option><option value="0">web-audio-beat-detector</option><option value="1">Essentia</option><option value="2">aubio</option></select>
+        <select id="clickLib"><option value="-1">keinem</option><option value="0">web-audio-beat-detector</option><option value="1">Essentia</option><option value="2">aubio</option><option value="3">Beat This (die „1“ höher)</option></select>
       </label>
       <label>Lautstärke <input type="range" id="clickVol" min="0" max="1" step="0.05" value="0.5"></label>
     </div>
@@ -72,21 +72,23 @@
       <label><input type="checkbox" class="libOn" value="0" checked> <span class="lib0">web-audio-beat-detector</span></label>
       <label><input type="checkbox" class="libOn" value="1" checked> <span class="lib1">Essentia</span></label>
       <label><input type="checkbox" class="libOn" value="2" checked> <span class="lib2">aubio</span></label>
+      <label><input type="checkbox" class="libOn" value="3" checked> <span class="lib3">Beat This</span></label>
       <button class="primary" id="run" disabled>Analysieren</button>
       <span id="status" class="muted"></span>
     </div>
     <table style="margin-top:.6rem">
       <thead><tr><th>#</th><th>Abschnitt</th><th>Tanz</th>
-        <th class="lib0">web-audio-beat-detector</th><th class="lib1">Essentia</th><th class="lib2">aubio</th><th></th></tr></thead>
+        <th class="lib0">web-audio-beat-detector</th><th class="lib1">Essentia</th><th class="lib2">aubio</th><th class="lib3">Beat This</th><th></th></tr></thead>
       <tbody id="sections"></tbody>
     </table>
     <p class="muted">Je Zelle: erkanntes Tempo → gefaltet auf den Tanz (halb/doppelt/⅔/³⁄₂ korrigiert) in Takten pro Minute · Gleichmäßigkeit der Schläge (± ms) · Rechenzeit.
-      Die „1“ (Taktanfang) erkennt keiner der Bausteine.</p>
+      Die „1“ (Taktanfang) erkennt nur Beat This: dahinter steht, wie viele Schläge es pro Takt zählt (⚠ = passt nicht zum Tanz).
+      Beat This hört das ganze Lied auf einmal (Modell small0, 10 MB, einmal laden), kennt die Tanznamen nicht und rechnet im Browser — rund eine halbe bis ganze Minute.</p>
   </section>
 </main>
 
 <script type="module">
-const LIBS = ['web-audio-beat-detector', 'Essentia', 'aubio'];
+const LIBS = ['web-audio-beat-detector', 'Essentia', 'aubio', 'Beat This'];
 // Turniertempi (WDSF) als Schläge pro Minute + Schläge pro Takt.
 const DANCES = {
   '': null,
@@ -109,7 +111,7 @@ let ctx = null, buffer = null, mono = null, env = null;  // env: max |sample| pe
 let cuts = [];                       // section boundaries in s
 let dances = {};                     // section start (s, rounded) -> dance key
 let names = {};                      // section start (s, rounded) -> Abschnitt name from the Choreo
-let results = [[], [], []];          // per lib: [{start, end, bpm, beats:[s], ms, err}]
+let results = [[], [], [], []];          // per lib: [{start, end, bpm, beats:[s], ms, err}]
 let playing = false, src = null, startCtx = 0, startPos = 0, pausedAt = 0, scheduledUntil = 0;
 
 const fmt = s => Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0');
@@ -139,7 +141,7 @@ async function loadAudio(blob, name){
   env = new Float32Array(Math.ceil(mono.length / 441));
   for(let i = 0; i < mono.length; i++){ const v = Math.abs(mono[i]), k = (i / 441) | 0; if(v > env[k]) env[k] = v; }
   buffer = b;
-  cuts = []; dances = {}; names = {}; results = [[], [], []]; pausedAt = 0;
+  cuts = []; dances = {}; names = {}; results = [[], [], [], []]; pausedAt = 0;
   $('info').textContent = name + ' · ' + fmt(buffer.duration) + ' · ' + buffer.sampleRate + ' Hz';
   ['play', 'cut', 'run'].forEach(id => $(id).disabled = false);
   renderTable();
@@ -175,8 +177,17 @@ $('fromApp').addEventListener('click', async () => {
 
 /* ---------- Analyse ---------- */
 
-let essentia = null, aubioMod = null, wabd = null;
+let essentia = null, aubioMod = null, wabd = null, btLib = null, btWhole = null;
+const ORT = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/';
 async function lib(i){
+  if(i === 3){
+    if(btLib) return btLib;
+    const [ort, bt] = await Promise.all([import(ORT + 'ort.wasm.bundle.min.mjs'), import('./beatthis.js?v=1')]);
+    ort.env.wasm.wasmPaths = ORT;
+    ort.env.wasm.numThreads = 1; // no cross-origin isolation here, so no threads anyway
+    const session = await ort.InferenceSession.create('models/beat_this_small0.onnx', {executionProviders: ['wasm']});
+    return btLib = {ort, bt, session};
+  }
   if(i === 0) return wabd || (wabd = await import('https://cdn.jsdelivr.net/npm/web-audio-beat-detector@8.2.39/+esm'));
   if(i === 1){
     if(essentia) return essentia;
@@ -191,8 +202,27 @@ async function lib(i){
   return aubioMod;
 }
 
+// Beat This takes the whole song in one go (it needs the context); sections are cut out afterwards.
+async function beatThisWhole(){
+  if(btWhole && btWhole.buffer === buffer) return btWhole;
+  const {ort, bt, session} = await lib(3);
+  const off = new OfflineAudioContext(1, Math.ceil(buffer.duration * bt.SR), bt.SR); // mono 22,05 kHz like beat_this
+  const s = off.createBufferSource(); s.buffer = buffer; s.connect(off.destination); s.start();
+  const sig = (await off.startRendering()).getChannelData(0);
+  $('status').textContent = 'Beat This: Spektrum …';
+  await new Promise(r => setTimeout(r, 30));
+  const {beat, down} = await bt.predict(ort, session, bt.logMel(sig), p => { $('status').textContent = 'Beat This: ' + Math.round(p * 100) + ' % …'; });
+  return btWhole = Object.assign({buffer}, bt.beatsFromLogits(beat, down));
+}
+
 async function analyze(i, sec){
   const d = danceOf(sec), t0 = performance.now();
+  if(i === 3){
+    const w = await beatThisWhole(), inSec = t => t >= sec.start && t < sec.end;
+    const beats = w.beats.filter(inSec), downbeats = w.downbeats.filter(inSec);
+    const per = median(ibis(downbeats).map((_, k) => beats.filter(t => t >= downbeats[k] - 0.01 && t < downbeats[k + 1] - 0.01).length));
+    return {start: sec.start, end: sec.end, bpm: beats.length > 1 ? 60 / median(ibis(beats)) : 0, beats, downbeats, per, ms: performance.now() - t0};
+  }
   const range = d ? {minTempo: Math.round(d.lo * 0.9), maxTempo: Math.round(d.hi * 1.1)} : {minTempo: 60, maxTempo: 210};
   const L = await lib(i);
   let bpm, beats = [];
@@ -221,7 +251,7 @@ async function analyze(i, sec){
 $('run').addEventListener('click', async () => {
   const on = Array.from(document.querySelectorAll('.libOn')).filter(c => c.checked).map(c => +c.value);
   $('run').disabled = true;
-  results = [[], [], []];
+  results = [[], [], [], []];
   const secs = sections();
   for(const i of on){
     for(const [k, sec] of secs.entries()){
@@ -248,12 +278,13 @@ function renderTable(){
     const nm = names[sec.start.toFixed(2)];
     let html = '<td>' + (k + 1) + '</td><td class="num">' + fmt(sec.start) + ' – ' + fmt(sec.end) + (nm ? '<br>' + nm.replace(/[<&]/g, '') : '') + '</td><td><select data-start="' + sec.start.toFixed(2) + '">' +
       Object.keys(DANCES).map(key => '<option value="' + key + '"' + ((dances[sec.start.toFixed(2)] || '') === key ? ' selected' : '') + '>' + (DANCES[key] ? DANCES[key].name : '– Tanz –') + '</option>').join('') + '</select></td>';
-    for(let i = 0; i < 3; i++){
+    for(let i = 0; i < 4; i++){
       const r = results[i].find(x => Math.abs(x.start - sec.start) < 0.01);
       if(!r){ html += '<td></td>'; continue; }
       if(r.err){ html += '<td class="lib' + i + '">Fehler: ' + r.err + '</td>'; continue; }
       const f = fold(r.bpm, d), jit = ibis(r.beats).map(x => Math.abs(x - median(ibis(r.beats))) * 1000);
       html += '<td class="num lib' + i + '">' + r.bpm.toFixed(1) + (d ? ' → <b>' + (f / d.per).toFixed(1) + ' T/min</b>' + (f / d.per < d.lo / d.per - 1 || f / d.per > d.hi / d.per + 1 ? ' ⚠' : '') : '') +
+        (r.per ? '<br>' + r.per + '/Takt' + (d && r.per !== d.per ? ' ⚠' : '') : '') +
         '<br>± ' + Math.round(median(jit)) + ' ms · ' + (r.ms / 1000).toFixed(1) + ' s</td>';
     }
     html += '<td>' + (k > 0 ? '<button data-cut="' + (k - 1) + '" title="Grenze davor entfernen">×</button>' : '') + '</td>';
@@ -265,14 +296,14 @@ $('sections').addEventListener('change', e => { if(e.target.dataset.start){ danc
 $('sections').addEventListener('click', e => {
   if(e.target.dataset.cut === undefined) return;
   cuts.splice(+e.target.dataset.cut, 1);
-  results = [[], [], []];
+  results = [[], [], [], []];
   renderTable();
 });
 function addCut(){
   const t = Math.round(pos() * 10) / 10;
   if(t <= 0.5 || t >= buffer.duration - 0.5 || cuts.some(c => Math.abs(c - t) < 1)) return;
   cuts.push(t); cuts.sort((a, b) => a - b);
-  results = [[], [], []];
+  results = [[], [], [], []];
   renderTable();
 }
 $('cut').addEventListener('click', addCut);
@@ -307,8 +338,9 @@ setInterval(() => {
   const until = pos() + 0.25, vol = +$('clickVol').value;
   results[i].forEach(r => r.beats.forEach(t => {
     if(t < scheduledUntil || t >= until) return;
+    const one = r.downbeats && r.downbeats.includes(t); // Beat This: die „1“ höher und lauter
     const when = startCtx + (t - startPos), o = ctx.createOscillator(), g = ctx.createGain();
-    o.frequency.value = 1600; g.gain.setValueAtTime(vol, when); g.gain.exponentialRampToValueAtTime(0.001, when + 0.05);
+    o.frequency.value = one ? 2400 : 1600; g.gain.setValueAtTime(one ? vol : vol * (r.downbeats ? 0.6 : 1), when); g.gain.exponentialRampToValueAtTime(0.001, when + 0.05);
     o.connect(g); g.connect(ctx.destination); o.start(when); o.stop(when + 0.06);
   }));
   scheduledUntil = until;
@@ -326,9 +358,13 @@ function drawWave(g, w, h, t0, t1, top, hh){
   }
 }
 function drawBeats(g, w, t0, t1, top, rowH){
-  for(let i = 0; i < 3; i++){
+  for(let i = 0; i < 4; i++){
     g.fillStyle = css('--c' + i);
-    results[i].forEach(r => r.beats.forEach(t => { if(t >= t0 && t <= t1) g.fillRect((t - t0) / (t1 - t0) * w, top + i * rowH + 2, Math.max(1, devicePixelRatio), rowH - 4); }));
+    results[i].forEach(r => r.beats.forEach(t => {
+      if(t < t0 || t > t1) return;
+      const one = r.downbeats && r.downbeats.includes(t), short = r.downbeats && !one; // Beat This: die „1“ voll, sonst halb
+      g.fillRect((t - t0) / (t1 - t0) * w, top + i * rowH + (short ? rowH / 2 : 2), Math.max(1, devicePixelRatio) * (one ? 2 : 1), short ? rowH / 2 - 2 : rowH - 4);
+    }));
   }
 }
 function drawMarks(g, w, h, t0, t1){
@@ -349,7 +385,7 @@ function frame(){
   const y = b => h - (Math.min(240, Math.max(40, b)) - 40) / 200 * h;
   g.fillStyle = css('--line');
   [60, 100, 140, 180, 220].forEach(b => { g.fillRect(0, y(b), w, 1); g.fillText(b, 2, y(b) - 2); });
-  for(let i = 0; i < 3; i++){
+  for(let i = 0; i < 4; i++){
     g.fillStyle = css('--c' + i);
     results[i].forEach(r => { for(let k = 1; k < r.beats.length; k++){ const t = (r.beats[k] + r.beats[k - 1]) / 2; g.fillRect(t / D * w, y(60 / (r.beats[k] - r.beats[k - 1])) - 1, 2, 2 * devicePixelRatio); } });
   }
