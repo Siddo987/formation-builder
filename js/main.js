@@ -124,9 +124,36 @@
     }
   }
 
+  // Chrome jumps in a VBR MP3 by the file's coarse seek table, up to 2 s off the sound played
+  // straight through — marks set after a jump didn't fit playback from the start (#2093). Fed
+  // through a MediaSource the browser counts the frames itself, so every jump lands exactly; it
+  // holds the compressed file, not a decoded copy. The duration only arrives with endOfStream(),
+  // hence 'durationchange' rather than 'loadedmetadata' wherever the length is needed.
+  // Whatever MSE can't take (no audio/mpeg support, a mislabelled file) plays the plain file as before.
+  // The same song isn't loaded again on every fullRerender: that left the length unknown for a moment.
+  var songSourceUrl = null, appliedSongUrl = null;
   function applySongSource(){
-    if(state.song && state.song.url){
-      songAudioEl.src = state.song.url;
+    var song = state.song;
+    if(song && song.url && song.url === appliedSongUrl){ applyTempo(); updateSyncBadge(); return; }
+    appliedSongUrl = song && song.url;
+    if(songSourceUrl){ URL.revokeObjectURL(songSourceUrl); songSourceUrl = null; }
+    if(song && song.blob && /mpeg|mp3/i.test(song.mime + ' ' + song.name) && window.MediaSource && MediaSource.isTypeSupported('audio/mpeg')){
+      var ms = new MediaSource(), url = songSourceUrl = URL.createObjectURL(ms);
+      var plain = function(){ if(songSourceUrl === url) songAudioEl.src = song.url; };
+      songAudioEl.src = url;
+      ms.addEventListener('sourceopen', function(){
+        song.blob.arrayBuffer().then(function(buf){
+          var sb = ms.addSourceBuffer('audio/mpeg');
+          sb.addEventListener('error', plain);
+          sb.addEventListener('updateend', function(){
+            if(!sb.buffered.length) plain(); // not an MP3 after all
+            else if(ms.readyState === 'open') ms.endOfStream();
+          });
+          sb.appendBuffer(buf);
+        }).catch(plain);
+      }, {once:true});
+    }else if(song && song.url){
+      songAudioEl.src = song.url;
     }else{
       songAudioEl.removeAttribute('src');
       songAudioEl.pause();

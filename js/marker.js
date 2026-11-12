@@ -373,7 +373,7 @@
 
   songAudioEl.addEventListener('timeupdate', updateMarkerPlayheadUI);
   songAudioEl.addEventListener('play', function(){ requestAnimationFrame(markerPlayFrame); });
-  songAudioEl.addEventListener('loadedmetadata', function(){
+  songAudioEl.addEventListener('durationchange', function(){
     if(state.song && state.song.blob !== markerZoomSong){ markerSpan = null; markerZoomSong = state.song.blob; } // another song
     updateMarkerPlayheadUI();
     renderMarkerTimeline();

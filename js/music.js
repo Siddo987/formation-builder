@@ -258,7 +258,7 @@
     cancelAnimationFrame(musicRafId);
     updateMusicUI();
   });
-  songAudioEl.addEventListener('loadedmetadata', function(){ if(!musicBackdrop.hidden){ renderMusicTimeline(); updateMusicPlayhead(); } });
+  songAudioEl.addEventListener('durationchange', function(){ if(!musicBackdrop.hidden){ renderMusicTimeline(); updateMusicPlayhead(); } });
   // applySongSource() (js/main.js) sets or clears src whenever the project's song changes.
   songAudioEl.addEventListener('loadstart', updateMusicOnlyBtnVisibility);
   songAudioEl.addEventListener('emptied', updateMusicOnlyBtnVisibility);

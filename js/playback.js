@@ -509,4 +509,4 @@
       finish();
     });
   })();
-  songAudioEl.addEventListener('loadedmetadata', function(){ if(!playing && !pausedAt) updateProgress(idleTimelinePct()); });
+  songAudioEl.addEventListener('durationchange', function(){ if(!playing && !pausedAt) updateProgress(idleTimelinePct()); });
