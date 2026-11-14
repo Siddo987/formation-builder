@@ -1370,6 +1370,7 @@
     saveState();
     renderFilmstrip();
     if(wasActive){ positionMarkers(currentFormation().pos); refreshRosterCoords(); resetLayoutGhost(); }
+    else renderOnionSkin(); // the active Bild's neighbours may have changed
     updatePlaybarInfo();
     updatePlayButton();
   }
@@ -1401,4 +1402,5 @@
     if(activeId) state.activeIndex = state.formations.findIndex(function(f){ return f.id === activeId; });
     saveState();
     renderFilmstrip();
+    renderOnionSkin(); // reordering changes the active Bild's neighbours
   }
