@@ -246,7 +246,7 @@
     if(path === 'meta/tempo') return 'Tempo: ' + before + ' → ' + after;
     if(path === 'meta/showAxes') return after ? 'Achsen global eingeblendet' : 'Achsen global ausgeblendet';
     if(path === 'meta/showFacing') return after ? 'Blickrichtungen eingeblendet' : 'Blickrichtungen ausgeblendet';
-    if(path === 'meta/beats') return after ? after.length + ' Schläge im Lied erkannt' : 'Schläge entfernt';
+    if(path === 'meta/beats') return !after ? 'Schläge entfernt' : before && before.length === after.length ? 'Schläge verschoben' : after.length + ' Schläge im Lied erkannt'; // same count: moved (#2147)
     if(path === 'meta/stage') return 'Bühnengröße: ' + (before ? before.w + ' × ' + before.d : '14 × 14') + ' m → ' + after.w + ' × ' + after.d + ' m';
     if(parts[0] === 'room') return 'Bühnenrand ' + parts[1] + ': „' + (before || '') + '“ → „' + (after || '') + '“';
     if(path === 'order/dancers') return 'Tänzer-Reihenfolge geändert';

@@ -83,6 +83,11 @@
 .modal .marker-nudge-btn{width:26px;height:28px;padding:0;justify-content:center;font-size:.9rem;font-weight:700;}
 .modal .marker-toggle-btn{height:28px;padding:0 .5rem;font-size:.72rem;}
 .marker-timeline-beats{position:absolute;inset:0;width:100%;height:100%;color:var(--ink-3);opacity:.35;pointer-events:none;}
+/* "Schläge verschieben" (#2147): ticks stand out, and a sideways finger drag goes to them, not the page. */
+.marker-timeline--beat-move{touch-action:pan-y;user-select:none;-webkit-user-select:none;}
+.marker-timeline--beat-move .marker-timeline-beats{color:var(--accent);opacity:.9;}
+.beat-move{display:inline-flex;gap:3px;}
+.beat-move-label{font-size:.8rem;color:var(--ink-2);}
 #markerSongArea:not([hidden]){display:flex;flex-direction:column;gap:1.1rem;}
 .beat-summary{display:flex;flex-direction:column;gap:.2rem;font-size:.78rem;font-variant-numeric:tabular-nums;}
 .beat-summary-row--warn{color:var(--danger);font-weight:600;}

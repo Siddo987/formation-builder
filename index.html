@@ -379,12 +379,21 @@ if ('serviceWorker' in navigator) {
             </div>
             <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
           </div>
+          <div class="settings-row" id="beatMoveRow" hidden>
+            <span class="beat-move-label" id="beatMoveLabel">Schläge verschieben</span>
+            <span class="beat-move" role="group" aria-labelledby="beatMoveLabel">
+              <button class="btn-ghost marker-toggle-btn" type="button" data-move="" aria-pressed="true">Aus</button>
+              <button class="btn-ghost marker-toggle-btn" type="button" data-move="one" aria-pressed="false">Einzeln</button>
+              <button class="btn-ghost marker-toggle-btn" type="button" data-move="section" aria-pressed="false">Ganzer Abschnitt</button>
+            </span>
+          </div>
           <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder Strg + Mausrad) zoomen, seitlich wischen verschiebt. Bei jeder Marke rückt − / + sie um 0,01 s.</p>
         </section>
 
         <section class="settings-section">
           <h3>Schläge</h3>
           <p class="settings-hint">Erkennt die Schläge im Lied, je Abschnitt im Tempo seines Tanzes (steht im Abschnittsnamen, z.&nbsp;B. „Rumba“). „Jetzt“ setzt Marken dann genau auf einen Schlag, und „Klicks“ neben dem Abspielknopf klickt beim Vorhören jeden Schlag mit. Die Taktanfänge („die 1“) erkennt es nicht. Das Lied verlässt dabei nicht dieses Gerät.</p>
+          <p class="settings-hint">Sitzen Schläge daneben, unter der Zeitleiste „Schläge verschieben“ wählen und einen Strich ziehen: „Einzeln“ rückt nur diesen Schlag (dafür hineinzoomen, bis die Striche auseinanderliegen), „Ganzer Abschnitt“ alle Schläge seines Abschnitts. Antippen springt weiter an die Stelle.</p>
           <div class="settings-row">
             <button class="btn-ghost" id="beatDetectBtn" type="button">Schläge erkennen</button>
             <button class="btn-ghost" id="beatSnapAllBtn" type="button" hidden>Alle Marken auf Schläge rücken</button>

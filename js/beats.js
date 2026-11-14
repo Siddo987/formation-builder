@@ -15,6 +15,8 @@
   var beatStatusEl = document.getElementById('beatStatus');
   var beatSummaryEl = document.getElementById('beatSummary');
   var beatCanvas = document.getElementById('markerTimelineBeats');
+  var beatMoveRow = document.getElementById('beatMoveRow');
+  var beatMoveBtns = Array.prototype.slice.call(beatMoveRow.querySelectorAll('button'));
   var BEATS_WORKER_URL = document.currentScript.src.replace('beats.js', 'beats-worker.js'); // same ?v=
   var BEAT_SNAP_KEY = 'aufstellung-beat-snap', BEAT_CLICK_KEY = 'aufstellung-beat-click';
   var BEAT_SNAP_MAX = 0.3; // s — further from any beat (a pause in the music) a time stays as it is
@@ -128,6 +130,9 @@
     beatClickBtn.setAttribute('aria-pressed', beatClickOn ? 'true' : 'false');
     beatClickBtn.title = beats ? 'Beim Vorhören jeden Schlag mitklicken' : 'Erst unten bei „Schläge“ die Schläge erkennen';
     syncBeatClicks(); // beats found or removed while the song plays
+    beatMoveRow.hidden = !beats;
+    beatMoveBtns.forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.move === beatMoveMode ? 'true' : 'false'); });
+    markerTimelineEl.classList.toggle('marker-timeline--beat-move', !!(beats && beatMoveMode));
     beatSummaryEl.innerHTML = '';
     if(beats && isFinite(dur) && dur > 0) beatSections(dur).forEach(function(sec){
       var gaps = [];
@@ -164,6 +169,67 @@
       if(t >= v.t0 && t <= v.t1) g.fillRect(Math.round((t - v.t0) / (v.t1 - v.t0) * beatCanvas.width), 0, Math.max(1, dpr), beatCanvas.height);
     });
   }
+
+  /* Moving beats that detection got wrong (#2147). With "Schläge verschieben" on, dragging a tick moves
+     that beat ("Einzeln") or every beat of its Abschnitt ("Ganzer Abschnitt"), never past the beats
+     beside them. A tap or a click beside the ticks still seeks; off (the default) nothing changes. */
+  var beatMoveMode = '', beatDrag = null, beatDragged = false;
+  var BEAT_GAP = 0.08; // s — the closest two beats get, as detection keeps them
+  // The index of the beat under clientX (a finger reaches further than the mouse), or -1.
+  function beatIndexAt(clientX, pointerType){
+    var v = markerView(), reach = (pointerType === 'mouse' ? 6 : 16) / markerTimelineEl.clientWidth * (v.t1 - v.t0);
+    var t = nearestBeat(markerTimeAt(clientX), reach); // markerTimeAt(): js/marker.js
+    return t === null ? -1 : state.beats.indexOf(t);
+  }
+  markerTimelineEl.addEventListener('pointerdown', function(e){
+    beatDragged = false;
+    if(!beatMoveMode || !state.beats || e.button !== 0 || beatDrag) return;
+    var i = beatIndexAt(e.clientX, e.pointerType);
+    if(i < 0) return;
+    var b = state.beats, dur = songDur(), lo = i, hi = i, sec = null, v = markerView();
+    if(beatMoveMode === 'section'){
+      sec = beatSections(dur).filter(function(s){ return s.start <= b[i]; }).pop();
+      while(lo > 0 && b[lo - 1] >= sec.start) lo--;
+      while(hi < b.length - 1 && b[hi + 1] < sec.end) hi++;
+    }
+    beatDrag = {id: e.pointerId, x: e.clientX, orig: b, lo: lo, hi: hi, sec: sec, shift: 0,
+      perPx: (v.t1 - v.t0) / markerTimelineEl.clientWidth,
+      min: Math.min(0, (lo > 0 ? b[lo - 1] + BEAT_GAP : 0) - b[lo]),
+      max: Math.max(0, (hi < b.length - 1 ? b[hi + 1] - BEAT_GAP : dur) - b[hi])};
+    markerTimelineEl.setPointerCapture(e.pointerId);
+    e.preventDefault(); // no text selection; the click after a tap still comes
+  });
+  markerTimelineEl.addEventListener('pointermove', function(e){
+    var d = beatDrag;
+    if(!d){ // the mouse shows where a tick can be grabbed
+      if(e.pointerType === 'mouse') markerTimelineEl.style.cursor = beatMoveMode && state.beats && beatIndexAt(e.clientX, 'mouse') >= 0 ? 'ew-resize' : '';
+      return;
+    }
+    if(e.pointerId !== d.id || (!beatDragged && Math.abs(e.clientX - d.x) < 4)) return; // a shaky tap stays a tap
+    beatDragged = true;
+    d.shift = Math.min(d.max, Math.max(d.min, (e.clientX - d.x) * d.perPx));
+    state.beats = d.orig.map(function(t, k){ return k >= d.lo && k <= d.hi ? t + d.shift : t; });
+    drawBeatTicks();
+  });
+  function endBeatDrag(e){
+    var d = beatDrag;
+    if(!d || e.pointerId !== d.id) return;
+    beatDrag = null;
+    if(!beatDragged || e.type === 'pointercancel'){ beatDragged = false; state.beats = d.orig; drawBeatTicks(); return; }
+    state.beats = sanitizeBeats(state.beats);
+    saveState();
+    renderBeats();
+    var n = d.hi - d.lo + 1;
+    beatStatusEl.textContent = (d.sec ? n + (n === 1 ? ' Schlag' : ' Schläge') + ' von „' + (d.sec.name || 'Anfang') + '“' : 'Schlag bei ' + formatTime(d.orig[d.lo], 2))
+      + ' um ' + (d.shift < 0 ? '−' : '+') + Math.abs(d.shift).toFixed(2).replace('.', ',') + ' s verschoben.';
+  }
+  markerTimelineEl.addEventListener('pointerup', endBeatDrag);
+  markerTimelineEl.addEventListener('pointercancel', endBeatDrag);
+  // A finished drag is no click into the timeline (js/marker.js seeks on click).
+  markerTimelineEl.addEventListener('click', function(e){ if(beatDragged){ beatDragged = false; e.stopImmediatePropagation(); } }, true);
+  beatMoveBtns.forEach(function(btn){
+    btn.addEventListener('click', function(){ beatMoveMode = btn.dataset.move; renderBeats(); });
+  });
 
   // Moves every Bild mark onto its nearest beat (marks in a pause of the music stay).
   function snapAllMarks(){
