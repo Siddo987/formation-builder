@@ -11,7 +11,7 @@
   var beatSnapAllBtn = document.getElementById('beatSnapAllBtn');
   var beatClearBtn = document.getElementById('beatClearBtn');
   var beatSnapToggle = document.getElementById('beatSnapToggle');
-  var beatClickToggle = document.getElementById('beatClickToggle');
+  var beatClickBtn = document.getElementById('beatClickBtn');
   var beatStatusEl = document.getElementById('beatStatus');
   var beatSummaryEl = document.getElementById('beatSummary');
   var beatCanvas = document.getElementById('markerTimelineBeats');
@@ -30,13 +30,12 @@
     return BEAT_DANCES.filter(function(d){ return n.indexOf(d.word) !== -1; })[0] || null;
   }
 
+  var beatClickOn = false; // "Klicks" in the Vorhören row (#2146), kept under BEAT_CLICK_KEY
   try{
     beatSnapToggle.checked = localStorage.getItem(BEAT_SNAP_KEY) !== '0';
-    beatClickToggle.checked = localStorage.getItem(BEAT_CLICK_KEY) === '1';
+    beatClickOn = localStorage.getItem(BEAT_CLICK_KEY) === '1';
   }catch(e){}
-  [[beatSnapToggle, BEAT_SNAP_KEY], [beatClickToggle, BEAT_CLICK_KEY]].forEach(function(t){
-    t[0].addEventListener('change', function(){ try{ localStorage.setItem(t[1], t[0].checked ? '1' : '0'); }catch(e){} });
-  });
+  beatSnapToggle.addEventListener('change', function(){ try{ localStorage.setItem(BEAT_SNAP_KEY, beatSnapToggle.checked ? '1' : '0'); }catch(e){} });
 
   // The beat nearest to t (s) within maxDist, or null.
   function nearestBeat(t, maxDist){
@@ -125,6 +124,10 @@
     var beats = state.beats, dur = songAudioEl.duration;
     beatSnapAllBtn.hidden = beatClearBtn.hidden = !beats;
     beatDetectBtn.textContent = beats ? 'Neu erkennen' : 'Schläge erkennen';
+    beatClickBtn.disabled = !beats;
+    beatClickBtn.setAttribute('aria-pressed', beatClickOn ? 'true' : 'false');
+    beatClickBtn.title = beats ? 'Beim Vorhören jeden Schlag mitklicken' : 'Erst unten bei „Schläge“ die Schläge erkennen';
+    syncBeatClicks(); // beats found or removed while the song plays
     beatSummaryEl.innerHTML = '';
     if(beats && isFinite(dur) && dur > 0) beatSections(dur).forEach(function(sec){
       var gaps = [];
@@ -187,16 +190,26 @@
     });
     clickedUntil = until;
   }
-  songAudioEl.addEventListener('play', function(){
-    if(!beatClickToggle.checked || markerBackdrop.hidden || !state.beats) return;
+  // Starts or stops the clicks to match the toggle, the beats and playback — also mid-song.
+  function syncBeatClicks(){
+    var run = beatClickOn && !!state.beats && !markerBackdrop.hidden && !songAudioEl.paused;
+    if(run === !!clickTimer) return;
+    clearInterval(clickTimer);
+    clickTimer = null;
+    if(!run) return;
     clickCtx = clickCtx || new (window.AudioContext || window.webkitAudioContext)();
     clickCtx.resume();
     clickedUntil = songAudioEl.currentTime - 0.01;
-    clearInterval(clickTimer);
     clickTimer = setInterval(clickTick, 40);
-  });
+  }
+  ['play', 'pause', 'ended'].forEach(function(t){ songAudioEl.addEventListener(t, syncBeatClicks); });
   songAudioEl.addEventListener('seeking', function(){ clickedUntil = songAudioEl.currentTime - 0.01; });
-  ['pause', 'ended'].forEach(function(t){ songAudioEl.addEventListener(t, function(){ clearInterval(clickTimer); clickTimer = null; }); });
+  beatClickBtn.addEventListener('click', function(){
+    beatClickOn = !beatClickOn;
+    try{ localStorage.setItem(BEAT_CLICK_KEY, beatClickOn ? '1' : '0'); }catch(e){}
+    beatClickBtn.setAttribute('aria-pressed', beatClickOn ? 'true' : 'false');
+    syncBeatClicks();
+  });
 
   beatDetectBtn.addEventListener('click', detectBeats);
   beatSnapAllBtn.addEventListener('click', snapAllMarks);

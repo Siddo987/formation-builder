@@ -81,6 +81,7 @@
 .marker-timeline-wave{position:absolute;inset:0;width:100%;height:100%;color:var(--ink-3);opacity:.45;pointer-events:none;}
 .marker-zoom{display:inline-flex;gap:3px;margin-left:auto;}
 .modal .marker-nudge-btn{width:26px;height:28px;padding:0;justify-content:center;font-size:.9rem;font-weight:700;}
+.modal .marker-toggle-btn{height:28px;padding:0 .5rem;font-size:.72rem;}
 .marker-timeline-beats{position:absolute;inset:0;width:100%;height:100%;color:var(--ink-3);opacity:.35;pointer-events:none;}
 #markerSongArea:not([hidden]){display:flex;flex-direction:column;gap:1.1rem;}
 .beat-summary{display:flex;flex-direction:column;gap:.2rem;font-size:.78rem;font-variant-numeric:tabular-nums;}
@@ -130,7 +131,7 @@
 .music-rate-readout{flex:none;display:flex;align-items:center;gap:.25rem;}
 /* 4ch Text + .6rem Padding je Seite + Rahmen + Cursor, sonst wird „1,00“ abgeschnitten. */
 .modal .music-rate-input{width:calc(4ch + 1.2rem + 4px);font-family:var(--font-mono);text-align:right;font-variant-numeric:tabular-nums;}
-.modal .music-only-btn.active{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-ink);}
+.modal .music-only-btn.active,.modal .marker-toggle-btn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-ink);}
 
 /* Vorlagen / Figuren */
 .figures-list{display:flex;flex-direction:column;gap:.3rem;}
