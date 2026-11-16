@@ -156,6 +156,8 @@
     };
     var beats = sanitizeBeats(s.beats);
     if(beats) header.beats = beats; // only when there are any, so older snapshots stay comparable
+    var bars = sanitizeBars(s.bars, beats);
+    if(bars) header.bars = bars;
     return header;
   }
 
@@ -267,6 +269,7 @@
       },
       stage: sanitizeStage(header.stage),
       beats: sanitizeBeats(header.beats),
+      bars: sanitizeBars(header.bars, sanitizeBeats(header.beats)),
       pairs: pairs,
       customFigures: customFigures,
       activeIndex: typeof header.activeIndex === 'number' ? header.activeIndex : 0,

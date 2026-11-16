@@ -1102,6 +1102,7 @@ function describeConflictValue(path, val){
   if(path.indexOf('/pos/') !== -1) return '(' + val.x + ', ' + val.y + ')' + (val.rot ? ' · ' + val.rot + '°' : '');
   if(path === 'meta/tempo') return 'Tempo ' + val;
   if(path === 'meta/beats') return val ? val.length + ' Schläge' : 'keine Schläge';
+  if(path === 'meta/bars') return val ? val.length + ' Taktanfänge' : 'keine Taktanfänge';
   if(typeof val === 'object' && val.name !== undefined) return '„' + val.name + '“';
   if(typeof val === 'object') return JSON.stringify(val);
   return String(val);
@@ -1170,6 +1171,7 @@ function reconstructSharedState(payload){
     },
     stage: sanitizeStage(payload.stage),
     beats: sanitizeBeats(payload.beats),
+    bars: sanitizeBars(payload.bars, sanitizeBeats(payload.beats)),
     pairs: (Array.isArray(payload.pairs) ? payload.pairs : []).map(function(p){
       return {id:p.id, memberIds:p.memberIds, name:p.name||'', collapsed:!!p.collapsed};
     }),

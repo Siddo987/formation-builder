@@ -32,6 +32,21 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       .sort(function(a, b){ return a - b; }).slice(0, 20000);
     return out.length ? out : null;
   }
+  // Taktanfänge ("die 1", #2096): [{t}] in song order, t one of the beats. Kept as times, not beat
+  // indices, so a 3-way merge or a deleted beat can't shift them onto the wrong beat: one whose
+  // beat is gone is dropped. Moving beats moves them along (js/beats.js).
+  function sanitizeBars(v, beats){
+    if(!Array.isArray(v) || !beats) return null;
+    var onBeat = new Set(beats), seen = new Set(), out = [];
+    v.forEach(function(b){
+      var t = b && typeof b.t === 'number' && isFinite(b.t) ? Math.round(b.t * 1000) / 1000 : null;
+      if(t === null || !onBeat.has(t) || seen.has(t)) return;
+      seen.add(t);
+      out.push({t: t});
+    });
+    out.sort(function(a, b){ return a.t - b.t; });
+    return out.length ? out : null;
+  }
   function stageSize(){ return (state && state.stage) || {w: STAGE_DEFAULT, d: STAGE_DEFAULT}; }
   function stageMargin(){ var s = stageSize(); return Math.max(s.w, s.d) * GRID_INSET / (100 - 2 * GRID_INSET); }
   // Width : height of the stage with its floor margin — the stage element, thumbnails, PDF and video.
@@ -496,6 +511,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       roomLabels: {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'},
       stage: sanitizeStage(null),
       beats: null,
+      bars: null,
       pairs: [],
       customFigures: [],
       logo: null,
@@ -561,6 +577,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(!Array.isArray(parsed.axes)) parsed.axes = [];
       parsed.stage = sanitizeStage(parsed.stage);
       parsed.beats = sanitizeBeats(parsed.beats);
+      parsed.bars = sanitizeBars(parsed.bars, parsed.beats);
       if(typeof parsed.showAxes !== 'boolean') parsed.showAxes = true;
       if(typeof parsed.showFacing !== 'boolean'){
         parsed.showFacing = true;
@@ -657,6 +674,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         roomLabels: state.roomLabels,
         stage: state.stage,
         beats: state.beats,
+        bars: state.bars,
         pairs: state.pairs,
         customFigures: state.customFigures,
         activeIndex: state.activeIndex,

@@ -36,6 +36,7 @@
     m.set('meta/showFacing', s.showFacing !== false);
     m.set('meta/stage', sanitizeStage(s.stage));
     m.set('meta/beats', sanitizeBeats(s.beats));
+    m.set('meta/bars', sanitizeBars(s.bars, sanitizeBeats(s.beats)));
     var rl = s.roomLabels || {};
     ['top','right','bottom','left'].forEach(function(side){ m.set('room/' + side, rl[side] || ''); });
 
@@ -182,6 +183,7 @@
       roomLabels: rl,
       stage: sanitizeStage(get('meta/stage', null)),
       beats: sanitizeBeats(get('meta/beats', null)),
+      bars: sanitizeBars(get('meta/bars', null), sanitizeBeats(get('meta/beats', null))), // a merge can pair bars with other beats
       pairs: pairs,
       customFigures: customFigures,
       activeIndex: 0,
@@ -246,7 +248,8 @@
     if(path === 'meta/tempo') return 'Tempo: ' + before + ' → ' + after;
     if(path === 'meta/showAxes') return after ? 'Achsen global eingeblendet' : 'Achsen global ausgeblendet';
     if(path === 'meta/showFacing') return after ? 'Blickrichtungen eingeblendet' : 'Blickrichtungen ausgeblendet';
-    if(path === 'meta/beats') return !after ? 'Schläge entfernt' : before && before.length === after.length ? 'Schläge verschoben' : after.length + ' Schläge im Lied erkannt'; // same count: moved (#2147)
+    if(path === 'meta/beats') return !after ? 'Schläge entfernt' : !before ? after.length + ' Schläge im Lied' : before.length === after.length ? 'Schläge verschoben' : 'Schläge: ' + before.length + ' → ' + after.length; // same count: moved (#2147)
+    if(path === 'meta/bars') return !after ? 'Taktanfänge entfernt' : before && before.length === after.length ? 'Taktanfänge verschoben' : 'Taktanfänge: ' + (before ? before.length : 0) + ' → ' + after.length;
     if(path === 'meta/stage') return 'Bühnengröße: ' + (before ? before.w + ' × ' + before.d : '14 × 14') + ' m → ' + after.w + ' × ' + after.d + ' m';
     if(parts[0] === 'room') return 'Bühnenrand ' + parts[1] + ': „' + (before || '') + '“ → „' + (after || '') + '“';
     if(path === 'order/dancers') return 'Tänzer-Reihenfolge geändert';
