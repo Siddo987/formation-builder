@@ -249,6 +249,7 @@
     if(path === 'meta/showAxes') return after ? 'Achsen global eingeblendet' : 'Achsen global ausgeblendet';
     if(path === 'meta/showFacing') return after ? 'Blickrichtungen eingeblendet' : 'Blickrichtungen ausgeblendet';
     if(path === 'meta/beats') return !after ? 'Schläge entfernt' : !before ? after.length + ' Schläge im Lied' : before.length === after.length ? 'Schläge verschoben' : 'Schläge: ' + before.length + ' → ' + after.length; // same count: moved (#2147)
+    if(path === 'meta/bars' && before && after && hEq(before.map(function(b){ return b.t; }), after.map(function(b){ return b.t; }))) return 'Phrasierung geändert';
     if(path === 'meta/bars') return !after ? 'Taktanfänge entfernt' : before && before.length === after.length ? 'Taktanfänge verschoben' : 'Taktanfänge: ' + (before ? before.length : 0) + ' → ' + after.length;
     if(path === 'meta/stage') return 'Bühnengröße: ' + (before ? before.w + ' × ' + before.d : '14 × 14') + ' m → ' + after.w + ' × ' + after.d + ' m';
     if(parts[0] === 'room') return 'Bühnenrand ' + parts[1] + ': „' + (before || '') + '“ → „' + (after || '') + '“';

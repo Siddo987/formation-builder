@@ -34,6 +34,7 @@
     playScrubEl.setAttribute('aria-valuetext', isSyncActive() && dur
       ? formatTime(pct/100*dur) + ' von ' + formatTime(dur)
       : 'Bild ' + (state.activeIndex+1) + ' von ' + state.formations.length);
+    if(typeof updatePlaybarBar === 'function') updatePlaybarBar(); // the bar being heard (js/beats.js)
   }
   function songDurationSec(){
     var d = songAudioEl.duration;

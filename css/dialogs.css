@@ -104,6 +104,20 @@
 .modal .beat-fill .coord-input{width:3.2rem;text-align:center;}
 .beat-fill{font-size:.8rem;color:var(--ink-2);}
 .beat-fill-per{display:inline-flex;align-items:center;gap:.35rem;}
+/* Takte & Phrasierung (#2096): folding groups per Abschnitt, one compact row per bar. */
+.bar-list{position:relative;display:flex;flex-direction:column;gap:.3rem;max-height:320px;overflow-y:auto;}
+.bar-group summary{padding:.3rem .2rem;font-size:.78rem;font-weight:700;color:var(--ink-2);cursor:pointer;}
+.bar-row{display:flex;align-items:center;gap:.4rem;padding:.2rem .45rem;margin-bottom:.2rem;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;}
+.bar-row--current{box-shadow:inset 3px 0 0 var(--pair);border-color:var(--pair);}
+.bar-num{flex:none;min-width:2ch;font-family:var(--font-mono);font-size:.72rem;font-weight:700;text-align:right;color:var(--ink-2);}
+.modal .bar-time{flex:none;height:26px;padding:0 .4rem;font-family:var(--font-mono);font-size:.72rem;font-weight:500;}
+.modal .bar-phrase{flex:1;min-width:0;height:28px;font-family:var(--font-mono);font-size:.8rem;}
+.modal .bar-fill-btn{flex:none;height:26px;padding:0 .45rem;font-size:.7rem;visibility:hidden;}
+.modal .bar-row--edit .bar-fill-btn{visibility:visible;}
+@media (max-width:899.98px){
+  .modal .bar-phrase{height:36px;}
+  .modal .bar-time,.modal .bar-fill-btn{height:34px;}
+}
 #markerSongArea:not([hidden]){display:flex;flex-direction:column;gap:1.1rem;}
 .beat-summary{display:flex;flex-direction:column;gap:.2rem;font-size:.78rem;font-variant-numeric:tabular-nums;}
 .beat-summary-row--warn{color:var(--danger);font-weight:600;}

@@ -871,6 +871,16 @@ body.roster-open .roster{display:flex;}
 .tempo-input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent;background:var(--panel);color:var(--ink);}
 .music-only-btn{flex:none;font-size:.74rem;}
 .playbar .music-only-btn.active{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-ink);}
+/* Takt und Phrasierung (#2096): beside the Bild's name; on a phone, where the name is hidden, beside the timeline. */
+.playinfo:has(> .playbar-bar:not([hidden])){display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.35rem .7rem;align-items:baseline;}
+.playinfo:has(> .playbar-bar:not([hidden])) > .scrub{grid-column:1 / -1;}
+.playbar-bar{max-width:15rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono);font-size:.7rem;color:var(--ink-2);font-variant-numeric:tabular-nums;}
+.playbar-bar b{margin-left:.15rem;color:var(--ink);font-weight:700;}
+@media (max-width:899.98px) and (orientation:portrait),(max-width:599.98px){
+  .playinfo:has(> .playbar-bar:not([hidden])){grid-template-columns:minmax(0,1fr) 7.6rem;align-items:center;}
+  .playinfo:has(> .playbar-bar:not([hidden])) > .scrub{grid-column:1;grid-row:1;}
+  .playbar-bar{grid-column:2;grid-row:1;max-width:none;text-align:right;}
+}
 
 /* ---------------- Bilder ---------------- */
 .filmstrip-area{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--panel);border-right:1px solid var(--line);}

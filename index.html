@@ -214,6 +214,7 @@ if ('serviceWorker' in navigator) {
         </div>
         <div class="playinfo">
           <span class="formation-name-live" id="activeName">–</span>
+          <span class="playbar-bar" id="playbarBar" hidden></span>
           <div class="scrub" id="playScrub" role="slider" tabindex="0" aria-label="Position in der Choreo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
             <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
             <div class="scrub-ticks" id="scrubTicks" aria-hidden="true"></div>
@@ -416,6 +417,14 @@ if ('serviceWorker' in navigator) {
           <p class="settings-hint" id="beatStatus" aria-live="polite"></p>
           <div class="beat-summary" id="beatSummary"></div>
           <label class="toggle-label"><input type="checkbox" id="beatSnapToggle"> „Jetzt“ rastet auf den nächsten Schlag ein</label>
+        </section>
+
+        <section class="settings-section">
+          <h3>Takte &amp; Phrasierung</h3>
+          <p class="settings-hint" id="barEmptyHint">Erst oben die Taktanfänge („die 1“) setzen, dann steht hier jeder Takt mit einem Feld für seine Phrasierung.</p>
+          <p class="settings-hint" id="barListHint" hidden>Je Takt z.&nbsp;B. „QQS+“: Enter oder Tab springt zum nächsten Takt, Strg + Enter oder „↓ Leere“ füllt alle folgenden leeren Takte des Abschnitts damit. Klick auf die Zeit springt hin.</p>
+          <p class="settings-hint" id="barStatus" aria-live="polite"></p>
+          <div class="bar-list" id="barList"></div>
         </section>
 
         <section class="settings-section">

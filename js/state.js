@@ -32,9 +32,11 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       .sort(function(a, b){ return a - b; }).slice(0, 20000);
     return out.length ? out : null;
   }
-  // Taktanfänge ("die 1", #2096): [{t}] in song order, t one of the beats. Kept as times, not beat
-  // indices, so a 3-way merge or a deleted beat can't shift them onto the wrong beat: one whose
-  // beat is gone is dropped. Moving beats moves them along (js/beats.js).
+  // Taktanfänge ("die 1", #2096): [{t, p}] in song order, t one of the beats, p the bar's Phrasierung
+  // ("QQS+", optional). Kept as times, not beat indices, so a 3-way merge or a deleted beat can't
+  // shift them onto the wrong beat: one whose beat is gone is dropped, its Phrasierung with it.
+  // Moving beats moves them along (js/beats.js).
+  var BAR_PHRASE_MAX = 16;
   function sanitizeBars(v, beats){
     if(!Array.isArray(v) || !beats) return null;
     var onBeat = new Set(beats), seen = new Set(), out = [];
@@ -42,7 +44,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       var t = b && typeof b.t === 'number' && isFinite(b.t) ? Math.round(b.t * 1000) / 1000 : null;
       if(t === null || !onBeat.has(t) || seen.has(t)) return;
       seen.add(t);
-      out.push({t: t});
+      var p = typeof b.p === 'string' ? b.p.trim().slice(0, BAR_PHRASE_MAX) : '';
+      out.push(p ? {t: t, p: p} : {t: t});
     });
     out.sort(function(a, b){ return a.t - b.t; });
     return out.length ? out : null;

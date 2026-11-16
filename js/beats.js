@@ -194,6 +194,8 @@
     beatTapBtns.hidden = beatTool !== 'tap';
     markerTimelineEl.classList.toggle('marker-timeline--beat-move', !!beatTool);
     renderBarFill();
+    renderBarList();
+    updatePlaybarBar();
     beatSummaryEl.innerHTML = '';
     if(beats && isFinite(dur) && dur > 0) beatSections(dur).forEach(function(sec){
       var gaps = [];
@@ -350,7 +352,7 @@
      minus the Bluetooth delay, like "Jetzt" (heardSongTime, js/playback.js). Taps less than
      TAP_RUN_GAP apart form a run; the beats a run passes over make way for its taps, so a passage
      is redone by tapping it again. A run is saved (one undo step) once it ends. */
-  var TAP_RUN_GAP = 2, TAP_EDGE = 0.2; // s
+  var TAP_RUN_GAP = 2, TAP_EDGE = 0.2, BAR_CARRY = 0.3; // s
   var tapRun = null;
   function tapBeat(asBar, eventTime, btn){
     if(!songDur()) return;
@@ -363,10 +365,14 @@
     var from = run ? run.last : t - TAP_EDGE, to = t + TAP_EDGE;
     var gone = function(b){ return run ? b > from && b <= to : b >= from && b <= to; };
     var beats = state.beats || [], removed = beats.filter(gone);
-    var bars = (state.bars || []).filter(function(b){ return !gone(b.t); });
+    if(!run) run = tapRun = {first: t, n: 0, bars: 0, replaced: 0, lastBar: null, lost: []};
+    var bars = (state.bars || []).filter(function(b){ if(gone(b.t) && b.p) run.lost.push(b); return !gone(b.t); });
     beats = beats.filter(function(b){ return !gone(b); }).concat([t]).sort(function(a, b){ return a - b; });
-    if(asBar) bars = bars.concat([{t: t}]).sort(function(a, b){ return a.t - b.t; });
-    if(!run) run = tapRun = {first: t, n: 0, bars: 0, replaced: 0, lastBar: null};
+    if(asBar){
+      // A 1 tapped again close to where a replaced 1 was keeps that bar's Phrasierung.
+      var was = run.lost.filter(function(b){ return Math.abs(b.t - t) < BAR_CARRY; })[0];
+      bars = bars.concat([was ? {t: t, p: was.p} : {t: t}]).sort(function(a, b){ return a.t - b.t; });
+    }
     run.last = t; run.n++; run.replaced += removed.length;
     if(asBar){ run.bars++; run.lastBar = t; }
     state.beats = beats; // saved when the run ends
@@ -441,6 +447,188 @@
   }
   beatFillBtn.addEventListener('click', fillBars);
   beatFillPer.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); fillBars(); } });
+
+  /* Takte & Phrasierung (#2096): every bar of the song, by Abschnitt, with a field for its
+     Phrasierung — stored on the bar start (state.bars[].p), so it moves with it and goes with it. */
+  var barListEl = document.getElementById('barList');
+  var barEmptyHint = document.getElementById('barEmptyHint');
+  var barListHint = document.getElementById('barListHint');
+  var barStatusEl = document.getElementById('barStatus');
+  var barListKey = '', barRows = {}, barOpen = {}, barCurrentT = null;
+  function barByTime(t){ return (state.bars || []).filter(function(b){ return b.t === t; })[0] || null; }
+  // The index of the bar playing at song time t, or -1 before the first.
+  function barIndexAt(t){
+    var bars = state.bars || [], lo = 0, hi = bars.length;
+    while(lo < hi){ var mid = (lo + hi) >> 1; if(bars[mid].t <= t + 0.02) lo = mid + 1; else hi = mid; }
+    return lo - 1;
+  }
+  // Rebuilt only when bars or Abschnitte change, so a field being typed in stays; else values follow (undo).
+  function renderBarList(){
+    var secs = songDur() ? barSections() : [], has = secs.some(function(s){ return s.bars.length; });
+    barEmptyHint.hidden = has;
+    barListHint.hidden = !has;
+    var key = has ? JSON.stringify(secs.map(function(s){ return [s.name, s.start, s.bars.map(function(b){ return b.t; })]; })) : '';
+    if(key === barListKey){
+      Object.keys(barRows).forEach(function(t){
+        var input = barRows[t].input, b = barByTime(+t);
+        if(input !== document.activeElement && input.value !== ((b && b.p) || '')) input.value = (b && b.p) || '';
+      });
+      return;
+    }
+    barListKey = key;
+    barRows = {};
+    barCurrentT = null;
+    barListEl.innerHTML = '';
+    secs.forEach(function(sec, si){
+      if(!sec.bars.length) return;
+      var name = sec.name || 'Anfang', openKey = si + ':' + name;
+      var group = document.createElement('details');
+      group.className = 'bar-group';
+      group.open = barOpen[openKey] !== false;
+      group.addEventListener('toggle', function(){ barOpen[openKey] = group.open; });
+      var sum = document.createElement('summary');
+      sum.textContent = name + ' · ab ' + formatTime(sec.start) + ' · ' + sec.bars.length + (sec.bars.length === 1 ? ' Takt' : ' Takte');
+      group.appendChild(sum);
+      sec.bars.forEach(function(b){
+        var row = document.createElement('div');
+        row.className = 'bar-row';
+        var num = document.createElement('span');
+        num.className = 'bar-num';
+        num.textContent = b.n;
+        // Mouse and touch only: Tab goes from field to field (see the keydown below).
+        var time = document.createElement('button');
+        time.type = 'button';
+        time.className = 'btn-ghost bar-time';
+        time.tabIndex = -1;
+        time.textContent = formatTime(b.t);
+        time.setAttribute('aria-label', 'Zu Takt ' + b.n + ' springen (' + formatTime(b.t, 2) + ')');
+        time.addEventListener('click', function(){ songAudioEl.currentTime = b.t; showInMarkerView(b.t); }); // js/marker.js
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'bar-phrase';
+        input.maxLength = BAR_PHRASE_MAX;
+        input.spellcheck = false;
+        input.autocomplete = 'off';
+        input.placeholder = '–';
+        input.value = b.bar.p || '';
+        input.setAttribute('aria-label', 'Phrasierung ' + name + ', Takt ' + b.n);
+        input.addEventListener('input', function(){
+          var bar = barByTime(b.t);
+          if(!bar) return;
+          bar.p = input.value;
+          saveStateDebounced();
+          updatePlaybarBar();
+        });
+        input.addEventListener('focus', function(){
+          var was = barListEl.querySelector('.bar-row--edit');
+          if(was) was.classList.remove('bar-row--edit');
+          row.classList.add('bar-row--edit');
+        });
+        input.addEventListener('keydown', function(e){
+          if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); fillEmptyBars(b.t, input.value); return; }
+          if((e.key !== 'Enter' && e.key !== 'Tab') || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+          var all = Array.prototype.filter.call(barListEl.querySelectorAll('.bar-phrase'), function(el){ return el.closest('details').open; });
+          var next = all[all.indexOf(input) + 1];
+          if(next){ e.preventDefault(); next.focus(); next.select(); }
+          else if(e.key === 'Enter') e.preventDefault();
+        });
+        var fill = document.createElement('button');
+        fill.type = 'button';
+        fill.className = 'btn-ghost bar-fill-btn';
+        fill.tabIndex = -1;
+        fill.textContent = '↓ Leere';
+        fill.title = 'Für alle folgenden leeren Takte des Abschnitts übernehmen (Strg + Enter)';
+        fill.setAttribute('aria-label', fill.title);
+        fill.addEventListener('click', function(){ fillEmptyBars(b.t, input.value); });
+        row.appendChild(num); row.appendChild(time); row.appendChild(input); row.appendChild(fill);
+        group.appendChild(row);
+        barRows[b.t] = {row: row, input: input};
+      });
+      barListEl.appendChild(group);
+    });
+    updateBarHighlight();
+  }
+  // The Phrasierung of bar t for every later bar of its Abschnitt that has none yet.
+  function fillEmptyBars(t, text){
+    text = text.trim();
+    if(!text){ barStatusEl.textContent = 'Erst eine Phrasierung eintragen.'; return; }
+    var sec = barSections().filter(function(s){ return s.bars.some(function(b){ return b.t === t; }); })[0], n = 0;
+    (sec ? sec.bars : []).forEach(function(b){
+      if(b.t > t && !(b.bar.p || '').trim()){ b.bar.p = text; n++; }
+    });
+    saveState();
+    renderBarList();
+    updatePlaybarBar();
+    barStatusEl.textContent = n ? '„' + text + '“ für ' + n + (n === 1 ? ' leeren Takt' : ' leere Takte') + ' übernommen.' : 'Danach ist kein Takt des Abschnitts mehr leer.';
+  }
+  // During Vorhören: the bar being heard is marked and scrolled into the list's view — unless that
+  // would push the field being typed in out of sight. Focus never moves.
+  function updateBarHighlight(){
+    if(markerBackdrop.hidden) return;
+    var k = barIndexAt(heardSongTime()), t = k < 0 ? null : state.bars[k].t; // heardSongTime(): js/playback.js
+    if(t === barCurrentT) return;
+    var was = barCurrentT !== null && barRows[barCurrentT];
+    if(was) was.row.classList.remove('bar-row--current');
+    barCurrentT = t;
+    var r = t !== null && barRows[t];
+    if(!r || !r.row.parentNode.open) return; // its Abschnitt is folded up
+    r.row.classList.add('bar-row--current');
+    var list = barListEl, top = r.row.offsetTop, h = r.row.offsetHeight;
+    if(top >= list.scrollTop && top + h <= list.scrollTop + list.clientHeight) return;
+    var want = Math.max(0, top - h); // one bar of context above
+    var typing = list.contains(document.activeElement) && document.activeElement.closest('.bar-row');
+    if(typing && (typing.offsetTop < want || typing.offsetTop + typing.offsetHeight > want + list.clientHeight)) return;
+    list.scrollTop = want;
+  }
+
+  /* The bar being heard in the main playbar: its number in the Abschnitt and its Phrasierung — while
+     anything plays the song, paused, and at the selected Bild. playback.js calls this with every
+     timeline update; while the song plays a frame loop keeps it current ("Nur Musik" too). */
+  var playbarBarEl = document.getElementById('playbarBar'), playbarBarShown = null;
+  function updatePlaybarBar(){
+    var k = -1, label = '', phrase = '';
+    if(state.bars && songDur()){
+      var t = !songAudioEl.paused ? heardSongTime() : pausedAt ? pausedAt.songTime : playbackStartTime(); // js/playback.js
+      k = barIndexAt(t);
+    }
+    if(k >= 0){
+      var bt = state.bars[k].t;
+      barSections().forEach(function(s){ s.bars.forEach(function(b){ if(b.t === bt){ label = 'Takt ' + b.n; phrase = (b.bar.p || '').trim(); } }); });
+    }
+    if(playbarBarShown === label + '|' + phrase) return;
+    playbarBarShown = label + '|' + phrase;
+    playbarBarEl.hidden = !label;
+    playbarBarEl.textContent = label + (phrase ? ' ' : '');
+    playbarBarEl.title = label + (phrase ? ': ' + phrase : '');
+    if(!phrase) return;
+    var p = document.createElement('b');
+    p.textContent = phrase;
+    playbarBarEl.appendChild(p);
+  }
+  function barPlayFrame(){
+    updatePlaybarBar();
+    updateBarHighlight();
+    if(!songAudioEl.paused) requestAnimationFrame(barPlayFrame);
+  }
+  songAudioEl.addEventListener('play', function(){ requestAnimationFrame(barPlayFrame); });
+  ['pause', 'seeked', 'durationchange'].forEach(function(t){ songAudioEl.addEventListener(t, barPlayFrame); });
+
+  // For the Schritte sheets (js/steps.js): the bars from song time t0 to t1 with their Phrasierung,
+  // runs of the same one folded ("Takt 5–12: 4× QQS+ · SQQ · 3× QQS+"); '' without any Phrasierung.
+  function barPhrasingLine(t0, t1){
+    if(!state.bars || !songDur() || t0 === null || t1 === null || !(t1 > t0)) return '';
+    var bars = [];
+    barSections().forEach(function(s){ s.bars.forEach(function(b){ if(b.t + BAR_SLACK >= t0 && b.t + BAR_SLACK < t1) bars.push(b); }); });
+    if(!bars.some(function(b){ return b.bar.p; })) return '';
+    var runs = [];
+    bars.forEach(function(b){
+      var p = b.bar.p || '–', last = runs[runs.length - 1];
+      if(last && last.p === p) last.n++; else runs.push({p: p, n: 1});
+    });
+    var first = bars[0].n, lastN = bars[bars.length - 1].n;
+    return (bars.length === 1 ? 'Takt ' + first : 'Takt ' + first + '–' + lastN) + ': '
+      + runs.map(function(r){ return (r.n > 1 ? r.n + '× ' : '') + r.p; }).join(' · ');
+  }
 
   // Moves every Bild mark onto its nearest beat (marks in a pause of the music stay).
   function snapAllMarks(){

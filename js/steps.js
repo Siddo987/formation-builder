@@ -246,6 +246,14 @@
       note.textContent = text;
       info.appendChild(note);
     }
+    // The Phrasierung of the bars up to the next Bild's mark (#2096, js/beats.js).
+    var times = syncTimes(), phrasing = barPhrasingLine(times[formationIdx], formationIdx + 1 < times.length ? times[formationIdx + 1] : null);
+    if(phrasing){
+      var phraseLine = document.createElement('p');
+      phraseLine.className = 'step-between-line';
+      phraseLine.textContent = phrasing;
+      info.appendChild(phraseLine);
+    }
     if(showNotes) addNote(formation.note);
 
     // Zwischenpositionen line up right under the main position, in the same order they play in —
