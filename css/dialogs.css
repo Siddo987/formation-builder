@@ -82,41 +82,51 @@
 .marker-zoom{display:inline-flex;gap:3px;margin-left:auto;}
 .modal .marker-nudge-btn{width:26px;height:28px;padding:0;justify-content:center;font-size:.9rem;font-weight:700;}
 .modal .marker-toggle-btn{height:28px;padding:0 .5rem;font-size:.72rem;}
-.marker-timeline-beats{position:absolute;inset:0;width:100%;height:100%;color:var(--ink-3);font-family:var(--font-mono);pointer-events:none;}
-/* "Schläge bearbeiten" (#2147, #2096): ticks stand out, and a sideways finger drag goes to them, not the page. */
-.marker-timeline--beat-move{touch-action:pan-y;user-select:none;-webkit-user-select:none;}
-.marker-timeline--beat-move .marker-timeline-beats{color:var(--accent);}
-.beat-move{display:inline-flex;flex-wrap:wrap;gap:3px;}
-.beat-move-label{font-size:.8rem;color:var(--ink-2);}
-/* Tippen (#2096): two tap buttons beside play — on a touch screen a row of big ones. */
-.beat-tap:not([hidden]){display:inline-flex;gap:3px;}
-.modal .beat-tap-btn{height:28px;padding:0 .55rem;gap:.35rem;font-size:.74rem;font-weight:700;}
-.modal .beat-tap-btn--bar{border-color:var(--pair);}
-.beat-tap-btn kbd{font-family:var(--font-mono);font-size:.62rem;font-weight:600;padding:0 .25rem;border:1px solid var(--line-strong);border-radius:3px;color:var(--ink-3);}
-.modal .beat-tap-btn--hit{background:var(--accent-wash);border-color:var(--accent);}
-.modal .beat-tap-btn--bar.beat-tap-btn--hit{background:var(--pair-wash);}
+.marker-timeline-beats{position:absolute;inset:0;width:100%;height:100%;color:var(--ink-3);pointer-events:none;}
+/* Takte (#2096): the 1 to tap beside play — on a touch screen a full row of 52 px. */
+.modal .bar-tap-btn{height:28px;padding:0 .7rem;font-size:.76rem;border-color:var(--pair);}
+.modal .bar-tap-btn--hit{background:var(--pair-wash);}
 @media (pointer:coarse){
-  .beat-tap:not([hidden]){order:1;flex:1 0 100%;}
-  .modal .beat-tap .beat-tap-btn{flex:1;height:52px;justify-content:center;font-size:.9rem;}
-  .beat-tap-btn kbd{display:none;}
+  .modal .bar-tap-btn{order:1;flex:1 0 100%;height:52px;font-size:.95rem;}
 }
-.beat-tool-hint{margin-top:-.25rem;color:var(--ink-2);}
-.modal .beat-fill .coord-input{width:3.2rem;text-align:center;}
-.beat-fill{font-size:.8rem;color:var(--ink-2);}
-.beat-fill-per{display:inline-flex;align-items:center;gap:.35rem;}
-/* Takte & Phrasierung (#2096): folding groups per Abschnitt, one compact row per bar. */
-.bar-list{position:relative;display:flex;flex-direction:column;gap:.3rem;max-height:320px;overflow-y:auto;}
-.bar-group summary{padding:.3rem .2rem;font-size:.78rem;font-weight:700;color:var(--ink-2);cursor:pointer;}
-.bar-row{display:flex;align-items:center;gap:.4rem;padding:.2rem .45rem;margin-bottom:.2rem;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;}
-.bar-row--current{box-shadow:inset 3px 0 0 var(--pair);border-color:var(--pair);}
-.bar-num{flex:none;min-width:2ch;font-family:var(--font-mono);font-size:.72rem;font-weight:700;text-align:right;color:var(--ink-2);}
-.modal .bar-time{flex:none;height:26px;padding:0 .4rem;font-family:var(--font-mono);font-size:.72rem;font-weight:500;}
-.modal .bar-phrase{flex:1;min-width:0;height:28px;font-family:var(--font-mono);font-size:.8rem;}
-.modal .bar-fill-btn{flex:none;height:26px;padding:0 .45rem;font-size:.7rem;visibility:hidden;}
-.modal .bar-row--edit .bar-fill-btn{visibility:visible;}
+/* The Abschnitt in view, its tempo and beats per bar. */
+.bar-head{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem .7rem;margin-bottom:-.2rem;font-size:.78rem;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums;}
+.bar-head--warn .bar-head-text{color:var(--danger);}
+.bar-per{display:inline-flex;align-items:center;gap:.35rem;font-weight:500;}
+.modal .bar-per .coord-input{width:2.6rem;text-align:center;}
+/* The bar strip right under the waveform: a box per bar, its line on the left edge — draggable, a dot
+   where it is an anchor. A sideways finger drag goes to the line, not the page. */
+.bar-strip{position:relative;height:40px;margin-top:-.55rem;overflow:hidden;background:var(--panel-2);border:1px solid var(--line);border-top:none;border-radius:0 0 8px 8px;touch-action:pan-y;user-select:none;-webkit-user-select:none;}
+.marker-timeline:has(+ .bar-strip) .marker-timeline-bar{border-radius:8px 8px 0 0;}
+.bar-strip-empty{margin:0;height:100%;display:flex;align-items:center;justify-content:center;padding:0 .6rem;font-size:.76rem;font-weight:600;line-height:1.3;color:var(--ink-2);text-align:center;}
+.bar-box{
+  position:absolute;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;gap:1px;
+  padding:0 0 0 .3rem;border:none;border-left:2px solid var(--pair);border-radius:0;background:transparent;
+  font-family:var(--font-mono);text-align:left;white-space:nowrap;
+}
+.bar-box > span{max-width:100%;overflow:hidden;}
+.bar-box--anchor::before{content:"";position:absolute;top:3px;left:-1px;width:7px;height:7px;border-radius:50%;background:var(--pair);transform:translateX(-50%);}
+.bar-box--now{background:var(--pair-wash);}
+.bar-box--sel{background:var(--accent-wash);box-shadow:inset 0 0 0 2px var(--accent);}
+.bar-box:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+.bar-box-n{font-size:.62rem;font-weight:700;color:var(--ink-2);line-height:1;}
+.bar-box-p{font-size:.72rem;font-weight:600;color:var(--ink);line-height:1.1;overflow:hidden;text-overflow:ellipsis;}
+@media (pointer:coarse){
+  .bar-strip{height:46px;}
+}
+/* The selected bar's editor. */
+.bar-editor{display:flex;flex-direction:column;gap:.4rem;padding:.5rem .6rem;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;}
+.bar-editor-row{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .6rem;}
+.bar-editor-title{font-size:.8rem;font-weight:700;font-variant-numeric:tabular-nums;}
+.bar-editor-actions{display:inline-flex;flex-wrap:wrap;gap:.3rem;margin-left:auto;}
+.modal .bar-editor-actions .btn-ghost{height:28px;font-size:.72rem;padding:0 .5rem;}
+.bar-phrase-label{font-size:.78rem;font-weight:600;color:var(--ink-2);}
+.modal .bar-phrase{flex:1;min-width:6rem;max-width:14rem;font-family:var(--font-mono);font-size:.84rem;}
+.modal #barFillBtn{height:32px;font-size:.74rem;}
 @media (max-width:899.98px){
-  .modal .bar-phrase{height:36px;}
-  .modal .bar-time,.modal .bar-fill-btn{height:34px;}
+  .bar-editor-actions{margin-left:0;}
+  .modal .bar-editor-actions .btn-ghost,.modal #barFillBtn{height:38px;}
+  .modal .bar-phrase{max-width:none;}
 }
 #markerSongArea:not([hidden]){display:flex;flex-direction:column;gap:1.1rem;}
 .beat-summary{display:flex;flex-direction:column;gap:.2rem;font-size:.78rem;font-variant-numeric:tabular-nums;}

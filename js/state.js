@@ -27,8 +27,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     return {w: side(v && v.w), d: side(v && v.d)};
   }
   // While a project is still being loaded (`state` not assigned yet) it's the default size.
-  // Schläge im Lied (#2041, js/beats.js): sorted seconds, or null. Belong to the song — a new or
-  // removed song clears them (js/main.js).
+  // Erkannte Schläge (#2041, js/beats.js): sorted seconds, or null — what "Automatisch vorschlagen"
+  // found, which filled-in bar lines snap onto. Belong to the song — a new or removed song clears
+  // them (js/main.js).
   function sanitizeBeats(v){
     if(!Array.isArray(v)) return null;
     var out = v.filter(function(t){ return typeof t === 'number' && isFinite(t) && t >= 0 && t < 36000; })
@@ -36,23 +37,27 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       .sort(function(a, b){ return a - b; }).slice(0, 20000);
     return out.length ? out : null;
   }
-  // Taktanfänge ("die 1", #2096): [{t, p}] in song order, t one of the beats, p the bar's Phrasierung
-  // ("QQS+", optional). Kept as times, not beat indices, so a 3-way merge or a deleted beat can't
-  // shift them onto the wrong beat: one whose beat is gone is dropped, its Phrasierung with it.
-  // Moving beats moves them along (js/beats.js).
+  // Takte (#2096, js/beats.js): [{t, p, n, fill}] in song order, the only thing the user edits; the
+  // beats follow from them. t: the bar's start (s). p: its Phrasierung ("QQS+", optional). n: its
+  // beats when not the dance's. fill: the app placed it; without, it is an anchor the user set (tapped,
+  // dragged — or a bar start from before bars were filled in, which were all set by hand). The second
+  // argument (the beats, which bars once had to sit on) is ignored.
   var BAR_PHRASE_MAX = 16;
-  function sanitizeBars(v, beats){
-    if(!Array.isArray(v) || !beats) return null;
-    var onBeat = new Set(beats), seen = new Set(), out = [];
+  function sanitizeBars(v){
+    if(!Array.isArray(v)) return null;
+    var seen = new Set(), out = [];
     v.forEach(function(b){
-      var t = b && typeof b.t === 'number' && isFinite(b.t) ? Math.round(b.t * 1000) / 1000 : null;
-      if(t === null || !onBeat.has(t) || seen.has(t)) return;
+      var t = b && typeof b.t === 'number' && isFinite(b.t) && b.t >= 0 && b.t < 36000 ? Math.round(b.t * 1000) / 1000 : null;
+      if(t === null || seen.has(t)) return;
       seen.add(t);
-      var p = typeof b.p === 'string' ? b.p.trim().slice(0, BAR_PHRASE_MAX) : '';
-      out.push(p ? {t: t, p: p} : {t: t});
+      var bar = {t: t}, p = typeof b.p === 'string' ? b.p.trim().slice(0, BAR_PHRASE_MAX) : '';
+      if(p) bar.p = p;
+      if(typeof b.n === 'number' && b.n >= 1 && b.n <= 12) bar.n = Math.round(b.n);
+      if(b.fill) bar.fill = true;
+      out.push(bar);
     });
     out.sort(function(a, b){ return a.t - b.t; });
-    return out.length ? out : null;
+    return out.length ? out.slice(0, 20000) : null;
   }
   // Video-Layout (#2095): null = the standard layout (defaultVideoLayout in js/export.js), else
   // {format, bg, els: [{id, type, x, y, w, h, hidden?, …type options}]}, built in js/videolayout.js.

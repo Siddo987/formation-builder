@@ -365,15 +365,16 @@ if ('serviceWorker' in navigator) {
               <span class="icon-pause" id="markerIconPause" hidden><i></i><i></i></span>
             </button>
             <span class="marker-time" id="markerTimeReadout">0:00 / 0:00</span>
+            <button class="btn-ghost bar-tap-btn" id="barTapBtn" type="button" aria-keyshortcuts="1" title="Bei jeder 1 im Takt tippen, während das Lied läuft (Taste 1)">Tippe auf die 1</button>
             <button class="btn-ghost marker-toggle-btn" id="beatClickBtn" type="button" aria-pressed="false" disabled>Klicks</button>
-            <span class="beat-tap" id="beatTapBtns" hidden>
-              <button class="btn-ghost beat-tap-btn" id="beatTapBtn" type="button" aria-keyshortcuts="S" title="Schlag dort setzen, wo du gerade hörst (Taste S)">Schlag <kbd>S</kbd></button>
-              <button class="btn-ghost beat-tap-btn beat-tap-btn--bar" id="barTapBtn" type="button" aria-keyshortcuts="1" title="Schlag als Taktanfang setzen (Taste 1)">Die 1 <kbd>1</kbd></button>
-            </span>
             <span class="marker-zoom">
               <button class="btn-ghost marker-nudge-btn" id="markerZoomOutBtn" type="button" aria-label="Zeitleiste herauszoomen" title="Herauszoomen">−</button>
               <button class="btn-ghost marker-nudge-btn" id="markerZoomInBtn" type="button" aria-label="Zeitleiste hineinzoomen" title="Hineinzoomen (auch Strg + Mausrad)">+</button>
             </span>
+          </div>
+          <div class="bar-head" id="barHead" hidden>
+            <span class="bar-head-text" id="barHeadText"></span>
+            <label class="bar-per" id="barPerLabel" hidden><input type="number" class="coord-input" id="barPerInput" min="1" max="12" step="1" inputmode="numeric"> Schläge je Takt</label>
           </div>
           <div class="marker-timeline" id="markerTimeline">
             <div class="marker-timeline-bar">
@@ -384,47 +385,38 @@ if ('serviceWorker' in navigator) {
             </div>
             <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
           </div>
-          <div class="settings-row" id="beatToolRow">
-            <span class="beat-move-label" id="beatToolLabel">Schläge bearbeiten</span>
-            <span class="beat-move" role="group" aria-labelledby="beatToolLabel">
-              <button class="btn-ghost marker-toggle-btn" type="button" data-tool="" aria-pressed="true">Aus</button>
-              <button class="btn-ghost marker-toggle-btn" type="button" data-tool="tap" aria-pressed="false">Tippen</button>
-              <button class="btn-ghost marker-toggle-btn" type="button" data-tool="add" aria-pressed="false">Setzen</button>
-              <button class="btn-ghost marker-toggle-btn" type="button" data-tool="del" aria-pressed="false">Löschen</button>
-              <button class="btn-ghost marker-toggle-btn" type="button" data-tool="bar" aria-pressed="false">1 an/aus</button>
-              <button class="btn-ghost marker-toggle-btn" type="button" data-tool="one" aria-pressed="false">Verschieben</button>
-              <button class="btn-ghost marker-toggle-btn" type="button" data-tool="section" aria-pressed="false">Abschnitt verschieben</button>
-            </span>
+          <div class="bar-strip" id="barStrip" role="group" aria-label="Takte" aria-describedby="barHint"></div>
+          <div class="bar-editor" id="barEditor" hidden>
+            <div class="bar-editor-row">
+              <span class="bar-editor-title" id="barEditorTitle"></span>
+              <span class="bar-editor-actions">
+                <button class="btn-ghost" id="barReleaseBtn" type="button" title="Die Takte zwischen den festen Strichen davor und danach wieder gleichmäßig verteilen">Fixpunkt lösen</button>
+                <button class="btn-ghost" id="barInsertBtn" type="button" title="Bis zum nächsten festen Strich einen Takt mehr">Takt einfügen</button>
+                <button class="btn-ghost" id="barRemoveBtn" type="button" title="Bis zum nächsten festen Strich einen Takt weniger">Takt entfernen</button>
+              </span>
+            </div>
+            <div class="bar-editor-row">
+              <label class="bar-phrase-label" for="barPhraseInput">Phrasierung</label>
+              <input type="text" class="bar-phrase" id="barPhraseInput" maxlength="16" spellcheck="false" autocomplete="off" enterkeyhint="next" placeholder="z. B. QQS+">
+              <button class="btn-ghost" id="barFillBtn" type="button" aria-keyshortcuts="Control+Enter" title="Für alle folgenden leeren Takte des Abschnitts übernehmen (Strg + Enter)">Auch für die leeren danach</button>
+            </div>
           </div>
-          <p class="settings-hint beat-tool-hint" id="beatToolHint" hidden></p>
-          <div class="settings-row beat-fill" id="beatFillRow" hidden>
-            <span id="beatFillText"></span>
-            <label class="beat-fill-per"><input type="number" class="coord-input" id="beatFillPer" min="1" max="12" step="1" value="4" inputmode="numeric"> Schläge je Takt</label>
-            <button class="btn-ghost" id="beatFillBtn" type="button">Auffüllen</button>
-          </div>
+          <p class="settings-hint" id="barHint" hidden>Taktstrich ziehen = ab dort neu verteilen · Takt antippen = Phrasierung · ← → wählt, Umschalt + ← → rückt den Strich</p>
+          <p class="settings-hint" id="barStatus" aria-live="polite"></p>
           <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder Strg + Mausrad) zoomen, seitlich wischen verschiebt. Bei jeder Marke rückt − / + sie um 0,01 s.</p>
         </section>
 
         <section class="settings-section">
           <h3>Schläge</h3>
-          <p class="settings-hint">Erkennt die Schläge je Abschnitt im Tempo seines Tanzes (steht im Abschnittsnamen, z.&nbsp;B. „Rumba“); das Lied bleibt auf diesem Gerät. Was daneben sitzt, unter der Zeitleiste bei „Schläge bearbeiten“ richten oder mit „Tippen“ selbst eintippen, auch ganz ohne Erkennen.</p>
-          <p class="settings-hint">Die 1 jedes Takts erkennt es nicht: eine mit „Die 1“ eintippen oder mit „1 an/aus“ setzen, den Rest des Abschnitts auffüllen lassen. „Jetzt“ rastet dann auf Schläge ein, „Klicks“ klickt beim Vorhören mit, die 1 höher.</p>
+          <p class="settings-hint">Die Schläge teilen jeden Takt gleichmäßig. „Automatisch vorschlagen“ sucht sie im Lied (es bleibt auf diesem Gerät), danach reicht eine 1 je Abschnitt.</p>
           <div class="settings-row">
-            <button class="btn-ghost" id="beatDetectBtn" type="button">Schläge erkennen</button>
+            <button class="btn-ghost" id="beatDetectBtn" type="button">Automatisch vorschlagen</button>
             <button class="btn-ghost" id="beatSnapAllBtn" type="button" hidden>Alle Marken auf Schläge rücken</button>
-            <button class="btn-ghost danger" id="beatClearBtn" type="button" hidden>Entfernen</button>
+            <button class="btn-ghost danger" id="beatClearBtn" type="button" hidden>Takte entfernen</button>
           </div>
           <p class="settings-hint" id="beatStatus" aria-live="polite"></p>
           <div class="beat-summary" id="beatSummary"></div>
           <label class="toggle-label"><input type="checkbox" id="beatSnapToggle"> „Jetzt“ rastet auf den nächsten Schlag ein</label>
-        </section>
-
-        <section class="settings-section">
-          <h3>Takte &amp; Phrasierung</h3>
-          <p class="settings-hint" id="barEmptyHint">Erst oben die Taktanfänge („die 1“) setzen, dann steht hier jeder Takt mit einem Feld für seine Phrasierung.</p>
-          <p class="settings-hint" id="barListHint" hidden>Je Takt z.&nbsp;B. „QQS+“: Enter oder Tab springt zum nächsten Takt, Strg + Enter oder „↓ Leere“ füllt alle folgenden leeren Takte des Abschnitts damit. Klick auf die Zeit springt hin.</p>
-          <p class="settings-hint" id="barStatus" aria-live="polite"></p>
-          <div class="bar-list" id="barList"></div>
         </section>
 
         <section class="settings-section">
