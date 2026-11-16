@@ -158,6 +158,8 @@
     if(beats) header.beats = beats; // only when there are any, so older snapshots stay comparable
     var bars = sanitizeBars(s.bars, beats);
     if(bars) header.bars = bars;
+    var videoLayout = sanitizeVideoLayout(s.videoLayout); // a copy: history snapshots must not share it
+    if(videoLayout) header.videoLayout = videoLayout;
     return header;
   }
 
@@ -431,6 +433,7 @@
     exportNotesOption.hidden = exportFormat !== 'pdf';
     exportPathsOption.hidden = exportFormat !== 'pdf' && exportFormat !== 'video';
     exportQualityOption.hidden = exportFormat !== 'video';
+    document.getElementById('exportLayoutOption').hidden = exportFormat !== 'video';
     exportRealtimeHint.hidden = fastVideoExportPossible();
     exportOptionsSection.hidden = exportContextOption.hidden && exportGhostOption.hidden && exportNotesOption.hidden && exportPathsOption.hidden;
     exportPdfHint.hidden = exportFormat !== 'pdf';
@@ -640,7 +643,7 @@
     var isStg = file.name.toLowerCase().slice(-4) === '.stg';
     if(isStg){
       file.arrayBuffer().then(function(buf){
-        applyImportedState(parseStg(buf));
+        applyImportedState(readStgVideoExtras(buf, parseStg(buf)));
       }).catch(function(){ showImportError(); });
     }else{
       var reader = new FileReader();
@@ -1744,4 +1747,5 @@
       updateSongSettingsUI();
     }
     if(!markerBackdrop.hidden) openMarkerModal();
+    if(typeof refreshVideoLayoutBuilder === 'function') refreshVideoLayoutBuilder();
   }

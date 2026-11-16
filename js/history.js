@@ -37,6 +37,7 @@
     m.set('meta/stage', sanitizeStage(s.stage));
     m.set('meta/beats', sanitizeBeats(s.beats));
     m.set('meta/bars', sanitizeBars(s.bars, sanitizeBeats(s.beats)));
+    m.set('meta/videoLayout', sanitizeVideoLayout(s.videoLayout));
     var rl = s.roomLabels || {};
     ['top','right','bottom','left'].forEach(function(side){ m.set('room/' + side, rl[side] || ''); });
 
@@ -184,6 +185,7 @@
       stage: sanitizeStage(get('meta/stage', null)),
       beats: sanitizeBeats(get('meta/beats', null)),
       bars: sanitizeBars(get('meta/bars', null), sanitizeBeats(get('meta/beats', null))), // a merge can pair bars with other beats
+      videoLayout: sanitizeVideoLayout(get('meta/videoLayout', null)),
       pairs: pairs,
       customFigures: customFigures,
       activeIndex: 0,
@@ -251,6 +253,7 @@
     if(path === 'meta/beats') return !after ? 'Schläge entfernt' : !before ? after.length + ' Schläge im Lied' : before.length === after.length ? 'Schläge verschoben' : 'Schläge: ' + before.length + ' → ' + after.length; // same count: moved (#2147)
     if(path === 'meta/bars' && before && after && hEq(before.map(function(b){ return b.t; }), after.map(function(b){ return b.t; }))) return 'Phrasierung geändert';
     if(path === 'meta/bars') return !after ? 'Taktanfänge entfernt' : before && before.length === after.length ? 'Taktanfänge verschoben' : 'Taktanfänge: ' + (before ? before.length : 0) + ' → ' + after.length;
+    if(path === 'meta/videoLayout') return after ? 'Video-Layout geändert' : 'Video-Layout auf Standard zurückgesetzt';
     if(path === 'meta/stage') return 'Bühnengröße: ' + (before ? before.w + ' × ' + before.d : '14 × 14') + ' m → ' + after.w + ' × ' + after.d + ' m';
     if(parts[0] === 'room') return 'Bühnenrand ' + parts[1] + ': „' + (before || '') + '“ → „' + (after || '') + '“';
     if(path === 'order/dancers') return 'Tänzer-Reihenfolge geändert';

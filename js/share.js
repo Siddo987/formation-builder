@@ -1172,6 +1172,7 @@ function reconstructSharedState(payload){
     stage: sanitizeStage(payload.stage),
     beats: sanitizeBeats(payload.beats),
     bars: sanitizeBars(payload.bars, sanitizeBeats(payload.beats)),
+    videoLayout: sanitizeVideoLayout(payload.videoLayout),
     pairs: (Array.isArray(payload.pairs) ? payload.pairs : []).map(function(p){
       return {id:p.id, memberIds:p.memberIds, name:p.name||'', collapsed:!!p.collapsed};
     }),

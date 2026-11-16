@@ -544,6 +544,10 @@ if ('serviceWorker' in navigator) {
           </div>
           <p class="settings-hint" id="exportRealtimeHint" hidden>Dieser Browser kann das Video nur in Echtzeit aufnehmen – das dauert so lang wie das Lied. Chrome oder Edge rendern es in einem Bruchteil der Zeit.</p>
         </div>
+        <div id="exportLayoutOption">
+          <button class="btn-ghost" id="exportLayoutBtn" type="button" aria-haspopup="dialog"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>Video-Layout anpassen …</button>
+          <p class="settings-hint" id="exportLayoutHint">Was das Video zeigt und wo: Bühne, Bild-Namen, Logo, eigene Texte und Grafiken.</p>
+        </div>
         <label class="toggle-label" id="exportContextOption"><input type="checkbox" id="exportContextToggle"> Andere Paare hellgrau einblenden</label>
         <div id="exportGhostOption">
           <label class="toggle-label"><input type="checkbox" id="exportGhostToggle"> Herkunfts- und Zielpunkte einblenden</label>
@@ -564,6 +568,45 @@ if ('serviceWorker' in navigator) {
         <button class="btn-ghost" id="exportCancelBtn" type="button">Abbrechen</button>
         <button class="btn-ghost" id="exportConfirmBtn" type="button">Speichern</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Video-Layout (#2095): js/videolayout.js — opened from the Exportieren dialog -->
+<div class="modal-backdrop" id="videoLayoutBackdrop" hidden>
+  <div class="modal vl-modal" role="dialog" aria-modal="true" aria-labelledby="videoLayoutTitle">
+    <div class="modal-header">
+      <h2 id="videoLayoutTitle">Video-Layout</h2>
+      <button class="modal-close" id="videoLayoutCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="vl-body">
+      <div class="vl-preview">
+        <div class="vl-frame-wrap" id="vlFrameWrap">
+          <div class="vl-frame" id="vlFrame">
+            <canvas id="vlCanvas" aria-hidden="true"></canvas>
+            <div class="vl-boxes" id="vlBoxes" role="group" aria-label="Elemente im Video-Bild"></div>
+          </div>
+        </div>
+        <div class="vl-moment">
+          <label for="vlMoment">Vorschau</label>
+          <input type="range" id="vlMoment" min="0" max="0" step="0.01" value="0">
+          <span class="vl-moment-text" id="vlMomentText"></span>
+        </div>
+      </div>
+      <div class="vl-side">
+        <section class="settings-section">
+          <h3 id="vlListTitle">Elemente</h3>
+          <div class="vl-list" id="vlList" role="list" aria-labelledby="vlListTitle"></div>
+          <p class="settings-hint">Im Bild antippen zum Auswählen, ziehen zum Verschieben, an den Ecken ziehen für die Größe. Liegen Elemente übereinander, wählt ein zweites Antippen das darunter. Ausgewählt verschieben auch die Pfeiltasten.</p>
+        </section>
+        <section class="settings-section" id="vlProps"></section>
+      </div>
+    </div>
+    <div class="vl-footer">
+      <button class="btn-ghost btn-icon-only" id="vlUndoBtn" type="button" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
+      <button class="btn-ghost btn-icon-only" id="vlRedoBtn" type="button" aria-label="Wiederholen (Strg+Umschalt+Z)" title="Wiederholen (Strg+Umschalt+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
+      <button class="btn-ghost" id="vlResetBtn" type="button">Standard wiederherstellen</button>
+      <button class="btn-ghost" id="vlDoneBtn" type="button">Fertig</button>
     </div>
   </div>
 </div>
@@ -901,6 +944,7 @@ if ('serviceWorker' in navigator) {
 <script src="js/beats.js?v=56"></script>
 <script src="js/music.js?v=56"></script>
 <script src="js/export.js?v=56"></script>
+<script src="js/videolayout.js?v=56"></script>
 <script src="js/history.js?v=56"></script>
 <script src="js/share.js?v=56"></script>
 <script src="js/videos.js?v=56"></script>

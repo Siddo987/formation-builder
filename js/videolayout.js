@@ -1,0 +1,527 @@
+"use strict";
+
+/* ---------- Video-Layout (#2095, #2075): arrange what the exported video frame shows ----------
+   Opened from the Exportieren dialog (video). The preview is drawn by renderCanvasFrame
+   (js/export.js), the same function that draws every exported frame, so it shows exactly what the
+   export produces; over it lies one box per element to select, drag and resize — with mouse, touch
+   or keyboard. Every change goes straight into state.videoLayout and is saved like any other edit,
+   so Rückgängig/Wiederholen (js/history.js), reload, the .stg file and share links carry it. */
+
+  var vlBackdrop = document.getElementById('videoLayoutBackdrop');
+  var vlFrameWrap = document.getElementById('vlFrameWrap');
+  var vlFrame = document.getElementById('vlFrame');
+  var vlCanvas = document.getElementById('vlCanvas');
+  var vlBoxes = document.getElementById('vlBoxes');
+  var vlMoment = document.getElementById('vlMoment');
+  var vlMomentText = document.getElementById('vlMomentText');
+  var vlList = document.getElementById('vlList');
+  var vlProps = document.getElementById('vlProps');
+  var vlNarrow = window.matchMedia('(max-width:899.98px)');
+  var vlSelected = null;             // id of the selected element
+  var vlOpts = {focus: null, who: ''};
+  var vlLogo = {url: null, img: null};
+  var vlDrag = null;                 // the pointer drag in progress
+  var vlRenderQueued = false;
+  var vlFromExport = false;
+  var VL_MIN = 16;                   // smallest box side, in frame units
+
+  function vlLayout(){ return currentVideoLayout(); }
+  function vlSize(){ return VIDEO_FORMATS[vlLayout().format]; }
+  function vlFind(id){ return vlLayout().els.filter(function(el){ return el.id === id; })[0] || null; }
+  // The first edit turns the standard layout into the project's own.
+  function vlEditable(id){
+    if(!state.videoLayout) state.videoLayout = defaultVideoLayout('quer');
+    return id === undefined ? state.videoLayout : vlFind(id);
+  }
+  function vlSave(now){ if(now) saveState(); else saveStateDebounced(); }
+  function vlKeepsAspect(el){ return el.type === 'logo' || el.type === 'image'; }
+
+  function vlName(el){
+    if(el.type === 'stage') return 'Bühne';
+    if(el.type === 'logo') return 'Logo';
+    if(el.type === 'bilder') return 'Bild-Namen';
+    if(el.type === 'text') return 'Text „' + (el.text.replace(/\s+/g, ' ').trim().slice(0, 24) || '…') + '“';
+    return 'Grafik „' + (el.name || 'ohne Namen') + '“';
+  }
+
+  // The export dialog's choices the frame depends on: Wer?, Herkunfts-/Zielpunkte, Weglinien,
+  // andere Paare hellgrau. The preview shows them as set there; they stay controls of that dialog.
+  function vlExportOptions(){
+    var sheets = exportWho.length ? getStepsSheetsFor(exportWho) : null;
+    var focus = sheets && sheets.length ? stepsFocusIds(sheets) : null;
+    exportIncludeGhosts = exportGhostToggle.checked;
+    exportIncludePaths = exportPathsToggle.checked;
+    exportPathCache = {};
+    exportShowContext = !!focus && exportContextToggle.checked;
+    return {focus: focus, who: focus ? exportWhoLabel() : ''};
+  }
+
+  // The preview's moment on the slider: a whole number holds that Bild, anything between is the way
+  // to the next one. tMs is where that moment lies in the video, for the {zeit} placeholder.
+  function vlMomentFrame(){
+    var n = state.formations.length, c = Math.max(0, Math.min(n - 1, parseFloat(vlMoment.value) || 0));
+    var i = Math.floor(c), t = c - i, seg, at;
+    if(t < 0.005 || t > 0.995 || i >= n - 1){
+      i = Math.round(c); t = 0;
+      seg = {type: 'hold', idx: i};
+      at = videoFrameAt(seg, 0);
+    }else{
+      seg = {type: 'move', from: i, to: i + 1, dur: 1000};
+      at = videoFrameAt(seg, t * 1000);
+    }
+    var dur = state.song && state.song.url ? songDurationSec() : 0, pts = dur ? syncWaypoints(dur) : [];
+    var segs = buildVideoSegments(pts.length >= 2 ? pts : null, dur), tMs = 0;
+    for(var j = 0; j < segs.length; j++){
+      var s = segs[j];
+      if(s.type === 'move' ? s.from === i : (!t && s.idx === i)){ if(s.type === 'move') tMs += t * s.dur; break; }
+      tMs += s.dur;
+    }
+    var f = state.formations[i], sec = Math.floor(tMs / 1000);
+    var label = (t ? 'Weg von Bild ' + (i + 1) + ' zu Bild ' + (i + 2) + ' (' + Math.round(t * 100) + ' %)' : 'Bild ' + (i + 1) + ' „' + (f.name || '') + '“') +
+      ' · ' + Math.floor(sec / 60) + ':' + (sec % 60 < 10 ? '0' : '') + (sec % 60);
+    return {seg: seg, at: at, tMs: tMs, label: label};
+  }
+
+  function vlRender(){
+    vlRenderQueued = false;
+    if(vlBackdrop.hidden) return;
+    var F = vlSize(), aw = vlFrameWrap.clientWidth;
+    // On a phone the preview sits above the controls and takes only what the frame needs.
+    vlFrameWrap.style.height = vlNarrow.matches ? Math.round(Math.min(window.innerHeight * 0.42, aw * F.h / F.w)) + 'px' : '';
+    var sc = Math.min(aw / F.w, vlFrameWrap.clientHeight / F.h);
+    if(!(sc > 0)) return;
+    var dw = Math.floor(F.w * sc), dh = Math.floor(F.h * sc), dpr = window.devicePixelRatio || 1;
+    vlFrame.style.width = dw + 'px';
+    vlFrame.style.height = dh + 'px';
+    vlCanvas.width = Math.round(dw * dpr);
+    vlCanvas.height = Math.round(dh * dpr);
+    var ctx = vlCanvas.getContext('2d');
+    ctx.setTransform(vlCanvas.width / F.w, 0, 0, vlCanvas.height / F.h, 0, 0);
+    var m = vlMomentFrame();
+    renderCanvasFrame(ctx, F.w, F.h, m.at.pos, vlLogo.img, vlOpts.focus, ghostsFor(m.seg), m.at.cursor, {tMs: m.tMs, who: vlOpts.who});
+    vlMomentText.textContent = m.label;
+  }
+  function vlQueueRender(){
+    if(vlRenderQueued) return;
+    vlRenderQueued = true;
+    requestAnimationFrame(vlRender);
+  }
+
+  /* ---------- boxes over the preview ---------- */
+
+  function vlPlaceBox(box, el){
+    var F = vlSize();
+    box.style.left = (el.x / F.w * 100) + '%';
+    box.style.top = (el.y / F.h * 100) + '%';
+    box.style.width = (el.w / F.w * 100) + '%';
+    box.style.height = (el.h / F.h * 100) + '%';
+  }
+  function vlBoxFor(id){ return vlBoxes.querySelector('.vl-box[data-id="' + id + '"]'); }
+
+  // A box per shown element, in drawing order (so the topmost catches the tap); a hidden element
+  // gets a striped one while it is selected, so it can still be placed.
+  function vlRenderBoxes(){
+    vlBoxes.textContent = '';
+    vlLayout().els.forEach(function(el){
+      if(el.hidden && el.id !== vlSelected) return;
+      var box = document.createElement('div');
+      box.className = 'vl-box' + (el.hidden ? ' is-off' : '');
+      box.dataset.id = el.id;
+      box.tabIndex = 0;
+      box.setAttribute('role', 'button');
+      box.setAttribute('aria-label', vlName(el) + (el.hidden ? ' (ausgeblendet)' : '') + ' – ziehen oder mit den Pfeiltasten verschieben');
+      vlPlaceBox(box, el);
+      vlBoxes.appendChild(box);
+    });
+    vlSyncSelection();
+  }
+  // Marks the selected box and gives it the corner handles, without rebuilding the others (a drag
+  // may just have started on one of them).
+  function vlSyncSelection(){
+    Array.prototype.slice.call(vlBoxes.children).forEach(function(box){
+      var on = box.dataset.id === vlSelected;
+      if(!on && box.classList.contains('is-off')){ box.remove(); return; }
+      box.classList.toggle('is-selected', on);
+      box.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if(on && !box.firstChild){
+        ['nw', 'ne', 'sw', 'se'].forEach(function(c){
+          var h = document.createElement('div');
+          h.className = 'vl-handle';
+          h.dataset.corner = c;
+          box.appendChild(h);
+        });
+      }
+      if(!on) box.textContent = '';
+    });
+  }
+
+  function vlSelect(id){
+    vlSelected = id;
+    var el = vlFind(id);
+    if(el && el.hidden && !vlBoxFor(id)) vlRenderBoxes(); else vlSyncSelection();
+    vlRenderList();
+    vlRenderProps();
+  }
+
+  // Box after a corner drag: the opposite corner stays put; logo and images keep their proportion.
+  function vlResize(s, corner, dx, dy, keepAspect){
+    var west = corner.indexOf('w') !== -1, north = corner.indexOf('n') !== -1;
+    var w = Math.max(VL_MIN, s.w + (west ? -dx : dx)), h = Math.max(VL_MIN, s.h + (north ? -dy : dy));
+    if(keepAspect){ if(w / s.w > h / s.h) h = w * s.h / s.w; else w = h * s.w / s.h; }
+    return {x: west ? s.x + s.w - w : s.x, y: north ? s.y + s.h - h : s.y, w: w, h: h};
+  }
+
+  // Elements under a frame point, topmost first — for tapping through to the one underneath.
+  function vlElementsAt(px, py){
+    return vlLayout().els.filter(function(el){
+      return !el.hidden && px >= el.x && px <= el.x + el.w && py >= el.y && py <= el.y + el.h;
+    }).reverse();
+  }
+
+  vlBoxes.addEventListener('pointerdown', function(e){
+    var box = e.target.closest('.vl-box');
+    if(!box || e.button > 0 || vlDrag) return;
+    e.preventDefault();
+    var id = box.dataset.id, wasSelected = vlSelected === id;
+    if(!wasSelected) vlSelect(id);
+    box.focus({preventScroll: true});
+    var el = vlFind(id), r = vlBoxes.getBoundingClientRect(), F = vlSize();
+    var handle = e.target.closest('.vl-handle');
+    vlDrag = {
+      id: id, box: box, pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, kx: F.w / r.width, ky: F.h / r.height,
+      px: (e.clientX - r.left) / r.width * F.w, py: (e.clientY - r.top) / r.height * F.h,
+      start: {x: el.x, y: el.y, w: el.w, h: el.h}, corner: handle ? handle.dataset.corner : null, moved: false, wasSelected: wasSelected
+    };
+    box.setPointerCapture(e.pointerId);
+  });
+  vlBoxes.addEventListener('pointermove', function(e){
+    var d = vlDrag;
+    if(!d || e.pointerId !== d.pointerId) return;
+    if(!d.moved && Math.abs(e.clientX - d.x0) + Math.abs(e.clientY - d.y0) < 4) return; // a tap, not a drag
+    d.moved = true;
+    var el = vlEditable(d.id);
+    if(!el){ vlDrag = null; return; }
+    var dx = (e.clientX - d.x0) * d.kx, dy = (e.clientY - d.y0) * d.ky, s = d.start;
+    var b = d.corner ? vlResize(s, d.corner, dx, dy, vlKeepsAspect(el)) : {x: s.x + dx, y: s.y + dy, w: s.w, h: s.h};
+    el.x = Math.round(b.x); el.y = Math.round(b.y); el.w = Math.round(b.w); el.h = Math.round(b.h);
+    vlPlaceBox(d.box, el);
+    vlSyncGeomInputs(el);
+    vlQueueRender();
+  });
+  function vlEndDrag(e){
+    var d = vlDrag;
+    if(!d || e.pointerId !== d.pointerId) return;
+    vlDrag = null;
+    if(d.moved){ vlSave(true); return; }
+    // A second tap on the selected element picks the one underneath (and so on, round again).
+    if(!d.wasSelected || e.type === 'pointercancel') return;
+    var under = vlElementsAt(d.px, d.py);
+    if(under.length < 2) return;
+    var i = under.map(function(el){ return el.id; }).indexOf(d.id);
+    var next = under[(i + 1) % under.length].id;
+    vlSelect(next);
+    var box = vlBoxFor(next);
+    if(box) box.focus({preventScroll: true});
+  }
+  vlBoxes.addEventListener('pointerup', vlEndDrag);
+  vlBoxes.addEventListener('pointercancel', vlEndDrag);
+  vlBoxes.addEventListener('focusin', function(e){
+    var box = e.target.closest('.vl-box');
+    if(box && box.dataset.id !== vlSelected && !vlDrag) vlSelect(box.dataset.id);
+  });
+  // Arrow keys move the focused element by 10, with Shift by 1.
+  vlBoxes.addEventListener('keydown', function(e){
+    var box = e.target.closest('.vl-box');
+    var d = box && {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]}[e.key];
+    if(!d || e.ctrlKey || e.metaKey || e.altKey) return;
+    e.preventDefault();
+    var el = vlEditable(box.dataset.id), step = e.shiftKey ? 1 : 10;
+    el.x = Math.round(el.x + d[0] * step);
+    el.y = Math.round(el.y + d[1] * step);
+    vlPlaceBox(box, el);
+    vlSyncGeomInputs(el);
+    vlQueueRender();
+    vlSave(false);
+  });
+
+  /* ---------- element list ---------- */
+
+  function vlRenderList(){
+    vlList.textContent = '';
+    // Topmost first, like layers.
+    vlLayout().els.slice().reverse().forEach(function(el){
+      var row = document.createElement('div');
+      row.className = 'vl-row' + (el.id === vlSelected ? ' is-selected' : '') + (el.hidden ? ' is-off' : '');
+      row.setAttribute('role', 'listitem');
+      row.dataset.id = el.id;
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !el.hidden;
+      cb.title = 'Im Video zeigen';
+      cb.setAttribute('aria-label', vlName(el) + ' im Video zeigen');
+      cb.addEventListener('change', function(){
+        var e2 = vlEditable(el.id);
+        if(!e2) return;
+        if(cb.checked) delete e2.hidden; else e2.hidden = true;
+        vlSave(true);
+        vlRenderBoxes();
+        vlRenderList();
+        vlQueueRender();
+        var again = vlList.querySelector('.vl-row[data-id="' + el.id + '"] input');
+        if(again) again.focus();
+      });
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'vl-row-name';
+      btn.textContent = vlName(el);
+      btn.setAttribute('aria-pressed', el.id === vlSelected ? 'true' : 'false');
+      btn.addEventListener('click', function(){
+        vlSelect(el.id);
+        var again = vlList.querySelector('.vl-row[data-id="' + el.id + '"] .vl-row-name');
+        if(again) again.focus();
+      });
+      row.appendChild(cb);
+      row.appendChild(btn);
+      vlList.appendChild(row);
+    });
+  }
+
+  /* ---------- properties of the selected element ---------- */
+
+  function vlColorHex(c){
+    if(VIDEO_HEX_RE.test(c)) return c;
+    var m = /^rgba\((\d+),(\d+),(\d+)/.exec(c || '');
+    return m ? '#' + [m[1], m[2], m[3]].map(function(n){ return ('0' + (+n).toString(16)).slice(-2); }).join('') : '#ffffff';
+  }
+
+  // Small builders for the property controls; each writes its key on the element and saves.
+  function vlSet(id, key, value, now){
+    var el = vlEditable(id);
+    if(!el) return;
+    el[key] = value;
+    vlQueueRender();
+    vlSave(now);
+  }
+  function vlCheck(el, key, label){
+    var lab = document.createElement('label');
+    lab.className = 'toggle-label';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!el[key];
+    cb.addEventListener('change', function(){ vlSet(el.id, key, cb.checked, true); });
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode(' ' + label));
+    return lab;
+  }
+  function vlRange(el, key, label, min, max, step, unit){
+    var lab = document.createElement('label');
+    lab.className = 'vl-range';
+    var text = document.createElement('span');
+    text.textContent = label;
+    var inp = document.createElement('input');
+    inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step; inp.value = el[key];
+    var out = document.createElement('output');
+    function show(){ out.textContent = String(+inp.value).replace('.', ',') + ' ' + unit; }
+    show();
+    inp.addEventListener('input', function(){ show(); vlSet(el.id, key, +inp.value, false); });
+    lab.appendChild(text); lab.appendChild(inp); lab.appendChild(out);
+    return lab;
+  }
+  function vlColor(el, key, label){
+    var lab = document.createElement('label');
+    lab.className = 'vl-color';
+    var inp = document.createElement('input');
+    inp.type = 'color';
+    inp.value = vlColorHex(el[key]);
+    inp.addEventListener('input', function(){ vlSet(el.id, key, inp.value, false); });
+    lab.appendChild(inp);
+    lab.appendChild(document.createTextNode(label));
+    return lab;
+  }
+  function vlSelectCtl(el, key, label, options, onChange){
+    var row = document.createElement('label');
+    row.className = 'settings-row';
+    var text = document.createElement('span');
+    text.className = 'caption';
+    text.textContent = label;
+    var sel = document.createElement('select');
+    options.forEach(function(o){
+      var opt = document.createElement('option');
+      opt.value = o[0];
+      opt.textContent = o[1];
+      sel.appendChild(opt);
+    });
+    sel.value = el[key];
+    sel.addEventListener('change', function(){ if(onChange) onChange(sel.value); else vlSet(el.id, key, sel.value, true); });
+    row.appendChild(text); row.appendChild(sel);
+    return row;
+  }
+  function vlHint(text){
+    var p = document.createElement('p');
+    p.className = 'settings-hint';
+    p.textContent = text;
+    return p;
+  }
+
+  function vlSyncGeomInputs(el, except){
+    Array.prototype.forEach.call(vlProps.querySelectorAll('[data-geom]'), function(inp){
+      if(inp !== except && document.activeElement !== inp) inp.value = Math.round(el[inp.dataset.geom]);
+    });
+  }
+
+  function vlRenderProps(){
+    vlProps.textContent = '';
+    var el = vlFind(vlSelected);
+    vlProps.hidden = !el;
+    if(!el) return;
+    var F = vlSize();
+    var h3 = document.createElement('h3');
+    h3.textContent = vlName(el);
+    vlProps.appendChild(h3);
+
+    var geom = document.createElement('div');
+    geom.className = 'vl-geom';
+    [['x', 'X'], ['y', 'Y'], ['w', 'Breite'], ['h', 'Höhe']].forEach(function(g){
+      var lab = document.createElement('label');
+      lab.textContent = g[1];
+      var inp = document.createElement('input');
+      inp.type = 'number';
+      inp.step = '1';
+      inp.value = Math.round(el[g[0]]);
+      inp.dataset.geom = g[0];
+      inp.addEventListener('input', function(){
+        var v = parseFloat(inp.value), e2 = vlEditable(el.id);
+        if(!isFinite(v) || !e2) return;
+        var key = g[0], ratio = e2.w / e2.h;
+        if(key === 'w' || key === 'h') v = Math.max(VL_MIN, v);
+        e2[key] = v;
+        if(vlKeepsAspect(e2) && key === 'w') e2.h = Math.round(v / ratio);
+        if(vlKeepsAspect(e2) && key === 'h') e2.w = Math.round(v * ratio);
+        vlSyncGeomInputs(e2, inp);
+        var box = vlBoxFor(el.id);
+        if(box) vlPlaceBox(box, e2);
+        vlQueueRender();
+        vlSave(false);
+      });
+      lab.appendChild(inp);
+      geom.appendChild(lab);
+    });
+    vlProps.appendChild(geom);
+    vlProps.appendChild(vlHint('In Pixeln des Video-Bilds (' + F.w + ' × ' + F.h + ').'));
+
+    if(el.type === 'stage'){
+      vlProps.appendChild(vlCheck(el, 'grid', 'Raster'));
+      vlProps.appendChild(vlRange(el, 'line', 'Linienstärke', 0.5, 6, 0.5, 'px'));
+      vlProps.appendChild(vlCheck(el, 'nums', 'Meterzahlen am Raster'));
+      vlProps.appendChild(vlRange(el, 'dot', 'Punktgröße', 50, 200, 5, '%'));
+      vlProps.appendChild(vlCheck(el, 'initials', 'Kürzel in den Punkten'));
+      vlProps.appendChild(vlCheck(el, 'names', 'Namen über den Punkten'));
+      vlProps.appendChild(vlCheck(el, 'room', 'Raumseiten (Wand, Spiegel …)'));
+      var floorMode = el.floor === 'none' ? 'none' : el.floor ? 'color' : '';
+      vlProps.appendChild(vlSelectCtl({id: el.id, mode: floorMode}, 'mode', 'Boden', [['', 'Standard-Verlauf'], ['color', 'Eigene Farbe'], ['none', 'Keiner']], function(v){
+        vlSet(el.id, 'floor', v === 'color' ? '#241a30' : v, true);
+        vlRenderProps();
+      }));
+      if(floorMode === 'color') vlProps.appendChild(vlColor(el, 'floor', 'Bodenfarbe'));
+      vlProps.appendChild(vlHint('Weglinien, Herkunfts- und Zielpunkte und das Hellgrau anderer Paare wählst du im Exportieren-Dialog, die Blickrichtungs-Pfeile in den Einstellungen – die Vorschau zeigt sie, wie sie dort stehen.'));
+    }else if(el.type === 'bilder'){
+      vlProps.appendChild(vlRange(el, 'size', 'Schriftgröße', 50, 250, 5, '%'));
+      vlProps.appendChild(vlColor(el, 'color', 'Schriftfarbe'));
+      vlProps.appendChild(vlCheck(el, 'divider', 'Trennlinie rechts'));
+      vlProps.appendChild(vlHint('Die Namen der Bilder laufen mit dem Video durch, das aktuelle groß in der Mitte.'));
+    }else if(el.type === 'logo'){
+      vlProps.appendChild(vlHint(state.logo ? 'Bild und Deckkraft des Logos stellst du in den Einstellungen ein.' : 'Noch kein Logo – du lädst es in den Einstellungen hoch.'));
+    }
+  }
+
+  /* ---------- open / close ---------- */
+
+  function vlLoadLogo(){
+    var url = state.logo && state.logo.url ? state.logo.url : null;
+    if(url === vlLogo.url) return;
+    vlLogo = {url: url, img: null};
+    if(url) loadImage(url).then(function(img){ if(vlLogo.url === url){ vlLogo.img = img; vlQueueRender(); } }, function(){});
+  }
+
+  function vlSyncMoment(keep){
+    var n = state.formations.length;
+    vlMoment.max = Math.max(0, n - 1);
+    vlMoment.disabled = n < 2;
+    if(!keep) vlMoment.value = state.activeIndex;
+  }
+
+  function vlRefresh(){
+    if(!vlFind(vlSelected)) vlSelected = vlFind('stage') ? 'stage' : null;
+    vlRenderBoxes();
+    vlRenderList();
+    vlRenderProps();
+    vlQueueRender();
+  }
+
+  function openVideoLayout(){
+    if(!state.formations.length) return;
+    vlFromExport = !exportBackdrop.hidden;
+    exportBackdrop.hidden = true;
+    vlBackdrop.hidden = false;
+    vlOpts = vlExportOptions();
+    vlSyncMoment(false);
+    vlLoadLogo();
+    vlRefresh();
+    requestAnimationFrame(function(){
+      var box = vlBoxFor(vlSelected);
+      if(box) box.focus({preventScroll: true});
+    });
+  }
+  function closeVideoLayout(){
+    vlDrag = null;
+    saveStateDebounced.flush();
+    vlBackdrop.hidden = true;
+    if(vlFromExport){
+      exportBackdrop.hidden = false;
+      syncExportDialog();
+      document.getElementById('exportLayoutBtn').focus();
+    }
+  }
+
+  // After the whole state was swapped (Rückgängig, a share update, an import — fullRerender).
+  function refreshVideoLayoutBuilder(){
+    if(vlBackdrop.hidden) return;
+    vlDrag = null;
+    exportPathCache = {};
+    vlSyncMoment(true);
+    vlLoadLogo();
+    vlRefresh();
+  }
+
+  // .stg import: the layout from the file's header JSON. parseStg itself builds its state from a
+  // fixed list of fields, so this reads it next to it (same "STG1 | headerLen | header" start).
+  function readStgVideoExtras(buf, parsed){
+    var len = new DataView(buf).getUint32(4, true);
+    var header = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, len)));
+    parsed.videoLayout = sanitizeVideoLayout(header.videoLayout);
+    return parsed;
+  }
+
+  document.getElementById('exportLayoutBtn').addEventListener('click', openVideoLayout);
+  document.getElementById('videoLayoutCloseBtn').addEventListener('click', closeVideoLayout);
+  document.getElementById('vlDoneBtn').addEventListener('click', closeVideoLayout);
+  document.getElementById('vlUndoBtn').addEventListener('click', function(){ historyUndo(); });
+  document.getElementById('vlRedoBtn').addEventListener('click', function(){ historyRedo(); });
+  document.getElementById('vlResetBtn').addEventListener('click', function(){
+    var format = vlLayout().format;
+    state.videoLayout = format === 'quer' ? null : defaultVideoLayout(format);
+    vlSelected = 'stage';
+    vlSave(true);
+    vlRefresh();
+  });
+  vlMoment.addEventListener('input', vlQueueRender);
+  var vlBackdropDown = false; // a drag that ends outside the dialog is not a click on the backdrop
+  vlBackdrop.addEventListener('pointerdown', function(e){ vlBackdropDown = e.target === vlBackdrop; });
+  vlBackdrop.addEventListener('click', function(e){ if(e.target === vlBackdrop && vlBackdropDown) closeVideoLayout(); });
+  vlBackdrop.addEventListener('keydown', function(e){
+    if(e.key !== 'Escape') return;
+    e.stopPropagation(); // only this dialog, not the Exportieren dialog it returns to (js/main.js)
+    closeVideoLayout();
+  });
+  if(window.ResizeObserver) new ResizeObserver(vlQueueRender).observe(vlFrameWrap);
+  window.addEventListener('resize', vlQueueRender);
