@@ -91,13 +91,13 @@
 /* Tippen (#2096): two tap buttons beside play — on a touch screen a row of big ones. */
 .beat-tap:not([hidden]){display:inline-flex;gap:3px;}
 .modal .beat-tap-btn{height:28px;padding:0 .55rem;gap:.35rem;font-size:.74rem;font-weight:700;}
-.modal .beat-tap-btn--bar{border-color:var(--pair);color:var(--pair);}
+.modal .beat-tap-btn--bar{border-color:var(--pair);}
 .beat-tap-btn kbd{font-family:var(--font-mono);font-size:.62rem;font-weight:600;padding:0 .25rem;border:1px solid var(--line-strong);border-radius:3px;color:var(--ink-3);}
 .modal .beat-tap-btn--hit{background:var(--accent-wash);border-color:var(--accent);}
 .modal .beat-tap-btn--bar.beat-tap-btn--hit{background:var(--pair-wash);}
 @media (pointer:coarse){
   .beat-tap:not([hidden]){order:1;flex:1 0 100%;}
-  .modal .beat-tap-btn{flex:1;height:52px;justify-content:center;font-size:.9rem;}
+  .modal .beat-tap .beat-tap-btn{flex:1;height:52px;justify-content:center;font-size:.9rem;}
   .beat-tap-btn kbd{display:none;}
 }
 .beat-tool-hint{margin-top:-.25rem;color:var(--ink-2);}

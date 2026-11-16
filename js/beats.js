@@ -389,10 +389,12 @@
   }
   ['pause', 'seeking'].forEach(function(t){ songAudioEl.addEventListener(t, endTapRun); });
   window.addEventListener('pagehide', endTapRun);
+  var tapPressedAt = -Infinity;
   [[beatTapBtn, false], [barTapBtn, true]].forEach(function(p){
     // On press, not on release: a click comes a good bit after the finger lands.
-    p[0].addEventListener('pointerdown', function(e){ if(e.button === 0){ e.preventDefault(); tapBeat(p[1], e.timeStamp, p[0]); } });
-    p[0].addEventListener('click', function(e){ if(e.detail === 0) tapBeat(p[1], e.timeStamp, p[0]); }); // Enter/Space on the focused button
+    p[0].addEventListener('pointerdown', function(e){ if(e.button === 0){ e.preventDefault(); tapPressedAt = e.timeStamp; tapBeat(p[1], e.timeStamp, p[0]); } });
+    // Enter/Space on the focused button; the click that follows a press is no second tap.
+    p[0].addEventListener('click', function(e){ if(e.timeStamp - tapPressedAt > 1000) tapBeat(p[1], e.timeStamp, p[0]); });
   });
   document.addEventListener('keydown', function(e){
     if(beatTool !== 'tap' || markerBackdrop.hidden || !confirmBackdrop.hidden || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
