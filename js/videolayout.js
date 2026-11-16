@@ -24,6 +24,16 @@
   var vlRenderQueued = false;
   var vlFromExport = false;
   var VL_MIN = 16;                   // smallest box side, in frame units
+  var vlFormat = document.getElementById('vlFormat');
+  var vlBg = document.getElementById('vlBg');
+  var vlSnapToggle = document.getElementById('vlSnap');
+  var vlGuides = ['is-x', 'is-y'].map(function(c){
+    var g = document.createElement('div');
+    g.className = 'vl-guide ' + c;
+    g.hidden = true;
+    vlFrame.appendChild(g);
+    return g;
+  });
 
   function vlLayout(){ return currentVideoLayout(); }
   function vlSize(){ return VIDEO_FORMATS[vlLayout().format]; }
@@ -212,6 +222,7 @@
     if(!el){ vlDrag = null; return; }
     var dx = (e.clientX - d.x0) * d.kx, dy = (e.clientY - d.y0) * d.ky, s = d.start;
     var b = d.corner ? vlResize(s, d.corner, dx, dy, vlKeepsAspect(el)) : {x: s.x + dx, y: s.y + dy, w: s.w, h: s.h};
+    if(!d.corner) vlSnap(el, b, 8 * d.kx);
     el.x = Math.round(b.x); el.y = Math.round(b.y); el.w = Math.round(b.w); el.h = Math.round(b.h);
     if(d.corner && el.type === 'text'){
       // A text's width sets its line breaks and so its height; with a background it may be taller.
@@ -224,10 +235,36 @@
     vlSyncGeomInputs(el);
     vlQueueRender();
   });
+  // Snapping while moving: the box's left edge, middle or right edge (and top, middle, bottom) catches
+  // on the frame's and every other shown element's within tol; a guide line shows where.
+  function vlSnap(el, b, tol){
+    var F = vlSize(), xs = [0, F.w / 2, F.w], ys = [0, F.h / 2, F.h];
+    vlLayout().els.forEach(function(o){
+      if(o.id === el.id || o.hidden) return;
+      xs.push(o.x, o.x + o.w / 2, o.x + o.w);
+      ys.push(o.y, o.y + o.h / 2, o.y + o.h);
+    });
+    function best(pos, size, lines){
+      var r = null;
+      [0, size / 2, size].forEach(function(off){
+        lines.forEach(function(l){ var dd = l - pos - off; if(Math.abs(dd) <= tol && (!r || Math.abs(dd) < Math.abs(r.d))) r = {d: dd, at: l}; });
+      });
+      return r;
+    }
+    var on = vlSnapToggle.checked, sx = on && best(b.x, b.w, xs), sy = on && best(b.y, b.h, ys);
+    if(sx) b.x += sx.d;
+    if(sy) b.y += sy.d;
+    vlGuides[0].hidden = !sx;
+    vlGuides[1].hidden = !sy;
+    if(sx) vlGuides[0].style.left = (sx.at / F.w * 100) + '%';
+    if(sy) vlGuides[1].style.top = (sy.at / F.h * 100) + '%';
+  }
+
   function vlEndDrag(e){
     var d = vlDrag;
     if(!d || e.pointerId !== d.pointerId) return;
     vlDrag = null;
+    vlGuides.forEach(function(g){ g.hidden = true; });
     if(d.moved){ vlSave(true); return; }
     // A tap on the selected element: where it is the topmost one, the next tap goes to the one
     // underneath (and round again); where others cover it, to the topmost one there.
@@ -509,22 +546,42 @@
     if(el.bg) vlProps.appendChild(vlColor(el, 'bg', 'Hintergrundfarbe'));
   }
 
+  // Layer order: one step up or down in els (drawing order). The focus stays on the button pressed,
+  // or moves to the other one once the element reached the top or bottom.
+  function vlMoveLayer(id, by){
+    var els = vlEditable().els, i = els.map(function(el){ return el.id; }).indexOf(id), j = i + by;
+    if(i === -1 || j < 0 || j >= els.length) return;
+    els.splice(j, 0, els.splice(i, 1)[0]);
+    vlSave(true);
+    vlRefresh();
+    var btns = vlProps.querySelectorAll('[data-layer]'), b = btns[by > 0 ? 0 : 1];
+    if(b && b.disabled) b = btns[by > 0 ? 1 : 0];
+    if(b) b.focus();
+  }
+
   function vlElementActions(el){
-    if(!vlDeletable(el)) return;
     var row = document.createElement('div');
     row.className = 'vl-actions';
-    var dup = document.createElement('button');
-    dup.type = 'button';
-    dup.className = 'btn-ghost';
-    dup.textContent = 'Duplizieren';
-    dup.addEventListener('click', function(){ vlDuplicate(el.id); });
-    var del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'btn-ghost danger';
-    del.textContent = 'Löschen';
-    del.addEventListener('click', function(){ vlDelete(el.id); });
-    row.appendChild(dup);
-    row.appendChild(del);
+    var els = vlLayout().els, i = els.map(function(e){ return e.id; }).indexOf(el.id);
+    function button(text, cls, onClick){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = cls;
+      b.textContent = text;
+      b.addEventListener('click', onClick);
+      row.appendChild(b);
+      return b;
+    }
+    var up = button('Nach vorn', 'btn-ghost', function(){ vlMoveLayer(el.id, 1); });
+    up.dataset.layer = '1';
+    up.disabled = i === els.length - 1;
+    var down = button('Nach hinten', 'btn-ghost', function(){ vlMoveLayer(el.id, -1); });
+    down.dataset.layer = '-1';
+    down.disabled = i === 0;
+    if(vlDeletable(el)){
+      button('Duplizieren', 'btn-ghost', function(){ vlDuplicate(el.id); });
+      button('Löschen', 'btn-ghost danger', function(){ vlDelete(el.id); });
+    }
     vlProps.appendChild(row);
   }
 
@@ -622,7 +679,39 @@
     if(!keep) vlMoment.value = state.activeIndex;
   }
 
+  // Another format: the built-in elements take that format's standard place; texts and graphics keep
+  // their spot relative to the frame and their size (by area, so switching back and forth doesn't
+  // shrink them), only made smaller where they wouldn't fit.
+  function vlSetFormat(format){
+    var layout = vlEditable(), F0 = VIDEO_FORMATS[layout.format], F1 = VIDEO_FORMATS[format];
+    if(!F1 || format === layout.format) return;
+    var def = defaultVideoLayout(format), k = Math.sqrt(F1.w * F1.h / (F0.w * F0.h));
+    layout.format = format;
+    layout.els.forEach(function(el){
+      var d = def.els.filter(function(x){ return x.id === el.id; })[0];
+      if(d){ ['x', 'y', 'w', 'h', 'size', 'divider'].forEach(function(key){ if(key in d) el[key] = d[key]; }); return; }
+      var cx = (el.x + el.w / 2) / F0.w * F1.w, cy = (el.y + el.h / 2) / F0.h * F1.h;
+      if(el.type === 'text'){
+        var dragged = el.h * k;
+        el.size = Math.max(6, Math.round(el.size * k));
+        el.w = Math.round(Math.min(el.w * k, F1.w));
+        vlFitText(el);
+        if(el.bg) el.h = Math.round(Math.min(Math.max(el.h, dragged), F1.h));
+      }else{
+        var s = Math.min(k, F1.w / el.w, F1.h / el.h);
+        el.w = Math.round(el.w * s);
+        el.h = Math.round(el.h * s);
+      }
+      el.x = Math.round(Math.max(0, Math.min(F1.w - el.w, cx - el.w / 2)));
+      el.y = Math.round(Math.max(0, Math.min(F1.h - el.h, cy - el.h / 2)));
+    });
+    vlSave(true);
+    vlRefresh();
+  }
+
   function vlRefresh(){
+    vlFormat.value = vlLayout().format;
+    vlBg.value = vlLayout().bg;
     if(!vlFind(vlSelected)) vlSelected = vlFind('stage') ? 'stage' : null;
     vlRenderBoxes();
     vlRenderList();
@@ -811,6 +900,12 @@
     vlSelected = 'stage';
     vlSave(true);
     vlRefresh();
+  });
+  vlFormat.addEventListener('change', function(){ vlSetFormat(vlFormat.value); });
+  vlBg.addEventListener('input', function(){
+    vlEditable().bg = vlBg.value;
+    vlQueueRender();
+    vlSave(false);
   });
   vlMoment.addEventListener('input', vlQueueRender);
   var vlBackdropDown = false; // a drag that ends outside the dialog is not a click on the backdrop

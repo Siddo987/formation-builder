@@ -434,6 +434,7 @@
     exportPathsOption.hidden = exportFormat !== 'pdf' && exportFormat !== 'video';
     exportQualityOption.hidden = exportFormat !== 'video';
     document.getElementById('exportLayoutOption').hidden = exportFormat !== 'video';
+    syncVideoQualityLabels();
     exportRealtimeHint.hidden = fastVideoExportPossible();
     exportOptionsSection.hidden = exportContextOption.hidden && exportGhostOption.hidden && exportNotesOption.hidden && exportPathsOption.hidden;
     exportPdfHint.hidden = exportFormat !== 'pdf';
@@ -1416,6 +1417,14 @@
   // the chosen quality: the encoder's time grows with the pixels, so Entwurf is the quick one (#2094).
   var VIDEO_QUALITIES = {entwurf:{scale:0.6, bitrate:2000000}, standard:{scale:1, bitrate:6000000}, hoch:{scale:1.28, bitrate:12000000}};
   function videoQuality(){ return VIDEO_QUALITIES[exportQualitySelect.value] || VIDEO_QUALITIES.standard; }
+  // The Qualität options name the pixel size they give in the layout's format.
+  function syncVideoQualityLabels(){
+    var F = videoFrameSize(), texts = {entwurf: 'Entwurf – %, am schnellsten', standard: 'Standard – %', hoch: 'Hoch – %, dauert länger'};
+    Array.prototype.forEach.call(exportQualitySelect.options, function(o){
+      var q = VIDEO_QUALITIES[o.value];
+      o.textContent = texts[o.value].replace('%', 2*Math.round(F.w*q.scale/2) + ' × ' + 2*Math.round(F.h*q.scale/2));
+    });
+  }
   function createVideoCanvas(){
     var canvas = document.createElement('canvas'), q = videoQuality(), F = videoFrameSize();
     // H.264 only takes even sizes

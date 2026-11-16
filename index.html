@@ -546,7 +546,7 @@ if ('serviceWorker' in navigator) {
         </div>
         <div id="exportLayoutOption">
           <button class="btn-ghost" id="exportLayoutBtn" type="button" aria-haspopup="dialog"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>Video-Layout anpassen …</button>
-          <p class="settings-hint" id="exportLayoutHint">Was das Video zeigt und wo: Bühne, Bild-Namen, Logo, eigene Texte und Grafiken.</p>
+          <p class="settings-hint" id="exportLayoutHint">Was das Video zeigt und wo: Format, Bühne, Bild-Namen, Logo, eigene Texte und Grafiken.</p>
         </div>
         <label class="toggle-label" id="exportContextOption"><input type="checkbox" id="exportContextToggle"> Andere Paare hellgrau einblenden</label>
         <div id="exportGhostOption">
@@ -594,6 +594,19 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
       <div class="vl-side">
+        <section class="settings-section">
+          <h3>Video-Bild</h3>
+          <div class="settings-row"><label for="vlFormat">Format</label>
+            <select id="vlFormat">
+              <option value="quer">Quer wie bisher – 1500 × 800</option>
+              <option value="breit">Breitbild 16:9 – 1440 × 810</option>
+              <option value="hoch">Hochformat 9:16 – 810 × 1440</option>
+              <option value="quadrat">Quadrat 1:1 – 1080 × 1080</option>
+            </select>
+          </div>
+          <label class="vl-color"><input type="color" id="vlBg">Hintergrundfarbe</label>
+          <label class="toggle-label"><input type="checkbox" id="vlSnap" checked> Beim Ziehen an Mitte, Rändern und anderen Elementen einrasten</label>
+        </section>
         <section class="settings-section">
           <h3 id="vlListTitle">Elemente</h3>
           <div class="vl-list" id="vlList" role="list" aria-labelledby="vlListTitle"></div>

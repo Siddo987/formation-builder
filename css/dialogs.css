@@ -239,6 +239,9 @@
 .vl-box:hover{outline-color:rgba(255,255,255,.6);}
 .vl-box:focus-visible{outline:2px solid #fff;outline-offset:1px;}
 /* the selected box is drawn on top for its outline and handles; presses go by the frame (js/videolayout.js) */
+.vl-guide{position:absolute;z-index:3;pointer-events:none;background:var(--accent);}
+.vl-guide.is-x{top:0;bottom:0;width:1px;margin-left:-.5px;}
+.vl-guide.is-y{left:0;right:0;height:1px;margin-top:-.5px;}
 .vl-box.is-selected{z-index:2;pointer-events:none;outline:2px solid var(--accent);outline-offset:0;box-shadow:0 0 0 1px rgba(255,255,255,.7);}
 .vl-box.is-selected:focus-visible{outline:3px solid var(--accent);box-shadow:0 0 0 2px #fff;}
 .vl-box.is-missing{background:repeating-linear-gradient(135deg,rgba(255,255,255,.14) 0 8px,rgba(255,255,255,.04) 8px 16px);outline-color:rgba(255,255,255,.6);}
