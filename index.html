@@ -599,7 +599,10 @@ if ('serviceWorker' in navigator) {
           <div class="vl-list" id="vlList" role="list" aria-labelledby="vlListTitle"></div>
           <div class="vl-actions">
             <button class="btn-ghost" id="vlAddTextBtn" type="button">Text hinzufügen</button>
+            <button class="btn-ghost" id="vlAddImageBtn" type="button">Grafik hinzufügen</button>
+            <input type="file" id="vlImageInput" accept="image/*" hidden>
           </div>
+          <p class="settings-hint import-error-inline" id="vlImageError" role="alert" hidden>Diese Datei kann der Browser nicht als Bild lesen.</p>
           <p class="settings-hint">Im Bild antippen zum Auswählen, ziehen zum Verschieben, an den Ecken ziehen für die Größe. Liegen Elemente übereinander, wählt ein zweites Antippen das darunter. Ausgewählt verschieben auch die Pfeiltasten.</p>
         </section>
         <section class="settings-section" id="vlProps"></section>

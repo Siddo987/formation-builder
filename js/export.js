@@ -474,7 +474,7 @@
     var base = sanitizeFilename(filenameInput.value);
     if(exportFormat === 'stg' || exportFormat === 'auf'){
       closeExportDialog();
-      if(exportFormat === 'stg') saveProjectFile(base + '.stg', buildStgBlob);
+      if(exportFormat === 'stg') saveProjectFile(base + '.stg', function(s){ return buildStgBlob(s).then(appendStgVideoImages); });
       else saveProjectFile(base + '.auf', function(s){ return new Blob([buildAufText(s)], {type:'text/plain'}); });
       return;
     }
@@ -1204,6 +1204,7 @@
       else if(el.type === 'logo') drawImageFit(ctx, logoImg, el, ((state.logo && state.logo.opacity) || 18) / 100);
       else if(el.type === 'bilder') drawVideoInfoPanel(ctx, el, panelCursor);
       else if(el.type === 'text') drawTextElement(ctx, el, panelCursor, info);
+      else if(el.type === 'image') drawImageFit(ctx, videoImageFor(el.img), el, el.opacity / 100);
     });
   }
 
@@ -1312,6 +1313,7 @@
     setExportingUI(true);
 
     var logoPromise = (state.logo && state.logo.url) ? loadImage(state.logo.url) : Promise.resolve(null);
+    logoPromise = Promise.all([logoPromise, loadVideoImages()]).then(function(r){ return r[0]; }); // the layout's images (js/videolayout.js)
     logoPromise.then(function(logoImg){
       runVideoRecording(logoImg, filename, focusIds);
     }).catch(function(err){

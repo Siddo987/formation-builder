@@ -127,6 +127,11 @@
       var box = document.createElement('div');
       box.className = 'vl-box' + (el.hidden ? ' is-off' : '');
       box.dataset.id = el.id;
+      // An image this device doesn't have (shared choreo): a placeholder here, nothing in the video.
+      if(el.type === 'image' && vlImageMissing(el.img)){
+        box.classList.add('is-missing');
+        box.dataset.missing = 'Grafik fehlt auf diesem Gerät';
+      }
       box.tabIndex = 0;
       box.setAttribute('role', 'button');
       box.setAttribute('aria-label', vlName(el) + (el.hidden ? ' (ausgeblendet)' : '') + ' – ziehen oder mit den Pfeiltasten verschieben');
@@ -171,28 +176,32 @@
     return {x: west ? s.x + s.w - w : s.x, y: north ? s.y + s.h - h : s.y, w: w, h: h};
   }
 
-  // Elements under a frame point, topmost first — for tapping through to the one underneath.
+  function vlContains(el, px, py){ return px >= el.x && px <= el.x + el.w && py >= el.y && py <= el.y + el.h; }
+  // Elements under a frame point, topmost first.
   function vlElementsAt(px, py){
-    return vlLayout().els.filter(function(el){
-      return !el.hidden && px >= el.x && px <= el.x + el.w && py >= el.y && py <= el.y + el.h;
-    }).reverse();
+    return vlLayout().els.filter(function(el){ return !el.hidden && vlContains(el, px, py); }).reverse();
   }
 
+  // Hit-testing goes by the frame, not by which box the browser hit: a press inside the selected
+  // element drags it even where others lie on top (like design tools); anywhere else it takes the
+  // topmost element there. A tap without dragging is handled in vlEndDrag.
   vlBoxes.addEventListener('pointerdown', function(e){
-    var box = e.target.closest('.vl-box');
-    if(!box || e.button > 0 || vlDrag) return;
+    if(e.button > 0 || vlDrag) return;
+    var r = vlBoxes.getBoundingClientRect(), F = vlSize();
+    var px = (e.clientX - r.left) / r.width * F.w, py = (e.clientY - r.top) / r.height * F.h;
+    var handle = e.target.closest('.vl-handle'), sel = vlFind(vlSelected), under = vlElementsAt(px, py);
+    var el = (handle || (sel && vlContains(sel, px, py))) ? sel : under[0];
+    if(!el) return;
     e.preventDefault();
-    var id = box.dataset.id, wasSelected = vlSelected === id;
-    if(!wasSelected) vlSelect(id);
-    box.focus({preventScroll: true});
-    var el = vlFind(id), r = vlBoxes.getBoundingClientRect(), F = vlSize();
-    var handle = e.target.closest('.vl-handle');
+    var wasSelected = vlSelected === el.id;
+    if(!wasSelected) vlSelect(el.id);
+    var box = vlBoxFor(el.id);
+    if(box) box.focus({preventScroll: true});
     vlDrag = {
-      id: id, box: box, pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, kx: F.w / r.width, ky: F.h / r.height,
-      px: (e.clientX - r.left) / r.width * F.w, py: (e.clientY - r.top) / r.height * F.h,
-      start: {x: el.x, y: el.y, w: el.w, h: el.h}, corner: handle ? handle.dataset.corner : null, moved: false, wasSelected: wasSelected
+      id: el.id, box: box, pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, kx: F.w / r.width, ky: F.h / r.height,
+      under: under, start: {x: el.x, y: el.y, w: el.w, h: el.h}, corner: handle ? handle.dataset.corner : null, moved: false, wasSelected: wasSelected
     };
-    box.setPointerCapture(e.pointerId);
+    vlBoxes.setPointerCapture(e.pointerId);
   });
   vlBoxes.addEventListener('pointermove', function(e){
     var d = vlDrag;
@@ -220,12 +229,12 @@
     if(!d || e.pointerId !== d.pointerId) return;
     vlDrag = null;
     if(d.moved){ vlSave(true); return; }
-    // A second tap on the selected element picks the one underneath (and so on, round again).
-    if(!d.wasSelected || e.type === 'pointercancel') return;
-    var under = vlElementsAt(d.px, d.py);
-    if(under.length < 2) return;
-    var i = under.map(function(el){ return el.id; }).indexOf(d.id);
-    var next = under[(i + 1) % under.length].id;
+    // A tap on the selected element: where it is the topmost one, the next tap goes to the one
+    // underneath (and round again); where others cover it, to the topmost one there.
+    if(!d.wasSelected || d.corner || e.type === 'pointercancel' || !d.under.length) return;
+    var i = d.under.map(function(el){ return el.id; }).indexOf(d.id);
+    var next = (i === 0 ? d.under[1 % d.under.length] : d.under[0]).id;
+    if(next === d.id) return;
     vlSelect(next);
     var box = vlBoxFor(next);
     if(box) box.focus({preventScroll: true});
@@ -589,6 +598,10 @@
       vlProps.appendChild(vlHint(state.logo ? 'Bild und Deckkraft des Logos stellst du in den Einstellungen ein.' : 'Noch kein Logo – du lädst es in den Einstellungen hoch.'));
     }else if(el.type === 'text'){
       vlTextProps(el);
+    }else if(el.type === 'image'){
+      vlProps.appendChild(vlRange(el, 'opacity', 'Deckkraft', 5, 100, 5, '%'));
+      if(vlImageMissing(el.img)) vlProps.appendChild(vlHint('Diese Grafik ist auf diesem Gerät nicht gespeichert – Grafiken reisen mit der .stg-Datei, aber nicht mit einem Teilen-Link. Das Video lässt sie weg.'));
+      else vlProps.appendChild(vlHint('Grafiken bleiben auf diesem Gerät und in der .stg-Datei; über einen Teilen-Link sehen andere nur einen Platzhalter.'));
     }
     vlElementActions(el);
   }
@@ -654,12 +667,138 @@
 
   // .stg import: the layout from the file's header JSON. parseStg itself builds its state from a
   // fixed list of fields, so this reads it next to it (same "STG1 | headerLen | header" start).
+  // The layout's images come from the trailer appendStgVideoImages() wrote; a damaged trailer only
+  // costs the images (their elements show the placeholder), never the import.
   function readStgVideoExtras(buf, parsed){
     var len = new DataView(buf).getUint32(4, true);
     var header = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, len)));
     parsed.videoLayout = sanitizeVideoLayout(header.videoLayout);
+    var n = buf.byteLength;
+    if(!parsed.videoLayout || n < 12 || String.fromCharCode.apply(null, new Uint8Array(buf, n - 4, 4)) !== 'VIMG') return parsed;
+    try{
+      var jsonLen = new DataView(buf).getUint32(n - 8, true);
+      var meta = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, n - 8 - jsonLen, jsonLen)));
+      var off = n - 8 - jsonLen - meta.reduce(function(sum, m){ return sum + m.size; }, 0), newIds = {};
+      if(!(off >= 0)) return parsed;
+      meta.forEach(function(m){
+        var size = m.size;
+        if(!(size >= 0 && size === Math.floor(size)) || typeof m.id !== 'string') throw new Error('bad image entry');
+        var mime = typeof m.mime === 'string' && /^image\/[\w.+-]+$/.test(m.mime) ? m.mime : 'image/png';
+        // Fresh ids, so a file can never overwrite a picture another project on this device uses.
+        newIds[m.id] = uid('vimg');
+        vlStoreImage(newIds[m.id], {name: String(m.name || '').slice(0, 80), mime: mime, blob: new Blob([buf.slice(off, off + size)], {type: mime})});
+        off += size;
+      });
+      parsed.videoLayout.els.forEach(function(el){ if(el.type === 'image' && newIds[el.img]) el.img = newIds[el.img]; });
+    }catch(e){ console.error(e); }
     return parsed;
   }
+
+  /* ---------- images: bytes in IndexedDB, only their id in the layout ----------
+     Each picture is its own record 'vimg:<id>' in the blobs store (js/state.js) — never in the
+     localStorage save, history snapshots or the share payload, which carry the layout with ids only.
+     Ids are unique across projects, so a copied project („Neue Choreo → Kopie“) simply shares them;
+     vlCollectImages() drops the ones no saved project uses any more.
+     shortcut: images are not uploaded with share links (the share API has no storage for them), so
+     on other devices an image element shows the „fehlt“ placeholder and the video leaves it out;
+     upgrade by adding them to the share upload (attachShareMedia in js/share.js + api/share) once
+     shared choreos need them. */
+  var vlImages = {}; // id -> {img: HTMLImageElement|null, missing: bool, promise}
+
+  function vlStoreImage(id, rec){
+    rec.addedAt = Date.now();
+    idbPut('vimg:' + id, rec);
+    vlImages[id] = {img: null, missing: false, promise: loadImage(URL.createObjectURL(rec.blob)).then(function(img){ vlImages[id].img = img; }, function(){ vlImages[id].missing = true; })};
+    return vlImages[id].promise;
+  }
+  // Resolves once the image is ready or known to be missing (never rejects).
+  function vlLoadImage(id){
+    if(vlImages[id]) return vlImages[id].promise;
+    var entry = vlImages[id] = {img: null, missing: false, promise: null};
+    entry.promise = idbGet('vimg:' + id).then(function(rec){
+      if(!rec || !rec.blob) throw new Error('missing');
+      return loadImage(URL.createObjectURL(rec.blob));
+    }).then(function(img){ entry.img = img; }, function(){ entry.missing = true; }).then(function(){
+      vlQueueRender();
+      if(entry.missing && !vlBackdrop.hidden) vlRenderBoxes();
+    });
+    return entry.promise;
+  }
+  // For renderCanvasFrame (js/export.js): the image if it is loaded, else null (and it starts loading).
+  function videoImageFor(id){
+    if(!id) return null;
+    if(!vlImages[id]) vlLoadImage(id);
+    return vlImages[id].img;
+  }
+  function vlImageMissing(id){ return !id || !!(vlImages[id] && vlImages[id].missing); }
+  function videoLayoutImageIds(layout){
+    var ids = [];
+    ((layout && layout.els) || []).forEach(function(el){ if(el.type === 'image' && el.img && ids.indexOf(el.img) === -1) ids.push(el.img); });
+    return ids;
+  }
+  // Before an export starts: every image of the layout loaded (or found missing).
+  function loadVideoImages(){ return Promise.all(videoLayoutImageIds(state.videoLayout).map(vlLoadImage)); }
+
+  // .stg: the layout's images ride at the very end of the file, after everything parseStg reads:
+  //   … | image bytes, one after the other | JSON [{id, name, mime, size}] | uint32LE JSON length | "VIMG"
+  // Older app versions stop reading before it; readStgVideoExtras() reads it from the end, so the
+  // sections in front of it can change without touching this.
+  function appendStgVideoImages(blob){
+    var ids = videoLayoutImageIds(state.videoLayout);
+    if(!ids.length) return blob;
+    return Promise.all(ids.map(function(id){ return idbGet('vimg:' + id); })).then(function(recs){
+      var meta = [], parts = [blob];
+      recs.forEach(function(rec, i){
+        if(!rec || !rec.blob) return;
+        meta.push({id: ids[i], name: rec.name || '', mime: rec.mime || rec.blob.type, size: rec.blob.size});
+        parts.push(rec.blob);
+      });
+      if(!meta.length) return blob;
+      var json = new TextEncoder().encode(JSON.stringify(meta));
+      parts.push(json, uint32LE(json.byteLength), new TextEncoder().encode('VIMG'));
+      return new Blob(parts, {type: 'application/octet-stream'});
+    });
+  }
+
+  // Deletes image records no project saved on this device refers to any more. Records younger than a
+  // day stay: another tab may have just added one whose layout isn't saved yet, and undo may want it.
+  function vlCollectImages(){
+    var keep = {};
+    function mark(layout){ videoLayoutImageIds(layout).forEach(function(id){ keep[id] = true; }); }
+    mark(state.videoLayout);
+    readProjectIndex().map(projectStorageKey).concat([STORAGE_KEY]).forEach(function(key){
+      try{ mark((JSON.parse(localStorage.getItem(key)) || {}).videoLayout); }catch(e){}
+    });
+    idbOpen().then(function(db){
+      var req = db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).openCursor();
+      req.onsuccess = function(){
+        var cur = req.result;
+        if(!cur) return;
+        var key = String(cur.key);
+        if(key.indexOf('vimg:') === 0 && !keep[key.slice(5)] && !(cur.value && cur.value.addedAt > Date.now() - 864e5)) cur.delete();
+        cur.continue();
+      };
+    }).catch(function(){});
+  }
+  setTimeout(vlCollectImages, 15000);
+
+  var vlImageInput = document.getElementById('vlImageInput');
+  document.getElementById('vlAddImageBtn').addEventListener('click', function(){ vlImageInput.click(); });
+  vlImageInput.addEventListener('change', function(){
+    var file = vlImageInput.files[0];
+    vlImageInput.value = '';
+    if(!file) return;
+    var id = uid('vimg');
+    var err = document.getElementById('vlImageError');
+    err.hidden = true;
+    vlStoreImage(id, {name: file.name.slice(0, 80), mime: file.type || 'image/png', blob: file}).then(function(){
+      var img = vlImages[id].img, F = vlSize();
+      if(!img){ err.hidden = false; idbDelete('vimg:' + id); return; }
+      // As large as fits 40 % of the frame, in proportion, in the middle.
+      var s = Math.min(F.w * 0.4 / img.width, F.h * 0.4 / img.height), w = Math.round(img.width * s), h = Math.round(img.height * s);
+      vlAddElement({id: uid('ve'), type: 'image', x: Math.round((F.w - w) / 2), y: Math.round((F.h - h) / 2), w: w, h: h, img: id, name: file.name.slice(0, 80), opacity: 100});
+    });
+  });
 
   document.getElementById('exportLayoutBtn').addEventListener('click', openVideoLayout);
   document.getElementById('videoLayoutCloseBtn').addEventListener('click', closeVideoLayout);
