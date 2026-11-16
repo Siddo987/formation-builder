@@ -416,7 +416,10 @@ var shareHeadCommit = null;   // last-seen mainline tip
 var shareGraph = null;        // last history.php result {head_commit, commits:[], branches:[]}
 var shareNeedsInitialPull = false; // a returning tab (localStorage binding, no ?share=) may hold a
                                    // stale project — its first poll pulls the current head instead
-                                   // of adopting whatever it had as "current".
+                                   // of adopting whatever it had as "current". Stays set until that
+                                   // pull has landed, so a failed one is retried on the next tick.
+var pushWaitingForBase = false;    // an edit before the first poll knows the graph: committing it
+                                   // without a base fast-forwarded a stale copy over the head.
 
 // A failed commit used to vanish silently: the edit stayed only in this tab, and the next poll or a
 // reopen (shareNeedsInitialPull) could replace it with the server head. Now the failure shows in
@@ -504,6 +507,7 @@ function detachShare(){
   state.shareReadOnly = false;
   shareAccess = null;
   shareBaseCommit = null; shareBranchId = null; shareHeadCommit = null; shareGraph = null;
+  shareNeedsInitialPull = false; pushWaitingForBase = false;
   clearPushFailure();
   stopSharePolling();
   applyShareReadonlyUi();
@@ -513,6 +517,7 @@ function detachShare(){
 function pushSharedUpdateNow(){
   pushDebounceTimer = null;
   if(!state.sharedId || state.shareReadOnly){ clearPushFailure(); return; }   // Nur-Ansehen-Link: nichts hochladen
+  if(!shareBaseCommit){ pushWaitingForBase = true; return; }                  // first poll sends it (or drops it, see pollSharedUpdate)
   if(pushInFlight){ pushQueuedAgain = true; return; }
   pushInFlight = true;
   clearTimeout(pushRetryTimer); pushRetryTimer = null;
@@ -750,7 +755,10 @@ function updateBildLocks(force){
   });
 }
 
-function haveLocalPendingEdits(){ return pushInFlight || !!pushDebounceTimer || pushQueuedAgain || pushUnsaved; }
+// An error body must never be applied as the project — the next edit would commit it over the head.
+function pullJson(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
+
+function haveLocalPendingEdits(){ return pushInFlight || !!pushDebounceTimer || pushQueuedAgain || pushUnsaved || pushWaitingForBase; }
 
 // The graph is fetched every tick so the Verlauf panel stays current; this only gates *swapping
 // state under the user* (a fast-forward pull) — never the fetch itself.
@@ -781,12 +789,11 @@ function pollSharedUpdate(){
       if(!shareBaseCommit){
         shareHeadCommit = newHead;
         if(shareNeedsInitialPull){
-          shareNeedsInitialPull = false;
           return fetch('api/share/get.php?' + shareQuery(id))
-            .then(function(r){ return r.json(); })
+            .then(pullJson)
             .then(function(payload){
               return reconstructSharedState(payload).then(function(newState){
-                if(state.sharedId !== id) return;
+                if(state.sharedId !== id || !shareNeedsInitialPull) return;
                 suppressSharePush = true;
                 applyState(newState, {keepBinding: true, keepBlobs: false});
                 suppressSharePush = false;
@@ -794,12 +801,15 @@ function pollSharedUpdate(){
                 lastPushedSongRef = newState.song;
                 lastKnownRev = payload.rev || lastKnownRev;
                 shareBaseCommit = newHead;
+                shareNeedsInitialPull = false;
+                pushWaitingForBase = false; // made on the stale copy — it stays in this device's Verlauf
                 refreshShareBranchUI();
               });
             });
         }
         shareBaseCommit = newHead; // freshly created/loaded — local state already equals head
         refreshShareBranchUI();
+        if(pushWaitingForBase){ pushWaitingForBase = false; pushSharedUpdateNow(); }
         return;
       }
 
@@ -815,7 +825,7 @@ function pollSharedUpdate(){
 
       if(canFastForward){
         return fetch('api/share/get.php?' + shareQuery(id))
-          .then(function(r){ return r.json(); })
+          .then(pullJson)
           .then(function(payload){
             if(state.sharedId !== id || haveLocalPendingEdits()) return;
             return reconstructSharedState(payload).then(function(newState){
@@ -1215,6 +1225,7 @@ function loadSharedProjectFromUrl(){
       suppressSharePush = true;     // loading the link must not turn around and commit it back
       applyImportedState(newState);
       suppressSharePush = false;
+      pushWaitingForBase = false;   // an edit held from before belonged to the replaced local project
       applyShareAccess(access);
       applyShareReadonlyUi();
       lastPushedLogoRef = newState.logo;

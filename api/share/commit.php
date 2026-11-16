@@ -11,7 +11,7 @@
  *
  * multipart/form-data body:
  *   id            : share id (required)
- *   base_commit   : last synced commit id ('' = fresh client, treated as "fork from head")
+ *   base_commit   : last synced commit id (required; empty or unknown -> 409, never a blind fast-forward)
  *   payload       : JSON project state (same shape create.php/update.php accept)
  *   author        : nickname for the history entry (optional)
  *   note          : short summary of the change (optional)
@@ -65,8 +65,11 @@ $headBranch = commit_branch($id, $head);
 
 $base = (string) ($_POST['base_commit'] ?? '');
 if ($base === '' || !commit_fetch($id, $base)) {
-    // Client has no (valid) knowledge of the graph yet — treat this as a fast-forward from head.
-    $base = $head;
+    // Without a known base this used to fast-forward from head, so a device holding an old copy
+    // overwrote the newer state. The client waits for its first poll before committing (js/share.js).
+    share_discard_incoming_upload($logoUploadId);
+    share_discard_incoming_upload($songUploadId);
+    json_error('Stand noch nicht mit dem Server abgeglichen – bitte die Seite neu laden', 409);
 }
 
 $isFastForward = ($base === $head);
