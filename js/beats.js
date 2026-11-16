@@ -8,7 +8,9 @@
    Abschnitt's edges. The beats follow from the bars, each bar divided evenly into its beats (the
    dance's, read from the Abschnitt's name, or set in the header line): "Klicks", "Jetzt" and "Alle
    Marken auf Schläge rücken" use them. "Automatisch vorschlagen" runs Essentia's beat tracker
-   (js/beats-worker.js) per Abschnitt and keeps the beats in state.beats. Everything runs in this
+   (js/beats-worker.js) per Abschnitt and keeps the beats in state.beats: it doesn't know where the 1
+   is, but filled-in bar lines snap onto those beats (following the tempo better than even spreading)
+   and they give the bar length, so one tap on the 1 fills an Abschnitt. Everything runs in this
    browser; the song never leaves it. */
 
   var beatDetectBtn = document.getElementById('beatDetectBtn');
@@ -40,6 +42,7 @@
   var BAR_SLACK = 0.05; // s — a bar this close before a Bild's mark already counts to the next Bild
   var BAR_CUT_SHARE = 0.25; // a bar starting less than this share of a bar before an Abschnitt's cut is the next one's
   var BAR_MIN = 0.25; // s — the shortest bar a drag squeezes the ones beside it to
+  var GRID_SNAP = 0.3; // share of a beat: a filled-in bar line snaps onto a detected beat this close
 
   // Tournament tempi (WDSF) in beats per minute, beats per bar; matched by a word in the name.
   var BEAT_DANCES = [
@@ -137,6 +140,19 @@
     var b = nearestIn(songBeats().beats, t);
     return b !== null && Math.abs(b - t) <= maxDist ? b : null;
   }
+  // t on the detected beat nearest to it (moved by shift), if that is within GRID_SNAP of a beat
+  // (bar length l, per beats).
+  function gridSnap(t, l, per, shift){
+    var g = nearestIn(state.beats, t - shift);
+    return g !== null && Math.abs(g + shift - t) < GRID_SNAP * l / per ? g + shift : t;
+  }
+  // The bar length the detected beats of an Abschnitt give (folded onto its dance's tempo), 0 without.
+  function gridBarLen(sec, per){
+    var g = (state.beats || []).filter(function(t){ return t >= sec.start && t < sec.end; });
+    if(g.length < 5) return 0;
+    var bpm = 60 / median(g.slice(1).map(function(t, i){ return t - g[i]; })), d = danceOfName(sec.name);
+    return per * 60 / (d ? foldBpm(bpm, d) : bpm);
+  }
   // A time set from the play position ("Jetzt", a Bild added while paused) on the nearest beat.
   function beatSnap(t){
     if(!beatSnapToggle.checked) return t;
@@ -147,16 +163,20 @@
   /* Lays out one Abschnitt's bars (in order, changed in place) around its anchors and returns them:
      between two anchors they keep their number and are spread evenly; before the first and after the
      last they go on at the bar length there up to the Abschnitt's edges (a partial bar is dropped),
-     reusing the bars that were there in order from the anchor out, so their Phrasierung stays. len:
-     the bar length to go on with where the anchors don't tell (one anchor only); 0 leaves those as they are. */
+     reusing the bars that were there in order from the anchor out, so their Phrasierung stays. Each
+     filled-in line snaps onto a detected beat close by, the next one going on from there. len: the
+     bar length to go on with where the anchors don't tell (one anchor only); 0 leaves those as they are. */
   function layBars(list, sec, len){
     var anchors = [], per = (list.filter(function(b){ return b.n; })[0] || {}).n || dancePer(sec.name);
     list.forEach(function(b, i){ if(!b.fill) anchors.push(i); });
     list.forEach(function(b){ if(per !== dancePer(sec.name)) b.n = per; else delete b.n; });
     if(!anchors.length) return list;
+    // Detected beats sit a little off the music (mostly late): the anchors near them show by how much.
+    var shift = median(anchors.map(function(i){ var g = nearestIn(state.beats, list[i].t); return g === null ? 1 : list[i].t - g; })
+      .filter(function(d){ return Math.abs(d) < 0.1; }));
     for(var a = 0; a + 1 < anchors.length; a++){
       var i0 = anchors[a], i1 = anchors[a + 1], t0 = list[i0].t, t1 = list[i1].t;
-      for(var i = i0 + 1; i < i1; i++) list[i].t = roundMs(t0 + (t1 - t0) * (i - i0) / (i1 - i0));
+      for(var i = i0 + 1; i < i1; i++) list[i].t = roundMs(gridSnap(t0 + (t1 - t0) * (i - i0) / (i1 - i0), (t1 - t0) / (i1 - i0), per, shift));
     }
     // The bar length at the first or last anchor, over up to 8 bars to the anchors inward — taps jitter.
     function edgeLen(i, inward){
@@ -168,7 +188,7 @@
     function extend(old, from, l, dir){
       if(!(l > BAR_MIN)) return old;
       var made = [], lo = Math.max(0, sec.start - BAR_CUT_SHARE * l);
-      for(var t = from + dir * l; dir > 0 ? t + BAR_CUT_SHARE * l < sec.end : t >= lo; t += dir * l){
+      for(var t = gridSnap(from + dir * l, l, per, shift); dir > 0 ? t + BAR_CUT_SHARE * l < sec.end : t >= lo; t = gridSnap(t + dir * l, l, per, shift)){
         var b = old[made.length] || {};
         b.t = roundMs(t); b.fill = true;
         if(per !== dancePer(sec.name)) b.n = per;
@@ -238,8 +258,16 @@
         if(state.song !== song) return; // song swapped meanwhile — these beats belong to the old one
         all.sort(function(a, b){ return a - b; });
         state.beats = sanitizeBeats(all.filter(function(t, i){ return !i || t - all[i - 1] > 0.08; }));
+        // The bar lines filled in so far move onto the beats found; the anchors stay.
+        var bars = state.bars || [], open = 0;
+        barSections(bars).forEach(function(sec){
+          if(!sec.bars.length){ open++; return; }
+          bars = editSection(bars, sec.start, function(list, s){ return layBars(list, s, barsLen(list)); });
+        });
+        state.bars = bars.length ? bars : null;
         saveState();
-        beatStatusEl.textContent = (state.beats ? state.beats.length : 0) + ' Schläge erkannt.';
+        beatStatusEl.textContent = (state.beats ? state.beats.length : 0) + ' Schläge erkannt. '
+          + (open ? 'Jetzt in ' + (open === 1 ? 'dem Abschnitt' : 'jedem Abschnitt') + ' ohne Takte einmal auf die 1 tippen, den Rest füllt die App.' : 'Die Taktstriche sitzen jetzt auf ihnen.');
       });
     }).catch(function(err){
       console.error('Schläge erkennen fehlgeschlagen', err);
@@ -291,12 +319,13 @@
     if(run && (sec.start !== run.sec.start || t <= run.last || t - run.last > (run.len || run.prior ? TAP_RUN_BARS * (run.len || run.prior) : TAP_RUN_FIRST))){ endTapRun(); run = null; }
     if(!run){
       var snap = state.bars ? state.bars.slice() : [], s = barSections(snap).filter(function(x){ return x.start === sec.start; })[0];
-      var d = danceOfName(sec.name), per = sectionPer(s), hint = barsLen(s.bars);
+      var d = danceOfName(sec.name), per = sectionPer(s), hint = barsLen(s.bars) || gridBarLen(sec, per);
       // The dance's tempo only tells how many bars the first two taps are apart, not where they lie.
-      run = tapRun = {sec: sec, snap: snap, taps: [], hint: hint, prior: hint || (d ? per * 120 / (d.lo + d.hi) : 0), len: 0, last: -Infinity, had: s.bars.length};
+      run = tapRun = {sec: sec, snap: snap, taps: [], hint: hint, prior: hint || (d ? per * 120 / (d.lo + d.hi) : 0), per: per, len: 0, last: -Infinity, had: s.bars.length};
     }
     run.taps.push(t);
     run.last = t;
+    beatStatusEl.textContent = ''; // "… einmal auf die 1 tippen" after detection is done now
     state.bars = editSection(run.snap, sec.start, function(list, s){ return tapBars(list, s, run); }); // saved when the run ends
     if(!state.bars.length) state.bars = null;
     clearTimeout(run.timer);
@@ -381,7 +410,8 @@
     if(!bars.length){
       var empty = document.createElement('p');
       empty.className = 'bar-strip-empty';
-      empty.textContent = 'Lied starten und bei jeder 1 auf „Tippe auf die 1“ tippen – den Rest des Abschnitts füllt die App.';
+      empty.textContent = state.beats ? 'Schläge sind erkannt: Lied starten und je Abschnitt einmal bei der 1 auf „Tippe auf die 1“ tippen.'
+        : 'Lied starten und bei jeder 1 auf „Tippe auf die 1“ tippen – den Rest des Abschnitts füllt die App.';
       barStripEl.appendChild(empty);
       return;
     }
@@ -642,7 +672,7 @@
     var tempo = sectionTempo(sec);
     barHeadSec = sec;
     barHeadText.textContent = sectionName(sec, secs) + ' · ab ' + formatTime(sec.start) + (tempo ? ' · ' + tempo.text : '')
-      + (sec.bars.length ? '' : ' · noch keine Takte');
+      + (sec.bars.length ? '' : gridBarLen(sec, 4) ? ' · einmal auf die 1 tippen' : ' · noch keine Takte');
     barHeadEl.classList.toggle('bar-head--warn', !!tempo && tempo.off);
     barPerLabel.hidden = !sec.bars.length;
     if(document.activeElement !== barPerInput) barPerInput.value = sectionPer(sec);
