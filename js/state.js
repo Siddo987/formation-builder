@@ -13,6 +13,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // around it is GRID_INSET % of the longer side on every edge.
   var STAGE_DEFAULT = 14, STAGE_MIN = 4, STAGE_MAX = 40, GRID_INSET = 6;
   var SVG_NS = 'http://www.w3.org/2000/svg';
+  // Video frame formats (#2095), in the frame's own units: what state.videoLayout's positions are
+  // measured in; the export scales them to the chosen quality. 'quer' is the original 1500 × 800.
+  // The sizes stay within the pixel count the H.264 level probed in js/export.js allows at „Hoch“.
+  var VIDEO_FORMATS = {quer: {w: 1500, h: 800}, breit: {w: 1440, h: 810}, hoch: {w: 810, h: 1440}, quadrat: {w: 1080, h: 1080}};
 
   function uid(prefix){ return prefix + '-' + Math.random().toString(36).slice(2,9); }
   function lerp(a,b,t){ return a + (b-a)*t; }

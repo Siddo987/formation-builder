@@ -790,10 +790,43 @@
     return effectiveText ? (num + '. ' + effectiveText) : '';
   }
 
-  // Fixed width of the left info panel drawn by drawVideoInfoPanel() below — reserved out of the
-  // canvas by runVideoRecording (the stage itself keeps its old 1200×800 footprint; the panel is
-  // added alongside it, not carved out of it).
+  // Width of the left Bild-name panel in the standard landscape layout (defaultVideoLayout below) —
+  // the stage itself keeps its old 1200×800 footprint; the panel is added alongside it, not carved
+  // out of it.
   var VIDEO_INFO_PANEL_W = 300;
+
+  // Video layout (#2095): what a frame shows and where. Every part of the frame is an element with a
+  // box (x, y, w, h in the format's units, VIDEO_FORMATS in js/state.js), drawn bottom to top in
+  // `els` order: 'stage' (floor, grid, room labels, dancers), 'logo' (the project logo), 'bilder'
+  // (the scrolling Bild names), 'text' (with placeholders, see videoTextFor) and 'image'. The stage
+  // floors are painted first, over the frame background, so the logo and anything else placed under
+  // the stage sits on the floor and under the grid — as the logo always did. state.videoLayout null
+  // means this standard layout, which draws exactly the frame the export drew before the builder.
+  function defaultVideoLayout(format){
+    format = VIDEO_FORMATS[format] ? format : 'quer';
+    var W = VIDEO_FORMATS[format].w, H = VIDEO_FORMATS[format].h, stage, names, section, size = 100;
+    if(format === 'hoch'){
+      // Phone portrait: stage on top, the Bild names underneath.
+      stage = {x: 0, y: 0, w: W, h: Math.round(H * 0.62)};
+      names = {x: 0, y: stage.h, w: W, h: H - stage.h};
+      section = {x: 40, y: stage.h + 24, w: W - 80, h: 40};
+      size = 150;
+    }else{
+      var pw = Math.min(VIDEO_INFO_PANEL_W, Math.round(W * 0.25)), pad = Math.round(pw * 0.09);
+      stage = {x: pw, y: 0, w: W - pw, h: H};
+      names = {x: 0, y: 0, w: pw, h: H};
+      section = {x: pad, y: 30, w: pw - pad * 2, h: 40};
+    }
+    var lw = stage.w * 0.8, lh = stage.h * 0.8;
+    return {format: format, bg: '#150f1c', els: [
+      {id: 'logo', type: 'logo', x: stage.x + (stage.w - lw) / 2, y: stage.y + (stage.h - lh) / 2, w: lw, h: lh},
+      {id: 'stage', type: 'stage', x: stage.x, y: stage.y, w: stage.w, h: stage.h, grid: true, nums: false, line: 1, dot: 100, initials: true, names: true, room: true, floor: ''},
+      {id: 'abschnitt', type: 'text', x: section.x, y: section.y, w: section.w, h: section.h, text: '{abschnitt}', font: 'mono', size: format === 'hoch' ? 22 : 15, bold: true, upper: true, color: 'rgba(217,154,52,.95)', align: 'left', bg: ''},
+      {id: 'bilder', type: 'bilder', x: names.x, y: names.y, w: names.w, h: names.h, size: size, color: '#ffffff', divider: format !== 'hoch'}
+    ]};
+  }
+  function currentVideoLayout(){ return state.videoLayout || defaultVideoLayout('quer'); }
+  function videoFrameSize(){ return VIDEO_FORMATS[currentVideoLayout().format]; }
 
   // Greedy word-wrap for canvas text (no native equivalent) — sets ctx.font first if given, then
   // breaks `text` into lines no wider than maxWidth. Always returns at least one (possibly empty)
@@ -815,41 +848,31 @@
     return lines.length ? lines : [''];
   }
 
-  // Left info panel for the video export — the stage lives on the right (see renderCanvasFrame).
-  // Every Bild has a continuous "slot" position, `i - cursor`: 0 is dead center (biggest,
-  // brightest), +1/-1 roughly where the old fixed next/previous rows sat, anything further fades
-  // out. `cursor` itself glides smoothly between whole numbers over a move's entire duration
-  // (recordSegments' segCursor) instead of jumping at the end of it, so each Bild visibly grows in
-  // from the top as the show approaches it, passes through the middle, then shrinks away toward the
-  // bottom as the show moves past — "durchfahren", not next/current/previous swapped in a hard cut.
-  function drawVideoInfoPanel(ctx, panelW, H, cursor){
+  function hexRgb(hex){ var n = parseInt(hex.slice(1), 16); return (n >> 16) + ',' + (n >> 8 & 255) + ',' + (n & 255); }
+
+  // The 'bilder' element: every Bild has a continuous "slot" position, `i - cursor`: 0 is dead
+  // center (biggest, brightest), +1/-1 roughly where the old fixed next/previous rows sat, anything
+  // further fades out. `cursor` itself glides smoothly between whole numbers over a move's entire
+  // duration (videoFrameAt's cursor) instead of jumping at the end of it, so each Bild visibly grows
+  // in from the top as the show approaches it, passes through the middle, then shrinks away toward
+  // the bottom as the show moves past — "durchfahren", not next/current/previous swapped in a hard cut.
+  function drawVideoInfoPanel(ctx, el, cursor){
     var total = state.formations.length;
     if(!total) return;
     cursor = Math.max(0, Math.min(total - 1, cursor));
-    var maxTextW = panelW * 0.8;
-    var cx = panelW / 2;
-    var centerY = H * 0.52;
-    var slotH = H * 0.22; // vertical distance the stack moves per whole Bild of cursor progress
+    var maxTextW = el.w * 0.8;
+    var cx = el.x + el.w / 2;
+    var centerY = el.y + el.h * 0.52;
+    var slotH = el.h * 0.22; // vertical distance the stack moves per whole Bild of cursor progress
+    var k = el.size / 100, dim = 'rgba(' + hexRgb(el.color) + ',.7)';
 
     ctx.save();
 
     // Divider between panel and stage.
-    ctx.strokeStyle = 'rgba(255,255,255,.12)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(panelW, 0); ctx.lineTo(panelW, H); ctx.stroke();
-
-    // Dance section badge — top-left (not centered like the scrolling stack below), persistent,
-    // tracks whichever Bild is nearest dead center rather than scrolling with the stack itself.
-    // Left out entirely when the Bild has no category (categoryLabelAt already returns '' there).
-    var padX = Math.round(panelW * 0.09);
-    var cat = categoryLabelAt(Math.round(cursor));
-    if(cat){
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = 'rgba(217,154,52,.95)';
-      wrapCanvasText(ctx, cat.toUpperCase(), panelW - padX * 2, '700 15px "JetBrains Mono", monospace').forEach(function(line, i){
-        ctx.fillText(line, padX, 30 + i * 20);
-      });
+    if(el.divider){
+      ctx.strokeStyle = 'rgba(255,255,255,.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(el.x + el.w, el.y); ctx.lineTo(el.x + el.w, el.y + el.h); ctx.stroke();
     }
 
     ctx.textAlign = 'center';
@@ -860,12 +883,12 @@
       var emphasis = Math.max(0, 1 - Math.abs(s));       // 1 dead center, 0 by one full slot away
       var fade = Math.max(0, Math.min(1, (1.6 - Math.abs(s)) / 0.6)); // fades out over the last stretch instead of popping off
       var y = centerY - s * slotH;
-      var size = Math.round(15 + emphasis * 17); // 15px far away up to 32px dead center
+      var size = Math.round((15 + emphasis * 17) * k); // 15px far away up to 32px dead center, at 100 %
       var f = state.formations[i];
       var font = (emphasis > 0.6 ? '700 ' : '600 ') + size + 'px "Manrope",sans-serif';
       ctx.font = font;
       ctx.globalAlpha = fade * (0.4 + 0.6 * emphasis);
-      ctx.fillStyle = emphasis > 0.6 ? '#fff' : 'rgba(255,255,255,.7)';
+      ctx.fillStyle = emphasis > 0.6 ? el.color : dim;
       // Just the Bild's own name — no "Bild N — " prefix — wrapped onto up to 2 lines rather than
       // truncated with an ellipsis (a name always falls back to "Bild N" itself if left blank, see
       // formations.js's fname blur handler, so this is never actually empty).
@@ -884,65 +907,130 @@
     ctx.restore();
   }
 
-  // focusIds (optional array of dancer ids): when given, only those dancers are drawn — used by
-  // the "Schritte" per-dancer/pair video export (js/steps.js). Omitted/null draws everyone, same
-  // as always. panelCursor (optional): the continuous Bild "cursor" driving drawVideoInfoPanel's
-  // left panel (see its own comment) and reserving space for it — omitted (e.g. by any future
-  // static single-Bild render) draws the stage across the full canvas with no panel.
-  function renderCanvasFrame(ctx, W, H, posMap, logoImg, focusIds, ghosts, panelCursor){
-    ctx.clearRect(0, 0, W, H);
+  // A text element's text with its placeholders filled in for the Bild nearest `cursor`; '' when it
+  // has placeholders and all of them are empty there (no Abschnitt yet, no note …), so a caption
+  // like „{abschnitt}“ disappears instead of leaving an empty line or a lone label.
+  function videoTextFor(el, cursor, info){
+    var total = state.formations.length;
+    var idx = Math.round(Math.max(0, Math.min(total - 1, cursor)));
+    var f = state.formations[idx] || {};
+    var sec = Math.floor(Math.max(0, (info && info.tMs) || 0) / 1000);
+    var vals = {
+      choreo: state.projectName || '',
+      bild: f.name || ('Bild ' + (idx + 1)),
+      nr: String(idx + 1),
+      anzahl: String(total),
+      abschnitt: categoryLabelAt(idx),
+      zeit: Math.floor(sec / 60) + ':' + (sec % 60 < 10 ? '0' : '') + (sec % 60),
+      notiz: f.note || '',
+      wer: (info && info.who) || ''
+    };
+    var used = 0, filled = 0;
+    var text = el.text.replace(/\{(\w+)\}/g, function(m, key){
+      if(!Object.prototype.hasOwnProperty.call(vals, key)) return m;
+      used++;
+      if(vals[key]) filled++;
+      return vals[key];
+    });
+    return used && !filled ? '' : text;
+  }
 
-    var hasPanel = panelCursor !== undefined && panelCursor !== null;
-    var panelW = hasPanel ? Math.min(VIDEO_INFO_PANEL_W, W * 0.4) : 0;
-    // Stage sub-rectangle: [sx0, 0, sw, sh] — every coordinate below goes through gx()/gy() rather
-    // than the old straight gridToPercent(v)/100*W so the whole stage draws confined to the right
-    // of the panel instead of across the full canvas.
-    var sx0 = panelW, sw = W - panelW, sh = H;
-    // The grid itself is a centered rectangle of the stage's proportions (#2060) inside that
-    // rectangle, so 1 m is equally long in x and y; the floor still fills the whole rectangle around it.
+  function drawTextElement(ctx, el, cursor, info){
+    var text = videoTextFor(el, cursor, info);
+    if(!text.trim()) return;
+    if(el.upper) text = text.toUpperCase();
+    var font = (el.bold ? '700 ' : '500 ') + el.size + 'px ' + (el.font === 'mono' ? '"JetBrains Mono", monospace' : '"Manrope",sans-serif');
+    var pad = el.bg ? Math.round(el.size * 0.5) : 0, lineH = el.size * 4 / 3, lines = [];
+    ctx.save();
+    text.split('\n').forEach(function(p){ lines = lines.concat(wrapCanvasText(ctx, p, el.w - pad * 2, font)); });
+    if(el.bg){
+      ctx.fillStyle = el.bg;
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(el.x, el.y, el.w, el.h, Math.min(pad, el.h / 2)); else ctx.rect(el.x, el.y, el.w, el.h);
+      ctx.fill();
+    }
+    ctx.fillStyle = el.color;
+    ctx.textAlign = el.align;
+    ctx.textBaseline = 'top';
+    var x = el.align === 'center' ? el.x + el.w / 2 : el.align === 'right' ? el.x + el.w - pad : el.x + pad;
+    lines.forEach(function(line, i){ ctx.fillText(line, x, el.y + pad + i * lineH); });
+    ctx.restore();
+  }
+
+  // Logo and images: as large as fits the box, centered, in proportion.
+  function drawImageFit(ctx, img, el, alpha){
+    if(!img) return;
+    var scale = Math.min(el.w / img.width, el.h / img.height);
+    var lw = img.width * scale, lh = img.height * scale;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, el.x + (el.w - lw) / 2, el.y + (el.h - lh) / 2, lw, lh);
+    ctx.restore();
+  }
+
+  function drawStageFloor(ctx, el){
+    if(el.floor === 'none') return;
+    if(el.floor){
+      ctx.fillStyle = el.floor;
+    }else{
+      var grad = ctx.createLinearGradient(el.x, el.y, el.x + el.w, el.y + el.h);
+      grad.addColorStop(0, '#241a30');
+      grad.addColorStop(1, '#2b2038');
+      ctx.fillStyle = grad;
+    }
+    ctx.fillRect(el.x, el.y, el.w, el.h);
+  }
+
+  // The 'stage' element without its floor (drawStageFloor): grid, room labels, ghosts, dancers.
+  function drawStageElement(ctx, el, posMap, focusIds, ghosts){
+    var sw = el.w, sh = el.h;
+    // The grid itself is a centered rectangle of the stage's proportions (#2060) inside the box, so
+    // 1 m is equally long in x and y; the floor still fills the whole box around it.
     var ar = stageAspect(), sideW = Math.min(sw, sh * ar), sideH = sideW / ar;
-    var gx0 = sx0 + (sw - sideW) / 2, gy0 = (sh - sideH) / 2;
+    var gx0 = el.x + (sw - sideW) / 2, gy0 = el.y + (sh - sideH) / 2;
     function gx(v){ return gx0 + gridToPercentX(v) / 100 * sideW; }
     function gy(v){ return gy0 + gridToPercentY(v) / 100 * sideH; }
+    // Everything with a fixed size in the original 1200×800 stage scales with the box.
+    var k = Math.min(sw, sh) / 800;
 
-    if(hasPanel){
-      ctx.fillStyle = '#150f1c';
-      ctx.fillRect(0, 0, panelW, H);
-    }
-
-    var grad = ctx.createLinearGradient(sx0, 0, sx0 + sw, H);
-    grad.addColorStop(0, '#241a30');
-    grad.addColorStop(1, '#2b2038');
-    ctx.fillStyle = grad;
-    ctx.fillRect(sx0, 0, sw, H);
-
-    if(logoImg){
-      var opacity = ((state.logo && state.logo.opacity) || 18) / 100;
-      var maxW = sw*0.8, maxH = sh*0.8;
-      var scale = Math.min(maxW/logoImg.width, maxH/logoImg.height);
-      var lw = logoImg.width*scale, lh = logoImg.height*scale;
-      ctx.save();
-      ctx.globalAlpha = opacity;
-      ctx.drawImage(logoImg, sx0 + (sw-lw)/2, (sh-lh)/2, lw, lh);
-      ctx.restore();
-    }
-
-    ctx.lineWidth = 1;
     var stage = stageSize(), v;
-    for(v = Math.ceil(-stage.w / 2); v <= stage.w / 2; v++){
-      ctx.strokeStyle = v === 0 ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.08)';
-      ctx.beginPath(); ctx.moveTo(gx(v), gy0); ctx.lineTo(gx(v), gy0+sideH); ctx.stroke();
+    if(el.grid){
+      ctx.lineWidth = el.line;
+      for(v = Math.ceil(-stage.w / 2); v <= stage.w / 2; v++){
+        ctx.strokeStyle = v === 0 ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.08)';
+        ctx.beginPath(); ctx.moveTo(gx(v), gy0); ctx.lineTo(gx(v), gy0+sideH); ctx.stroke();
+      }
+      for(v = Math.ceil(-stage.d / 2); v <= stage.d / 2; v++){
+        ctx.strokeStyle = v === 0 ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.08)';
+        ctx.beginPath(); ctx.moveTo(gx0, gy(v)); ctx.lineTo(gx0+sideW, gy(v)); ctx.stroke();
+      }
     }
-    for(v = Math.ceil(-stage.d / 2); v <= stage.d / 2; v++){
-      ctx.strokeStyle = v === 0 ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.08)';
-      ctx.beginPath(); ctx.moveTo(gx0, gy(v)); ctx.lineTo(gx0+sideW, gy(v)); ctx.stroke();
+    // Metre numbers like the editor's stage (buildGridOverlay in js/stage.js): along the bottom and
+    // the left edge, every second one on a big stage.
+    if(el.nums){
+      var step = Math.max(stage.w, stage.d) > 20 ? 2 : 1, fs = Math.round(Math.min(sideW, sideH) * 0.017);
+      ctx.save();
+      ctx.font = '600 ' + fs + 'px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      for(v = Math.ceil(-stage.w / 2); v <= stage.w / 2; v++){
+        if(v % step) continue;
+        ctx.fillStyle = v === 0 ? 'rgba(255,255,255,.65)' : 'rgba(255,255,255,.38)';
+        ctx.fillText(String(v), gx(v), gy0 + sideH - fs * 0.4);
+      }
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      for(v = Math.ceil(-stage.d / 2); v <= stage.d / 2; v++){
+        if(v % step) continue;
+        ctx.fillStyle = v === 0 ? 'rgba(255,255,255,.65)' : 'rgba(255,255,255,.38)';
+        ctx.fillText(String(v), gx0 + fs * 0.45, gy(v));
+      }
+      ctx.restore();
     }
 
     // Room-orientation labels (Wand/Spiegel/Eingang/Fenster or whatever they've been renamed to,
     // see state.roomLabels) — shown around the live stage's edges (js/stage.js) but, unlike those,
     // baked right onto the canvas near the corresponding edge here since a video frame has no DOM
     // to overlay them on afterward.
-    var roomLabels = state.roomLabels || {};
+    var roomLabels = el.room ? (state.roomLabels || {}) : {};
     var roomInset = Math.round(Math.min(sw, sh) * 0.03);
     ctx.save();
     ctx.fillStyle = 'rgba(255,255,255,.42)';
@@ -973,7 +1061,7 @@
     }
     ctx.restore();
 
-    var radius = Math.max(14, Math.min(sw,sh)*0.024);
+    var radius = Math.min(sw,sh)*0.024 * (el.dot / 100);
 
     // Onion-skin ghosts, drawn under the dancers: gray = where they came from, faint colour = where
     // they're going. Only present when the video export's "Herkunfts-/Zielpunkte" option is on.
@@ -1028,11 +1116,12 @@
         ctx.arc(cx, cy, r, 0, Math.PI*2);
         ctx.fillStyle = 'rgba(201,194,214,.5)';
         ctx.fill();
+        if(!el.initials) return;
         ctx.fillStyle = 'rgba(255,255,255,.75)';
         ctx.font = '700 ' + Math.round(r*0.72) + 'px "Manrope",sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(initials(item.d.name), cx, cy+1);
+        ctx.fillText(initials(item.d.name), cx, cy+k);
       });
       ctx.restore();
     }
@@ -1054,9 +1143,9 @@
         ctx.translate(cx, cy);
         ctx.rotate(rot*Math.PI/180);
         ctx.beginPath();
-        ctx.moveTo(-4, -r-2);
-        ctx.lineTo(4, -r-2);
-        ctx.lineTo(0, -r-9);
+        ctx.moveTo(-4*k, -r-2*k);
+        ctx.lineTo(4*k, -r-2*k);
+        ctx.lineTo(0, -r-9*k);
         ctx.closePath();
         ctx.fillStyle = 'rgba(255,255,255,.92)';
         ctx.fill();
@@ -1065,32 +1154,54 @@
 
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,.4)';
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetY = 3;
+      ctx.shadowBlur = 8*k;
+      ctx.shadowOffsetY = 3*k;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI*2);
       ctx.fillStyle = d.color;
       ctx.fill();
       ctx.restore();
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2*k;
       ctx.strokeStyle = 'rgba(255,255,255,.85)';
-      if(item.follow) ctx.setLineDash([4,3]);
+      if(item.follow) ctx.setLineDash([4*k,3*k]);
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.fillStyle = '#fff';
-      ctx.font = '700 ' + Math.round(r*0.72) + 'px "Manrope",sans-serif';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(initials(d.name), cx, cy+1);
-
-      ctx.font = '600 13px "Manrope",sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,.92)';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillText(d.name + splitRole, cx, cy - r - 16);
+      if(el.initials){
+        ctx.fillStyle = '#fff';
+        ctx.font = '700 ' + Math.round(r*0.72) + 'px "Manrope",sans-serif';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(initials(d.name), cx, cy+k);
+      }
+      if(el.names){
+        ctx.font = '600 ' + 13*k + 'px "Manrope",sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,.92)';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(d.name + splitRole, cx, cy - r - 16*k);
+      }
     });
+  }
 
-    if(hasPanel) drawVideoInfoPanel(ctx, panelW, H, panelCursor);
+  // One video frame in the current layout (currentVideoLayout). focusIds (optional array of dancer
+  // ids): when given, only those dancers are drawn — used by the "Schritte" per-dancer/pair video
+  // export (js/steps.js). Omitted/null draws everyone, same as always. panelCursor: the continuous
+  // Bild "cursor" (videoFrameAt) driving the Bild names and the placeholders. info: {tMs, who} for
+  // the {zeit} and {wer} placeholders. The builder (js/videolayout.js) draws its preview with this
+  // same function, so what it shows is what the export produces.
+  function renderCanvasFrame(ctx, W, H, posMap, logoImg, focusIds, ghosts, panelCursor, info){
+    var layout = currentVideoLayout();
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = layout.bg;
+    ctx.fillRect(0, 0, W, H);
+    layout.els.forEach(function(el){ if(!el.hidden && el.type === 'stage') drawStageFloor(ctx, el); });
+    layout.els.forEach(function(el){
+      if(el.hidden) return;
+      if(el.type === 'stage') drawStageElement(ctx, el, posMap, focusIds, ghosts);
+      else if(el.type === 'logo') drawImageFit(ctx, logoImg, el, ((state.logo && state.logo.opacity) || 18) / 100);
+      else if(el.type === 'bilder') drawVideoInfoPanel(ctx, el, panelCursor);
+      else if(el.type === 'text') drawTextElement(ctx, el, panelCursor, info);
+    });
   }
 
   // H.264/MP4 plays everywhere that matters — iPhones, PowerPoint/Keynote, WhatsApp, video editors —
@@ -1296,18 +1407,15 @@
     videoStatusText.textContent = text;
   }
 
-  // The stage itself keeps its old 1200×800 footprint — the left info panel (drawVideoInfoPanel)
-  // is added alongside it, not carved out of it, so the dance display doesn't shrink to make room.
-  // Every frame is drawn in that layout and scaled to the chosen quality: the encoder's time grows
-  // with the pixels, so Entwurf is the quick one (#2094).
-  var VIDEO_W = 1200 + VIDEO_INFO_PANEL_W, VIDEO_H = 800;
+  // Every frame is drawn in the layout's format (videoFrameSize, 1500×800 by default) and scaled to
+  // the chosen quality: the encoder's time grows with the pixels, so Entwurf is the quick one (#2094).
   var VIDEO_QUALITIES = {entwurf:{scale:0.6, bitrate:2000000}, standard:{scale:1, bitrate:6000000}, hoch:{scale:1.28, bitrate:12000000}};
   function videoQuality(){ return VIDEO_QUALITIES[exportQualitySelect.value] || VIDEO_QUALITIES.standard; }
   function createVideoCanvas(){
-    var canvas = document.createElement('canvas'), q = videoQuality();
+    var canvas = document.createElement('canvas'), q = videoQuality(), F = videoFrameSize();
     // H.264 only takes even sizes
-    canvas.width = 2*Math.round(VIDEO_W*q.scale/2); canvas.height = 2*Math.round(VIDEO_H*q.scale/2);
-    canvas.getContext('2d').scale(canvas.width/VIDEO_W, canvas.height/VIDEO_H);
+    canvas.width = 2*Math.round(F.w*q.scale/2); canvas.height = 2*Math.round(F.h*q.scale/2);
+    canvas.getContext('2d').scale(canvas.width/F.w, canvas.height/F.h);
     return canvas;
   }
 
