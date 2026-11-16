@@ -204,6 +204,13 @@
     var dx = (e.clientX - d.x0) * d.kx, dy = (e.clientY - d.y0) * d.ky, s = d.start;
     var b = d.corner ? vlResize(s, d.corner, dx, dy, vlKeepsAspect(el)) : {x: s.x + dx, y: s.y + dy, w: s.w, h: s.h};
     el.x = Math.round(b.x); el.y = Math.round(b.y); el.w = Math.round(b.w); el.h = Math.round(b.h);
+    if(d.corner && el.type === 'text'){
+      // A text's width sets its line breaks and so its height; with a background it may be taller.
+      var dragged = el.h;
+      vlFitText(el);
+      if(el.bg) el.h = Math.max(el.h, dragged);
+      if(d.corner.indexOf('n') !== -1) el.y = s.y + s.h - el.h;
+    }
     vlPlaceBox(d.box, el);
     vlSyncGeomInputs(el);
     vlQueueRender();
@@ -229,9 +236,10 @@
     var box = e.target.closest('.vl-box');
     if(box && box.dataset.id !== vlSelected && !vlDrag) vlSelect(box.dataset.id);
   });
-  // Arrow keys move the focused element by 10, with Shift by 1.
+  // Arrow keys move the focused element by 10, with Shift by 1; Entf deletes a text or image.
   vlBoxes.addEventListener('keydown', function(e){
     var box = e.target.closest('.vl-box');
+    if(box && (e.key === 'Delete' || e.key === 'Backspace')){ e.preventDefault(); vlDelete(box.dataset.id); return; }
     var d = box && {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]}[e.key];
     if(!d || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
@@ -302,13 +310,13 @@
     vlQueueRender();
     vlSave(now);
   }
-  function vlCheck(el, key, label){
+  function vlCheck(el, key, label, onChange){
     var lab = document.createElement('label');
     lab.className = 'toggle-label';
     var cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !!el[key];
-    cb.addEventListener('change', function(){ vlSet(el.id, key, cb.checked, true); });
+    cb.addEventListener('change', function(){ if(onChange) onChange(cb.checked); else vlSet(el.id, key, cb.checked, true); });
     lab.appendChild(cb);
     lab.appendChild(document.createTextNode(' ' + label));
     return lab;
@@ -361,6 +369,154 @@
     p.className = 'settings-hint';
     p.textContent = text;
     return p;
+  }
+
+  /* ---------- texts (and later images): add, duplicate, delete ---------- */
+
+  var VL_PLACEHOLDERS = [
+    ['{choreo}', 'Name der Choreo'], ['{bild}', 'Name des Bilds'], ['{nr}', 'Nummer des Bilds'], ['{anzahl}', 'Anzahl der Bilder'],
+    ['{abschnitt}', 'Abschnitt'], ['{zeit}', 'Zeit im Video'], ['{notiz}', 'Notiz zum Bild'], ['{wer}', 'Wer im Schritte-Video zu sehen ist']
+  ];
+  var vlMeasureCtx = document.createElement('canvas').getContext('2d');
+
+  // A text box is as high as its lines at the preview's moment (the box then frames what is drawn).
+  function vlFitText(el){
+    var m = vlBackdrop.hidden ? null : vlMomentFrame();
+    var text = videoTextFor(el, m ? m.at.cursor : 0, {tMs: m ? m.tMs : 0, who: vlOpts.who}) || el.text;
+    if(el.upper) text = text.toUpperCase();
+    var font = (el.bold ? '700 ' : '500 ') + el.size + 'px ' + (el.font === 'mono' ? '"JetBrains Mono", monospace' : '"Manrope",sans-serif');
+    var pad = el.bg ? Math.round(el.size * 0.5) : 0, lines = 0;
+    text.split('\n').forEach(function(p){ lines += wrapCanvasText(vlMeasureCtx, p, el.w - pad * 2, font).length; });
+    el.h = Math.max(VL_MIN, Math.round(lines * el.size * 4 / 3 + pad * 2));
+  }
+
+  function vlDeletable(el){ return el.type === 'text' || el.type === 'image'; }
+
+  function vlAddElement(el, index){
+    var layout = vlEditable();
+    layout.els.splice(index === undefined ? layout.els.length : index, 0, el);
+    vlSelected = el.id;
+    vlSave(true);
+    vlRefresh();
+    var box = vlBoxFor(el.id);
+    if(box) box.focus({preventScroll: true});
+  }
+  function vlDuplicate(id){
+    var layout = vlEditable(), i = layout.els.map(function(el){ return el.id; }).indexOf(id);
+    if(i === -1) return;
+    var copy = JSON.parse(JSON.stringify(layout.els[i]));
+    copy.id = uid('ve');
+    copy.x += 20;
+    copy.y += 20;
+    vlAddElement(copy, i + 1);
+  }
+  function vlDelete(id){
+    var layout = vlEditable(), i = layout.els.map(function(el){ return el.id; }).indexOf(id);
+    if(i === -1 || !vlDeletable(layout.els[i])) return;
+    layout.els.splice(i, 1);
+    vlSelected = (layout.els[i - 1] || layout.els[0] || {}).id || null;
+    vlSave(true);
+    vlRefresh();
+    var box = vlBoxFor(vlSelected);
+    if(box) box.focus({preventScroll: true});
+  }
+
+  document.getElementById('vlAddTextBtn').addEventListener('click', function(){
+    var F = vlSize();
+    var el = {id: uid('ve'), type: 'text', x: Math.round(F.w * 0.25), y: Math.round(F.h * 0.06), w: Math.round(F.w * 0.5), h: 54,
+      text: 'Neuer Text', font: 'sans', size: 40, bold: true, upper: false, color: '#ffffff', align: 'center', bg: ''};
+    vlFitText(el);
+    vlAddElement(el);
+  });
+
+  function vlTextProps(el){
+    var field = document.createElement('label');
+    field.className = 'vl-field';
+    field.appendChild(document.createTextNode('Text'));
+    var ta = document.createElement('textarea');
+    ta.value = el.text;
+    ta.maxLength = 500;
+    ta.rows = 3;
+    function changed(now){
+      var e2 = vlEditable(el.id);
+      if(!e2) return;
+      e2.text = ta.value;
+      vlProps.querySelector('h3').textContent = vlName(e2);
+      var rowName = vlList.querySelector('.vl-row[data-id="' + el.id + '"] .vl-row-name');
+      if(rowName) rowName.textContent = vlName(e2);
+      vlFitText(e2);
+      var box = vlBoxFor(el.id);
+      if(box) vlPlaceBox(box, e2);
+      vlSyncGeomInputs(e2);
+      vlQueueRender();
+      vlSave(now);
+    }
+    ta.addEventListener('input', function(){ changed(false); });
+    field.appendChild(ta);
+    vlProps.appendChild(field);
+
+    // Placeholders: a tap puts one in at the cursor.
+    var chips = document.createElement('div');
+    chips.className = 'video-sections';
+    VL_PLACEHOLDERS.forEach(function(p){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'video-chip';
+      b.textContent = p[0];
+      b.title = p[1];
+      b.setAttribute('aria-label', 'Platzhalter ' + p[0] + ' einfügen: ' + p[1]);
+      b.addEventListener('click', function(){
+        var s = ta.selectionStart, e = ta.selectionEnd;
+        ta.value = (ta.value.slice(0, s) + p[0] + ta.value.slice(e)).slice(0, 500);
+        ta.focus();
+        ta.setSelectionRange(s + p[0].length, s + p[0].length);
+        changed(true);
+        vlRenderList();
+      });
+      chips.appendChild(b);
+    });
+    vlProps.appendChild(chips);
+    vlProps.appendChild(vlHint('Platzhalter werden in jedem Moment des Videos ersetzt: ' + VL_PLACEHOLDERS.map(function(p){ return p[0] + ' ' + p[1]; }).join(', ') +
+      '. Sind alle Platzhalter eines Texts gerade leer – etwa noch kein Abschnitt –, bleibt er weg.'));
+
+    // Look: every change refits the box height.
+    function refit(){ var e2 = vlEditable(el.id); if(e2){ vlFitText(e2); var box = vlBoxFor(el.id); if(box) vlPlaceBox(box, e2); vlSyncGeomInputs(e2); } }
+    var size = vlRange(el, 'size', 'Schriftgröße', 10, 160, 1, 'px');
+    size.querySelector('input').addEventListener('input', refit);
+    vlProps.appendChild(size);
+    vlProps.appendChild(vlSelectCtl(el, 'font', 'Schrift', [['sans', 'Manrope'], ['mono', 'JetBrains Mono']], function(v){ vlSet(el.id, 'font', v, true); refit(); }));
+    vlProps.appendChild(vlSelectCtl(el, 'align', 'Ausrichtung', [['left', 'Links'], ['center', 'Mitte'], ['right', 'Rechts']]));
+    [['bold', 'Fett'], ['upper', 'Großbuchstaben']].forEach(function(c){
+      var lab = vlCheck(el, c[0], c[1]);
+      lab.querySelector('input').addEventListener('change', refit);
+      vlProps.appendChild(lab);
+    });
+    vlProps.appendChild(vlColor(el, 'color', 'Schriftfarbe'));
+    vlProps.appendChild(vlCheck({id: el.id, on: !!el.bg}, 'on', 'Hintergrund hinter dem Text', function(on){
+      vlSet(el.id, 'bg', on ? '#150f1c' : '', true);
+      refit();
+      vlRenderProps();
+    }));
+    if(el.bg) vlProps.appendChild(vlColor(el, 'bg', 'Hintergrundfarbe'));
+  }
+
+  function vlElementActions(el){
+    if(!vlDeletable(el)) return;
+    var row = document.createElement('div');
+    row.className = 'vl-actions';
+    var dup = document.createElement('button');
+    dup.type = 'button';
+    dup.className = 'btn-ghost';
+    dup.textContent = 'Duplizieren';
+    dup.addEventListener('click', function(){ vlDuplicate(el.id); });
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'btn-ghost danger';
+    del.textContent = 'Löschen';
+    del.addEventListener('click', function(){ vlDelete(el.id); });
+    row.appendChild(dup);
+    row.appendChild(del);
+    vlProps.appendChild(row);
   }
 
   function vlSyncGeomInputs(el, except){
@@ -431,7 +587,10 @@
       vlProps.appendChild(vlHint('Die Namen der Bilder laufen mit dem Video durch, das aktuelle groß in der Mitte.'));
     }else if(el.type === 'logo'){
       vlProps.appendChild(vlHint(state.logo ? 'Bild und Deckkraft des Logos stellst du in den Einstellungen ein.' : 'Noch kein Logo – du lädst es in den Einstellungen hoch.'));
+    }else if(el.type === 'text'){
+      vlTextProps(el);
     }
+    vlElementActions(el);
   }
 
   /* ---------- open / close ---------- */
