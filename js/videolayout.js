@@ -127,6 +127,7 @@
     box.style.height = (el.h / F.h * 100) + '%';
   }
   function vlBoxFor(id){ return vlBoxes.querySelector('.vl-box[data-id="' + id + '"]'); }
+  function vlLabelBox(box, el){ box.setAttribute('aria-label', vlName(el) + (el.hidden ? ' (ausgeblendet)' : '') + ' – ziehen oder mit den Pfeiltasten verschieben'); }
 
   // A box per shown element, in drawing order (so the topmost catches the tap); a hidden element
   // gets a striped one while it is selected, so it can still be placed.
@@ -144,7 +145,7 @@
       }
       box.tabIndex = 0;
       box.setAttribute('role', 'button');
-      box.setAttribute('aria-label', vlName(el) + (el.hidden ? ' (ausgeblendet)' : '') + ' – ziehen oder mit den Pfeiltasten verschieben');
+      vlLabelBox(box, el);
       vlPlaceBox(box, el);
       vlBoxes.appendChild(box);
     });
@@ -489,10 +490,13 @@
       e2.text = ta.value;
       vlProps.querySelector('h3').textContent = vlName(e2);
       var rowName = vlList.querySelector('.vl-row[data-id="' + el.id + '"] .vl-row-name');
-      if(rowName) rowName.textContent = vlName(e2);
+      if(rowName){
+        rowName.textContent = vlName(e2);
+        rowName.parentNode.querySelector('input').setAttribute('aria-label', vlName(e2) + ' im Video zeigen');
+      }
       vlFitText(e2);
       var box = vlBoxFor(el.id);
-      if(box) vlPlaceBox(box, e2);
+      if(box){ vlPlaceBox(box, e2); vlLabelBox(box, e2); }
       vlSyncGeomInputs(e2);
       vlQueueRender();
       vlSave(now);
