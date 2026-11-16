@@ -737,6 +737,8 @@
   var exportShowContext = false;
   // "Weglinien einzeichnen": the move's walk (movePaths, js/stage.js), cached per Bild for the run.
   var exportIncludePaths = false, exportPathCache = {};
+  // The {wer} placeholder of the video layout: who a Schritte video shows. Set per export.
+  var exportWhoText = '';
 
   // The onion-skin ghost source Bilder for a timeline segment — mirrors renderOnionSkin() in
   // js/stage.js: gray = the Bild *behind* you (the previous Bild while holding, the move's origin
@@ -1304,6 +1306,7 @@
     exportIncludePaths = !!includePaths;
     exportPathCache = {};
     exportShowContext = !!showContext;
+    exportWhoText = focusIds ? exportWhoLabel() : '';
     pausePlayback();
     videoBackdrop.hidden = false;
     videoProgressFill.classList.remove('indeterminate');
@@ -1493,7 +1496,7 @@
     exportState = { cancelled:false };
     var codecs = fastVideoCodecs;
     var canvas = createVideoCanvas();
-    var W = VIDEO_W, H = VIDEO_H;
+    var W = videoFrameSize().w, H = videoFrameSize().h;
     var ctx = canvas.getContext('2d');
     // decodeAudioData resamples to the context's rate, so the samples come out at FAST_AUDIO_RATE.
     var songPromise = (state.song && state.song.url) ? fetch(state.song.url).then(function(res){ return res.arrayBuffer(); }).then(function(buf){
@@ -1592,7 +1595,7 @@
             }
             var seg = segments[segIdx];
             var at = videoFrameAt(seg, tMs - segStart);
-            renderCanvasFrame(ctx, W, H, at.pos, logoImg, focusIds, ghostsFor(seg), at.cursor);
+            renderCanvasFrame(ctx, W, H, at.pos, logoImg, focusIds, ghostsFor(seg), at.cursor, {tMs: tMs, who: exportWhoText});
             var frame = new VideoFrame(canvas, {timestamp: Math.round(frameIdx*1e6/FAST_VIDEO_FPS), duration: Math.round(1e6/FAST_VIDEO_FPS)});
             videoEncoder.encode(frame, {keyFrame: frameIdx % (2*FAST_VIDEO_FPS) === 0});
             frame.close();
@@ -1609,7 +1612,7 @@
     videoTitle.textContent = 'Video wird in Echtzeit aufgenommen…';
     videoProgressT0 = 0;
     var canvas = createVideoCanvas();
-    var W = VIDEO_W, H = VIDEO_H;
+    var W = videoFrameSize().w, H = videoFrameSize().h;
     var ctx = canvas.getContext('2d');
 
     var exportAudioEl = (state.song && state.song.url) ? new Audio(state.song.url) : null;
@@ -1701,7 +1704,7 @@
       }
       var seg = segments[segIdx];
       var at = videoFrameAt(seg, tMs - segStart);
-      renderCanvasFrame(ctx, W, H, at.pos, logoImg, focusIds, ghostsFor(seg), at.cursor);
+      renderCanvasFrame(ctx, W, H, at.pos, logoImg, focusIds, ghostsFor(seg), at.cursor, {tMs: tMs, who: exportWhoText});
       // In manual-capture mode (see runVideoRecording), the stream never emits a frame on its own —
       // this is the one and only signal that a new frame is ready, which is exactly what keeps
       // recording accurate while backgrounded: however slowly setTimeout ends up firing, each call
