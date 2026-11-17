@@ -365,16 +365,11 @@ if ('serviceWorker' in navigator) {
               <span class="icon-pause" id="markerIconPause" hidden><i></i><i></i></span>
             </button>
             <span class="marker-time" id="markerTimeReadout">0:00 / 0:00</span>
-            <button class="btn-ghost bar-tap-btn" id="barTapBtn" type="button" aria-keyshortcuts="1" title="Bei jeder 1 im Takt tippen, während das Lied läuft (Taste 1)">Tippe auf die 1</button>
             <button class="btn-ghost marker-toggle-btn" id="beatClickBtn" type="button" aria-pressed="false" disabled>Klicks</button>
             <span class="marker-zoom">
               <button class="btn-ghost marker-nudge-btn" id="markerZoomOutBtn" type="button" aria-label="Zeitleiste herauszoomen" title="Herauszoomen">−</button>
               <button class="btn-ghost marker-nudge-btn" id="markerZoomInBtn" type="button" aria-label="Zeitleiste hineinzoomen" title="Hineinzoomen (auch Strg + Mausrad)">+</button>
             </span>
-          </div>
-          <div class="bar-head" id="barHead" hidden>
-            <span class="bar-head-text" id="barHeadText"></span>
-            <label class="bar-per" id="barPerLabel" hidden><input type="number" class="coord-input" id="barPerInput" min="1" max="12" step="1" inputmode="numeric"> Schläge je Takt</label>
           </div>
           <div class="marker-timeline" id="markerTimeline">
             <div class="marker-timeline-bar">
@@ -385,37 +380,19 @@ if ('serviceWorker' in navigator) {
             </div>
             <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
           </div>
-          <div class="bar-strip" id="barStrip" role="group" aria-label="Takte" aria-describedby="barHint"></div>
-          <div class="bar-editor" id="barEditor" hidden>
-            <div class="bar-editor-row">
-              <span class="bar-editor-title" id="barEditorTitle"></span>
-              <span class="bar-editor-actions">
-                <button class="btn-ghost" id="barReleaseBtn" type="button" title="Die Takte zwischen den festen Strichen davor und danach wieder gleichmäßig verteilen">Fixpunkt lösen</button>
-                <button class="btn-ghost" id="barInsertBtn" type="button" title="Bis zum nächsten festen Strich einen Takt mehr">Takt einfügen</button>
-                <button class="btn-ghost" id="barRemoveBtn" type="button" title="Bis zum nächsten festen Strich einen Takt weniger">Takt entfernen</button>
-              </span>
-            </div>
-            <div class="bar-editor-row">
-              <label class="bar-phrase-label" for="barPhraseInput">Phrasierung</label>
-              <input type="text" class="bar-phrase" id="barPhraseInput" maxlength="16" spellcheck="false" autocomplete="off" enterkeyhint="next" placeholder="z. B. QQS+">
-              <button class="btn-ghost" id="barFillBtn" type="button" aria-keyshortcuts="Control+Enter" title="Für alle folgenden leeren Takte des Abschnitts übernehmen (Strg + Enter)">Auch für die leeren danach</button>
-            </div>
-          </div>
-          <p class="settings-hint" id="barHint" hidden><span class="bar-hint-dot">●</span> = Fixpunkt, von dir gesetzt · Taktstrich ziehen = ab dort neu verteilen · Takt antippen = Phrasierung<span class="bar-hint-keys"> · ← → wählt, Umschalt + ← → rückt den Strich</span></p>
-          <p class="settings-hint" id="barStatus" aria-live="polite"></p>
           <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder Strg + Mausrad) zoomen, seitlich wischen verschiebt. Bei jeder Marke rückt − / + sie um 0,01 s.</p>
         </section>
 
         <section class="settings-section">
-          <h3>Schläge</h3>
-          <p class="settings-hint">Die Schläge teilen jeden Takt gleichmäßig. „Automatisch vorschlagen“ sucht sie im Lied (es bleibt auf diesem Gerät), danach reicht eine 1 je Abschnitt.</p>
+          <h3>Musik &amp; Takte</h3>
           <div class="settings-row">
-            <button class="btn-ghost" id="beatDetectBtn" type="button">Automatisch vorschlagen</button>
+            <button class="btn-ghost" id="musikOpenBtn" type="button">Musik &amp; Takte …</button>
+            <span class="settings-hint" id="musikStatus"></span>
+          </div>
+          <div class="settings-row">
             <button class="btn-ghost" id="beatSnapAllBtn" type="button" hidden>Alle Marken auf Schläge rücken</button>
-            <button class="btn-ghost danger" id="beatClearBtn" type="button" hidden>Takte entfernen</button>
           </div>
           <p class="settings-hint" id="beatStatus" aria-live="polite"></p>
-          <div class="beat-summary" id="beatSummary"></div>
           <label class="toggle-label"><input type="checkbox" id="beatSnapToggle"> „Jetzt“ rastet auf den nächsten Schlag ein</label>
         </section>
 
@@ -618,6 +595,85 @@ if ('serviceWorker' in navigator) {
       <button class="btn-ghost btn-icon-only" id="vlRedoBtn" type="button" aria-label="Wiederholen (Strg+Umschalt+Z)" title="Wiederholen (Strg+Umschalt+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
       <button class="btn-ghost" id="vlResetBtn" type="button">Standard wiederherstellen</button>
       <button class="btn-ghost" id="vlDoneBtn" type="button">Fertig</button>
+    </div>
+  </div>
+</div>
+
+<!-- Musik & Takte (#2096, #2081): js/beats.js — opened from the Marker dialog -->
+<div class="modal-backdrop" id="mtBackdrop" hidden>
+  <div class="modal vl-modal mt-modal" role="dialog" aria-modal="true" aria-labelledby="mtTitle">
+    <div class="modal-header">
+      <h2 id="mtTitle">Musik &amp; Takte</h2>
+      <button class="modal-close" id="mtCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <nav class="mt-steps" aria-label="Schritte">
+      <button class="mt-step" type="button" data-step="1"><b>1</b><span>Grenzen</span></button>
+      <button class="mt-step" type="button" data-step="2"><b>2</b><span>Schläge</span></button>
+      <button class="mt-step" type="button" data-step="3"><b>3</b><span>Takt &amp; 1</span></button>
+      <button class="mt-step" type="button" data-step="4"><b>4</b><span>Korrigieren</span></button>
+      <button class="mt-step" type="button" data-step="5"><b>5</b><span>Phrasierung</span></button>
+    </nav>
+    <div class="modal-body mt-body">
+      <div class="mt-guide">
+        <p class="mt-guide-text" id="mtGuide"></p>
+        <p class="mt-note" id="mtNote" role="status" aria-live="polite"></p>
+        <button class="btn-ghost mt-next" id="mtNextBtn" type="button"></button>
+      </div>
+      <div class="mt-waves">
+        <canvas class="mt-overview" id="mtOverview" aria-label="Das ganze Lied – tippen springt dorthin"></canvas>
+        <canvas class="mt-lupe" id="mtLupe" tabindex="0" aria-label="Lupe: die Sekunden um die Abspielposition" aria-describedby="mtKeys"></canvas>
+      </div>
+      <div class="mt-transport">
+        <button class="btn-play btn-play--sm" id="mtPlayBtn" type="button" aria-label="Abspielen" aria-keyshortcuts="Space">
+          <span class="icon-play" id="mtIconPlay"></span>
+          <span class="icon-pause" id="mtIconPause" hidden><i></i><i></i></span>
+        </button>
+        <span class="marker-time" id="mtTime">0:00 / 0:00</span>
+        <button class="btn-ghost marker-toggle-btn" id="mtClickBtn" type="button" aria-pressed="false">Klicks</button>
+      </div>
+      <div class="mt-panel" data-step="1">
+        <button class="btn-ghost btn-accent mt-big" id="mtCutBtn" type="button" aria-keyshortcuts="G">Grenze hier <kbd>G</kbd></button>
+        <span class="mt-info" id="mtCutInfo"></span>
+        <button class="btn-ghost danger" id="mtCutDelBtn" type="button" aria-keyshortcuts="Delete" hidden>Grenze entfernen</button>
+      </div>
+      <div class="mt-panel" data-step="2">
+        <button class="btn-ghost btn-accent mt-big" id="mtDetectBtn" type="button">Schläge erkennen</button>
+        <progress id="mtProgress" max="1" value="0" hidden></progress>
+      </div>
+      <div class="mt-panel" data-step="3">
+        <button class="btn-ghost btn-accent mt-big" id="mtOneBtn" type="button" aria-keyshortcuts="1">Das ist die 1 <kbd>1</kbd></button>
+        <span class="mt-info" id="mtOneInfo"></span>
+      </div>
+      <div class="mt-panel" data-step="4">
+        <div class="mt-row">
+          <span class="mt-info" id="mtShiftInfo"></span>
+          <span class="mt-shift" role="group" aria-labelledby="mtShiftInfo">
+            <button class="btn-ghost" type="button" data-shift="-0.05" aria-label="50 ms früher">−50 ms</button>
+            <button class="btn-ghost" type="button" data-shift="-0.01" aria-label="10 ms früher" aria-keyshortcuts="Shift+ArrowLeft">−10 ms</button>
+            <button class="btn-ghost" type="button" data-shift="0.01" aria-label="10 ms später" aria-keyshortcuts="Shift+ArrowRight">+10 ms</button>
+            <button class="btn-ghost" type="button" data-shift="0.05" aria-label="50 ms später">+50 ms</button>
+          </span>
+        </div>
+        <div class="mt-row">
+          <span class="mt-info" id="mtBeatInfo"></span>
+          <button class="btn-ghost" id="mtBeatAddBtn" type="button" aria-keyshortcuts="S">Schlag hier setzen <kbd>S</kbd></button>
+          <button class="btn-ghost danger" id="mtBeatDelBtn" type="button" aria-keyshortcuts="Delete" hidden>Schlag löschen <kbd>Entf</kbd></button>
+          <button class="btn-ghost" id="mtBeatOneBtn" type="button" aria-keyshortcuts="1" hidden></button>
+        </div>
+      </div>
+      <div class="mt-panel" data-step="5">
+        <label class="mt-info" for="mtPhrase" id="mtPhraseLabel"></label>
+        <input type="text" class="mt-phrase" id="mtPhrase" maxlength="16" spellcheck="false" autocomplete="off" enterkeyhint="next" placeholder="z. B. QQS+">
+        <button class="btn-ghost" id="mtFillBtn" type="button" aria-keyshortcuts="Control+Enter" title="Für alle folgenden leeren Takte des Abschnitts übernehmen (Strg + Enter)">Auch für die leeren danach</button>
+      </div>
+      <p class="settings-hint mt-keys" id="mtKeys"></p>
+      <div class="mt-secs" id="mtSecs" role="list" aria-label="Abschnitte"></div>
+    </div>
+    <div class="vl-footer mt-footer">
+      <button class="btn-ghost btn-icon-only" id="mtUndoBtn" type="button" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
+      <button class="btn-ghost btn-icon-only" id="mtRedoBtn" type="button" aria-label="Wiederholen (Strg+Umschalt+Z)" title="Wiederholen (Strg+Umschalt+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
+      <button class="btn-ghost danger" id="mtResetBtn" type="button">Alles zurücksetzen</button>
+      <button class="btn-ghost" id="mtDoneBtn" type="button">Fertig</button>
     </div>
   </div>
 </div>
