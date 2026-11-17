@@ -459,7 +459,7 @@
       mtOneBtn.disabled = !state.beats;
       mtOneInfo.textContent = !state.beats ? '' : playing ? 'beim Schlag, den du gerade hörst' : mtSel !== null ? 'für den gewählten Schlag bei ' + formatTime(mtSel, 2) : 'für den Schlag an der Abspielposition';
     }else if(mtStep === 4){
-      var sec = secAt(mtSel !== null ? mtSel : heardSongTime()), sel = mtSel, bar = sel !== null ? barOf(sel) : null, mine = sel !== null && sec.ones.indexOf(sel) !== -1;
+      var sec = shiftSec(), sel = mtSel, bar = sel !== null ? barOf(sel) : null, mine = sel !== null && sec.ones.indexOf(sel) !== -1;
       mtShiftInfo.textContent = 'Alle Schläge in ' + secTitle(sec) + ':';
       mtShiftBtns.forEach(function(b){ b.disabled = !sec.beats.length; });
       mtBeatInfo.textContent = sel !== null ? 'Gewählt: Schlag bei ' + formatTime(sel, 2) + (bar ? ', die 1 von Takt ' + bar.n : '') + (mine ? ' (von dir gesetzt)' : '') + '.'
@@ -564,7 +564,7 @@
     });
     if(focus){
       var again = mtSecsEl.querySelector('.mt-sec[data-k="' + focus.k + '"] .' + (focus.cls || 'mt-sec-go'));
-      if(again) again.focus({preventScroll: true});
+      (again || mtLupe).focus({preventScroll: true}); // its row is gone (a cut removed): back to the Lupe
     }
   }
 
@@ -655,8 +655,10 @@
     mtSay('Schlag bei ' + formatTime(t, 2) + ' gesetzt.' + (secAt(t).bars.length ? ' Die Takte dahinter zählen neu.' : ''));
     renderMusikView();
   }
+  // The section the shift buttons act on: while playing the one heard, else the selected beat's.
+  function shiftSec(){ return secAt(songAudioEl.paused && mtSel !== null ? mtSel : heardSongTime()); }
   function shiftBy(d){
-    var sec = secAt(mtSel !== null ? mtSel : heardSongTime()), r = shiftedSection({beats: state.beats, music: state.music}, sec.k, d);
+    var sec = shiftSec(), r =shiftedSection({beats: state.beats, music: state.music}, sec.k, d);
     if(!r) return;
     if(mtSel !== null && inRange(mtSel, sec.start, sec.end)) mtSel = roundMs(mtSel + r.d);
     setMusic(r.beats, r.music);
@@ -668,7 +670,10 @@
     mtBar = b.t;
     seek(b.t);
     renderMusikView();
-    if(focus){ mtPhrase.focus(); mtPhrase.select(); }
+    if(!focus) return;
+    mtPhrase.value = b.p; // the field keeps what is typed only while it stays on one bar
+    mtPhrase.focus();
+    mtPhrase.select();
   }
   function setPhrase(text){
     var b = mtBar !== null ? barOf(mtBar) : null;
@@ -704,6 +709,7 @@
   function setStep(n){
     mtStep = n;
     mtCut = -1;
+    mtSel = null;
     mtSay('');
     if(n === 5 && mtBar === null){ var b = barAt(heardSongTime()) || music().bars[0]; mtBar = b ? b.t : null; }
     renderMusikView();
@@ -1016,7 +1022,7 @@
       return;
     }
     if(p.moved){
-      if(p.cut > 0){ setMusic(state.beats, state.music); mtSay('Grenze verschoben auf ' + formatTime(music().secs[p.cut].start, 2) + '.'); }
+      if(p.cut > 0){ mtCut = p.cut; setMusic(state.beats, state.music); mtSay('Grenze verschoben auf ' + formatTime(music().secs[p.cut].start, 2) + '.'); }
       else if(p.base){ setMusic(state.beats, state.music); var ms = Math.round((mtSel - p.beat) * 1000); mtSay('Alle Schläge in ' + secTitle(secAt(mtSel)) + ' ' + Math.abs(ms) + ' ms ' + (ms < 0 ? 'früher' : 'später') + '.'); }
       return;
     }
