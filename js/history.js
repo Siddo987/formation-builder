@@ -254,7 +254,7 @@
     if(!hEq(col(a.sections, 'per'), col(b.sections, 'per'))) return 'Schläge je Takt geändert';
     if(!hEq(a.ones, b.ones)) return b.ones.length > a.ones.length ? 'Die 1 gesetzt' : b.ones.length < a.ones.length ? 'Die 1 entfernt' : 'Die 1 verschoben';
     if(!hEq(col(a.sections, 't'), col(b.sections, 't'))) return 'Grenze verschoben';
-    return 'Phrasierung geändert';
+    return hEq(a.phrases, b.phrases) ? 'Figur geändert' : 'Phrasierung geändert';
   }
 
   // One change -> a German sentence. `ctx` is the state whose names we describe against (usually

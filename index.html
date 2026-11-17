@@ -581,6 +581,7 @@ if ('serviceWorker' in navigator) {
           <div class="vl-list" id="vlList" role="list" aria-labelledby="vlListTitle"></div>
           <div class="vl-actions">
             <button class="btn-ghost" id="vlAddTextBtn" type="button">Text hinzufügen</button>
+            <button class="btn-ghost" id="vlAddBarBtn" type="button">Takt &amp; Figur hinzufügen</button>
             <button class="btn-ghost" id="vlAddImageBtn" type="button">Grafik hinzufügen</button>
             <input type="file" id="vlImageInput" accept="image/*" hidden>
           </div>
@@ -663,7 +664,8 @@ if ('serviceWorker' in navigator) {
       </div>
       <div class="mt-panel" data-step="5">
         <label class="mt-info" for="mtPhrase" id="mtPhraseLabel"></label>
-        <input type="text" class="mt-phrase" id="mtPhrase" maxlength="16" spellcheck="false" autocomplete="off" enterkeyhint="next" placeholder="z. B. QQS+">
+        <input type="text" class="mt-phrase" id="mtPhrase" maxlength="16" spellcheck="false" autocomplete="off" enterkeyhint="next" placeholder="Phrasierung, z. B. QQS+">
+        <input type="text" class="mt-phrase mt-figure" id="mtFigure" maxlength="40" autocomplete="off" enterkeyhint="next" placeholder="Figur, z. B. Natural Turn" aria-label="Figur in diesem Takt">
         <button class="btn-ghost" id="mtFillBtn" type="button" aria-keyshortcuts="Control+Enter" title="Für alle folgenden leeren Takte des Abschnitts übernehmen (Strg + Enter)">Auch für die leeren danach</button>
       </div>
       <p class="settings-hint mt-keys" id="mtKeys"></p>

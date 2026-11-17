@@ -921,6 +921,8 @@
     var idx = Math.round(Math.max(0, Math.min(total - 1, cursor)));
     var f = state.formations[idx] || {};
     var sec = Math.floor(Math.max(0, (info && info.tMs) || 0) / 1000);
+    // With the song, the video's time is the song's (buildSyncSegments): the bar heard then.
+    var bar = isSyncActive() ? barAt(Math.max(0, (info && info.tMs) || 0) / 1000) : null;
     var vals = {
       choreo: state.projectName || '',
       bild: f.name || ('Bild ' + (idx + 1)),
@@ -929,7 +931,10 @@
       abschnitt: categoryLabelAt(idx),
       zeit: Math.floor(sec / 60) + ':' + (sec % 60 < 10 ? '0' : '') + (sec % 60),
       notiz: f.note || '',
-      wer: (info && info.who) || ''
+      wer: (info && info.who) || '',
+      takt: bar ? String(bar.n) : '',
+      rhythmus: bar ? bar.p : '',
+      figur: bar ? bar.f : ''
     };
     var used = 0, filled = 0;
     var text = el.text.replace(/\{(\w+)\}/g, function(m, key){

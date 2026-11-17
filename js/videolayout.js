@@ -422,7 +422,8 @@
 
   var VL_PLACEHOLDERS = [
     ['{choreo}', 'Name der Choreo'], ['{bild}', 'Name des Bilds'], ['{nr}', 'Nummer des Bilds'], ['{anzahl}', 'Anzahl der Bilder'],
-    ['{abschnitt}', 'Abschnitt'], ['{zeit}', 'Zeit im Video'], ['{notiz}', 'Notiz zum Bild'], ['{wer}', 'Wer im Schritte-Video zu sehen ist']
+    ['{abschnitt}', 'Abschnitt'], ['{zeit}', 'Zeit im Video'], ['{notiz}', 'Notiz zum Bild'], ['{wer}', 'Wer im Schritte-Video zu sehen ist'],
+    ['{takt}', 'Nummer des Takts'], ['{rhythmus}', 'Phrasierung des Takts'], ['{figur}', 'Figur des Takts']
   ];
   var vlMeasureCtx = document.createElement('canvas').getContext('2d');
 
@@ -468,12 +469,20 @@
     if(box) box.focus({preventScroll: true});
   }
 
-  document.getElementById('vlAddTextBtn').addEventListener('click', function(){
+  function vlAddText(text, box, size){
     var F = vlSize();
-    var el = {id: uid('ve'), type: 'text', x: Math.round(F.w * 0.25), y: Math.round(F.h * 0.06), w: Math.round(F.w * 0.5), h: 54,
-      text: 'Neuer Text', font: 'sans', size: 40, bold: true, upper: false, color: '#ffffff', align: 'center', bg: ''};
+    box = box || {x: F.w * 0.25, y: F.h * 0.06, w: F.w * 0.5};
+    var el = {id: uid('ve'), type: 'text', x: Math.round(box.x), y: Math.round(box.y), w: Math.round(box.w), h: 54,
+      text: text, font: 'sans', size: size || 40, bold: true, upper: false, color: '#ffffff', align: 'center', bg: ''};
     vlFitText(el);
     vlAddElement(el);
+  }
+  document.getElementById('vlAddTextBtn').addEventListener('click', function(){ vlAddText('Neuer Text'); });
+  // The bar heard in each moment (Musik & Takte, js/beats.js): at the foot of the Bild names, where
+  // the standard layouts have room, else of the frame's middle.
+  document.getElementById('vlAddBarBtn').addEventListener('click', function(){
+    var F = vlSize(), n = currentVideoLayout().els.filter(function(e){ return e.type === 'bilder'; })[0] || {x: F.w * 0.25, y: 0, w: F.w * 0.5, h: F.h};
+    vlAddText('Takt {takt}  {rhythmus}\n{figur}', {x: n.x + n.w * 0.08, y: n.y + n.h * 0.8, w: n.w * 0.84}, Math.round(Math.min(48, Math.max(24, n.w * 0.08))));
   });
 
   function vlTextProps(el){

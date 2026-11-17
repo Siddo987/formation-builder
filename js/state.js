@@ -73,11 +73,14 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
        of its section starts a bar — back to the section's start before the first, on to the next 1 or
        the section's end after it.
      phrases: {time of a bar's 1: its Phrasierung ("QQS+")}, so it moves along when the beats do.
+     figures: the same for the bar's Figur ("Natural Turn"); left out while there is none.
      sanitizeMusic(src) reads beats and music from a project (localStorage, .stg, share payload,
      history snapshot) and returns them checked: {beats, music}; 1s and Phrasierung that are not on a
      beat (a merge paired them with other beats) are dropped. Projects from before keep src.bars
      instead and are converted (musicFromBars). */
   var BAR_PHRASE_MAX = 16;
+  // The texts a bar can have, by their key in state.music, with their longest length.
+  var BAR_TEXTS = {phrases: BAR_PHRASE_MAX, figures: 40};
   // The beats with every cut as one: stored beats closer than CUT_BEAT_GAP to a cut give way to it
   // (they come back when the cut moves away). A section without beats of its own gets none.
   var CUT_BEAT_GAP = 0.12;
@@ -96,7 +99,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     var beats = sanitizeBeats(src.beats), m = src.music;
     if(!(m && typeof m === 'object') && Array.isArray(src.bars) && src.bars.length) return musicFromBars(beats, src.bars, src.formations);
     if(!m || typeof m !== 'object' || !Array.isArray(m.sections)) return {beats: beats, music: null};
-    var secs = [], on, ones = [], phrases = {};
+    var secs = [], on, ones = [], out;
     m.sections.filter(function(s){ return s && typeof s.t === 'number' && isFinite(s.t) && s.t >= 0 && s.t < 36000; })
       .sort(function(a, b){ return a.t - b.t; }).forEach(function(s){
         var t = secs.length ? Math.round(s.t * 1000) / 1000 : 0, out = {t: t};
@@ -117,11 +120,16 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       t = onBeat(typeof t === 'number' ? Math.round(t * 1000) / 1000 : NaN);
       if(t !== null && ones.indexOf(t) === -1) ones.push(t);
     });
-    if(m.phrases && typeof m.phrases === 'object') Object.keys(m.phrases).forEach(function(k){
-      var t = onBeat(Math.round(parseFloat(k) * 1000) / 1000), p = typeof m.phrases[k] === 'string' ? m.phrases[k].trim().slice(0, BAR_PHRASE_MAX) : '';
-      if(p && t !== null && !phrases[t]) phrases[t] = p;
+    out = {sections: secs.slice(0, 200), ones: ones.sort(function(a, b){ return a - b; })};
+    Object.keys(BAR_TEXTS).forEach(function(key){
+      var src = m[key], texts = {};
+      if(src && typeof src === 'object') Object.keys(src).forEach(function(k){
+        var t = onBeat(Math.round(parseFloat(k) * 1000) / 1000), p = typeof src[k] === 'string' ? src[k].trim().slice(0, BAR_TEXTS[key]) : '';
+        if(p && t !== null && !texts[t]) texts[t] = p;
+      });
+      if(key === 'phrases' || Object.keys(texts).length) out[key] = texts;
     });
-    return {beats: beats, music: {sections: secs.slice(0, 200), ones: ones.sort(function(a, b){ return a - b; }), phrases: phrases}};
+    return {beats: beats, music: out};
   }
   /* Bars from before: [{t, p}] on the beats (the first version), or [{t, p, n, fill}] from the „Nur
      Takte“ version, whose beats followed from the bars. The Abschnitte with marks become the sections

@@ -1102,7 +1102,7 @@ function describeConflictValue(path, val){
   if(path.indexOf('/pos/') !== -1) return '(' + val.x + ', ' + val.y + ')' + (val.rot ? ' · ' + val.rot + '°' : '');
   if(path === 'meta/tempo') return 'Tempo ' + val;
   if(path === 'meta/beats') return val ? val.length + ' Schläge' : 'keine Schläge';
-  if(path === 'meta/music') return val ? val.sections.length + (val.sections.length === 1 ? ' Abschnitt' : ' Abschnitte') + ' · ' + val.ones.length + '× die 1 · ' + Object.keys(val.phrases).length + ' Phrasierungen' : 'keine Takte';
+  if(path === 'meta/music') return val ? val.sections.length + (val.sections.length === 1 ? ' Abschnitt' : ' Abschnitte') + ' · ' + val.ones.length + '× die 1 · ' + Object.keys(val.phrases).length + ' Phrasierungen' + (val.figures ? ' · ' + Object.keys(val.figures).length + ' Figuren' : '') : 'keine Takte';
   if(typeof val === 'object' && val.name !== undefined) return '„' + val.name + '“';
   if(typeof val === 'object') return JSON.stringify(val);
   return String(val);

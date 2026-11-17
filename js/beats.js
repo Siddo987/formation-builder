@@ -49,12 +49,12 @@
   // What follows from state.beats and state.music, worked out again when one of them or the song's
   // length changes: {secs, bars, starts}. secs: [{k, start, end, key, dance, per, beats, ones, bars}];
   // bars: every bar in song order, {t (its 1), n (counted from 1 in its section), end, i (its beat's
-  // index in sec.beats), p (Phrasierung), sec}; starts: the times of the bars' 1s.
+  // index in sec.beats), p (Phrasierung), f (Figur), sec}; starts: the times of the bars' 1s.
   var musicMemo = {};
   function music(){
     var dur = songDur(), c = musicMemo;
     if(c.beats === state.beats && c.music === state.music && c.dur === dur) return c;
-    var m = state.music, phrases = m ? m.phrases : {};
+    var m = state.music, phrases = m ? m.phrases : {}, figures = m && m.figures || {};
     var list = (m ? m.sections : [{t: 0}]).filter(function(s, k){ return !k || !dur || s.t < dur - 0.5; });
     var all = beatsWithCuts(state.beats || [], list); // js/state.js: each cut is a beat
     c = musicMemo = {beats: state.beats, music: state.music, dur: dur, all: all, bars: [], starts: new Set()};
@@ -69,7 +69,7 @@
       // The last bar ends a beat after the section's last beat (or at its end, if that comes first).
       var tail = b.length > 1 ? Math.min(end, b[b.length - 1] + (b[b.length - 1] - b[0]) / (b.length - 1)) : end;
       sec.bars = at.map(function(i, n){
-        return {t: b[i], n: n + 1, i: i, p: phrases[b[i]] || '', sec: sec, end: n + 1 < at.length ? b[at[n + 1]] : i + per < b.length ? b[i + per] : tail};
+        return {t: b[i], n: n + 1, i: i, p: phrases[b[i]] || '', f: figures[b[i]] || '', sec: sec, end: n + 1 < at.length ? b[at[n + 1]] : i + per < b.length ? b[i + per] : tail};
       });
       sec.bars.forEach(function(bar){ c.bars.push(bar); c.starts.add(bar.t); });
       return sec;
@@ -110,7 +110,7 @@
   // A copy of m (state.music by default) to change.
   function musicCopy(m){
     if(m === undefined) m = state.music;
-    return {sections: m ? m.sections.map(function(s){ return Object.assign({}, s); }) : [{t: 0}], ones: m ? m.ones.slice() : [], phrases: m ? Object.assign({}, m.phrases) : {}};
+    return {sections: m ? m.sections.map(function(s){ return Object.assign({}, s); }) : [{t: 0}], ones: m ? m.ones.slice() : [], phrases: m ? Object.assign({}, m.phrases) : {}, figures: m ? Object.assign({}, m.figures) : {}};
   }
   // Every change ends here. live: true during a drag (saved when it ends), 'soon' while typing.
   function setMusic(beats, m, live){
@@ -120,16 +120,21 @@
     if(live === 'soon') saveStateDebounced(); else if(!live) saveState();
     renderBeats();
   }
-  // m with the 1 and Phrasierung at time a moved to b (dropped for b null).
+  // m with the 1, Phrasierung and Figur at time a moved to b (dropped for b null).
   function carryMarks(m, a, b){
     if(m.ones.indexOf(a) !== -1){ m.ones = m.ones.filter(function(t){ return t !== a; }); if(b !== null) m.ones.push(b); }
-    if(m.phrases[a]){ if(b !== null && !m.phrases[b]) m.phrases[b] = m.phrases[a]; delete m.phrases[a]; }
+    Object.keys(BAR_TEXTS).forEach(function(key){
+      var x = m[key];
+      if(x[a]){ if(b !== null && !x[b]) x[b] = x[a]; delete x[a]; }
+    });
     return m;
   }
-  // m without the 1s and Phrasierung from a to b (their beats are about to go).
+  // m without the 1s, Phrasierung and Figuren from a to b (their beats are about to go).
   function musicWithout(m, a, b){
     m.ones = m.ones.filter(function(t){ return !inRange(t, a, b); });
-    Object.keys(m.phrases).forEach(function(key){ if(inRange(+key, a, b)) delete m.phrases[key]; });
+    Object.keys(BAR_TEXTS).forEach(function(key){
+      Object.keys(m[key]).forEach(function(t){ if(inRange(+t, a, b)) delete m[key][t]; });
+    });
     return m;
   }
   // Section k's beats, 1s and Phrasierung d s later (earlier for d < 0), from base ({beats, music}
@@ -143,12 +148,15 @@
     var lo = Math.min(0, (i0 ? beats[i0 - 1] + 0.05 : 0) - first), hi = Math.max(0, Math.min(i1 < beats.length ? beats[i1] : Infinity, end) - 0.05 - beats[i1 - 1]);
     d = Math.min(hi, Math.max(lo, d));
     function mv(t){ return inRange(t, start, end) ? roundMs(t + d) : t; }
-    var out = beats.map(mv), ph = {};
+    var out = beats.map(mv);
     if(k) secs[k].t = roundMs(start + d);
     if(k && secs[k].t < secs[k - 1].t + 0.5) return null; // would swallow the section before
     m.ones = m.ones.map(mv);
-    Object.keys(m.phrases).forEach(function(key){ ph[mv(+key)] = m.phrases[key]; });
-    m.phrases = ph;
+    Object.keys(BAR_TEXTS).forEach(function(key){
+      var moved = {};
+      Object.keys(m[key]).forEach(function(t){ moved[mv(+t)] = m[key][t]; });
+      m[key] = moved;
+    });
     return {beats: out, music: m, d: d};
   }
 
@@ -313,23 +321,21 @@
 
   /* ---------- the bar in the playbar, the Phrasierung on the Schritte sheets ---------- */
 
-  /* The bar being heard in the main playbar: its number in the section and its Phrasierung — while
+  /* The bar being heard in the main playbar: its number in the section, Phrasierung and Figur — while
      anything plays the song, paused, and at the selected Bild. playback.js calls this with every
      timeline update; while the song plays a frame loop keeps it current ("Nur Musik" too). */
   var playbarBarEl = document.getElementById('playbarBar'), playbarBarShown = null;
   function updatePlaybarBar(){
     var b = null;
     if(state.music && songDur()) b = barAt(!songAudioEl.paused ? heardSongTime() : pausedAt ? pausedAt.songTime : playbackStartTime()); // js/playback.js
-    var label = b ? 'Takt ' + b.n : '', phrase = b ? b.p : '';
-    if(playbarBarShown === label + '|' + phrase) return;
-    playbarBarShown = label + '|' + phrase;
+    var label = b ? 'Takt ' + b.n : '', phrase = b ? b.p : '', fig = b ? b.f : '';
+    if(playbarBarShown === label + '|' + phrase + '|' + fig) return;
+    playbarBarShown = label + '|' + phrase + '|' + fig;
     playbarBarEl.hidden = !label;
     playbarBarEl.textContent = label + (phrase ? ' ' : '');
-    playbarBarEl.title = label + (phrase ? ': ' + phrase : '');
-    if(!phrase) return;
-    var p = document.createElement('b');
-    p.textContent = phrase;
-    playbarBarEl.appendChild(p);
+    playbarBarEl.title = label + (phrase ? ': ' + phrase : '') + (fig ? ' – ' + fig : '');
+    if(phrase) playbarBarEl.appendChild(document.createElement('b')).textContent = phrase;
+    if(fig) playbarBarEl.append(' ' + fig);
   }
   function barPlayFrame(){
     updatePlaybarBar();
@@ -338,20 +344,22 @@
   songAudioEl.addEventListener('play', function(){ requestAnimationFrame(barPlayFrame); });
   ['pause', 'seeked', 'durationchange'].forEach(function(t){ songAudioEl.addEventListener(t, barPlayFrame); });
 
-  // For the Schritte sheets (js/steps.js): the bars from song time t0 to t1 with their Phrasierung,
-  // runs of the same one folded ("Takt 5–12: 4× QQS+ · SQQ · 3× QQS+"); '' without any Phrasierung.
+  // For the Schritte sheets (js/steps.js): the bars from song time t0 to t1 with their Phrasierung
+  // and Figur, runs of the same folded ("Takt 5–12: 4× QQS+ Basic · SQQ · 3× QQS+"); the bar numbers
+  // alone without either, a new range where a section starts counting again; '' without bars.
   function barPhrasingLine(t0, t1){
     if(!state.music || !songDur() || t0 === null || t1 === null || !(t1 > t0)) return '';
     var bars = music().bars.filter(function(b){ return b.t + BAR_SLACK >= t0 && b.t + BAR_SLACK < t1; });
-    if(!bars.some(function(b){ return b.p; })) return '';
-    var runs = [];
-    bars.forEach(function(b){
-      var p = b.p || '–', last = runs[runs.length - 1];
+    if(!bars.length) return '';
+    var ranges = [], runs = [];
+    bars.forEach(function(b, i){
+      var r = ranges[ranges.length - 1], p = [b.p, b.f].filter(Boolean).join(' ') || '–', last = runs[runs.length - 1];
+      if(r && bars[i - 1].sec === b.sec) r[1] = b.n; else ranges.push([b.n, b.n]);
       if(last && last.p === p) last.n++; else runs.push({p: p, n: 1});
     });
-    var first = bars[0].n, lastN = bars[bars.length - 1].n;
-    return (bars.length === 1 ? 'Takt ' + first : 'Takt ' + first + '–' + lastN) + ': '
-      + runs.map(function(r){ return (r.n > 1 ? r.n + '× ' : '') + r.p; }).join(' · ');
+    var head = 'Takt ' + ranges.map(function(r){ return r[0] === r[1] ? r[0] : r[0] + '–' + r[1]; }).join(' + ');
+    if(!bars.some(function(b){ return b.p || b.f; })) return head;
+    return head + ': ' + runs.map(function(r){ return (r.n > 1 ? r.n + '× ' : '') + r.p; }).join(' · ');
   }
 
   /* ---------- the view "Musik & Takte" ----------
@@ -375,14 +383,14 @@
   var mtShiftInfo = document.getElementById('mtShiftInfo'), mtShiftBtns = Array.prototype.slice.call(mtBackdrop.querySelectorAll('[data-shift]'));
   var mtBeatInfo = document.getElementById('mtBeatInfo'), mtBeatAddBtn = document.getElementById('mtBeatAddBtn');
   var mtBeatDelBtn = document.getElementById('mtBeatDelBtn'), mtBeatOneBtn = document.getElementById('mtBeatOneBtn');
-  var mtPhraseLabel = document.getElementById('mtPhraseLabel'), mtPhrase = document.getElementById('mtPhrase'), mtFillBtn = document.getElementById('mtFillBtn');
+  var mtPhraseLabel = document.getElementById('mtPhraseLabel'), mtPhrase = document.getElementById('mtPhrase'), mtFigure = document.getElementById('mtFigure'), mtFillBtn = document.getElementById('mtFillBtn');
   var mtKeysEl = document.getElementById('mtKeys'), mtSecsEl = document.getElementById('mtSecs');
   var STEP_NEXT = ['', 'Weiter zu 2: Schläge erkennen', 'Weiter zu 3: Takt & 1', 'Weiter zu 4: Korrigieren', 'Weiter zu 5: Phrasierung', '']; // step 5: "Fertig" below
   var STEP_KEYS = ['', 'Leertaste spielt und hält an · G setzt eine Grenze · Grenze in der Lupe ziehen verschiebt sie · Rechtsklick oder Entf entfernt sie',
     'Leertaste spielt und hält an · ← → springen von Schlag zu Schlag',
     'Leertaste spielt und hält an · Taste 1 beim Hören der 1 · ← → wählen einen Schlag',
     'Leertaste · ← → wählen einen Schlag · Entf löscht ihn · 1 macht ihn zur 1 · S setzt einen an der Abspielposition · Umschalt + ← → rückt den Abschnitt um 10 ms',
-    'Leertaste · ← → wählen einen Takt · Enter oder Tab: nächster Takt · Strg + Enter: auch für die leeren danach'];
+    'Leertaste · ← → wählen einen Takt · Tab: Phrasierung → Figur → nächster Takt · Enter: nächster Takt · Strg + Enter: Phrasierung auch für die leeren danach'];
   var SEC_COLORS = [['--accent', '--accent-wash'], ['--pair', '--pair-wash'], ['--split', '--split-wash']];
   var mtStep = 1, mtSel = null, mtCut = -1, mtBar = null, mtNote = '', mtSeen = {}, mtRaf = 0;
 
@@ -429,7 +437,7 @@
       return 'Mit „Klicks“ anhören. Klickt ein ganzer Abschnitt zu früh oder zu spät: alle seine Schläge zusammen verschieben. Ein Schlag zu viel: antippen und löschen. Einer fehlt: dorthin tippen und „Schlag hier setzen“. Zählt ein Takt falsch: den Schlag antippen und „Zur 1 machen“.';
     }
     if(!mm.bars.length) return 'Erst in Schritt 3 die 1 festlegen – dann gibt es Takte.';
-    return 'Freiwillig: je Takt die Schrittfolge eintragen, z. B. QQS+. Takt in der Lupe antippen, Enter springt zum nächsten. Sie steht dann in der Abspielleiste und auf den Schritte-Blättern.';
+    return 'Freiwillig: je Takt die Schrittfolge (z. B. QQS+) und die Figur eintragen. Takt in der Lupe antippen, Enter springt zum nächsten. Beides steht dann in der Abspielleiste, auf den Schritte-Blättern und im Video ({rhythmus}, {figur}).';
   }
 
   function renderMusikView(){
@@ -490,8 +498,9 @@
     }else{
       var b = mtBar !== null ? barOf(mtBar) : null;
       mtPhraseLabel.textContent = b ? 'Takt ' + b.n + ' in ' + secTitle(b.sec) : mm.bars.length ? 'Einen Takt in der Lupe antippen:' : 'Noch keine Takte.';
-      mtPhrase.disabled = mtFillBtn.disabled = !b;
+      mtPhrase.disabled = mtFigure.disabled = mtFillBtn.disabled = !b;
       if(document.activeElement !== mtPhrase) mtPhrase.value = b ? b.p : '';
+      if(document.activeElement !== mtFigure) mtFigure.value = b ? b.f : '';
     }
   }
 
@@ -505,8 +514,8 @@
     if(mtStep === 2) return tempo ? [(tempo.off ? '⚠ ' : '✓ ') + tempo.text, tempo.off ? 'warn' : 'ok'] : [sec.beats.length + ' Schläge', ''];
     if(!sec.bars.length) return ['1 fehlt', 'warn'];
     if(mtStep === 5){
-      var n = sec.bars.filter(function(b){ return b.p; }).length;
-      return [n + ' von ' + sec.bars.length + ' Takten mit Phrasierung', n === sec.bars.length ? 'ok' : ''];
+      var n = sec.bars.filter(function(b){ return b.p; }).length, nf = sec.bars.filter(function(b){ return b.f; }).length;
+      return [n + ' von ' + sec.bars.length + ' Takten mit Phrasierung' + (nf ? ', ' + nf + ' mit Figur' : ''), n === sec.bars.length ? 'ok' : ''];
     }
     return ['✓ ' + sec.bars.length + ' Takte', 'ok'];
   }
@@ -634,7 +643,7 @@
   }
   function detectAsk(list, btn){
     if(!list.some(function(s){ return s.beats.length; })){ detectSections(list); return; }
-    confirmDelete((list.length === 1 ? 'Schläge in ' + secTitle(list[0]) : 'Alle Schläge') + ' neu erkennen? Deine Korrekturen, die 1 und die Phrasierung dort gehen dabei verloren.',
+    confirmDelete((list.length === 1 ? 'Schläge in ' + secTitle(list[0]) : 'Alle Schläge') + ' neu erkennen? Deine Korrekturen, die 1, Phrasierung und Figuren dort gehen dabei verloren.',
       function(){ detectSections(list); }, btn, 'Neu erkennen');
   }
   // t becomes a 1. restart: one more 1, the count starts again there (step 4); else the 1 that
@@ -686,22 +695,24 @@
     var ms = Math.round(Math.abs(r.d) * 1000);
     mtSay(ms ? 'Alle Schläge in ' + secTitle(sec) + ' ' + ms + ' ms ' + (r.d < 0 ? 'früher' : 'später') + '.' : 'Weiter geht es nicht – sonst rücken die Schläge in den Nachbarabschnitt.');
   }
-  function selectBar(b, focus){
+  // field: mtPhrase or mtFigure to type into, else none.
+  function selectBar(b, field){
     if(!b) return;
     mtBar = b.t;
     seek(b.t);
     renderMusikView();
-    if(!focus) return;
-    mtPhrase.value = b.p; // the field keeps what is typed only while it stays on one bar
-    mtPhrase.focus();
-    mtPhrase.select();
+    if(!field) return;
+    field.value = field === mtFigure ? b.f : b.p; // the field keeps what is typed only while it stays on one bar
+    field.focus();
+    field.select();
   }
-  function setPhrase(text){
+  // key: 'phrases' or 'figures' (BAR_TEXTS in js/state.js).
+  function setBarText(key, text){
     var b = mtBar !== null ? barOf(mtBar) : null;
     if(!b) return;
     var m = musicCopy();
-    text = text.trim().slice(0, BAR_PHRASE_MAX);
-    if(text) m.phrases[b.t] = text; else delete m.phrases[b.t];
+    text = text.trim().slice(0, BAR_TEXTS[key]);
+    if(text) m[key][b.t] = text; else delete m[key][b.t];
     setMusic(state.beats, m, 'soon');
   }
   // The selected bar's Phrasierung for every later bar of its section that has none yet.
@@ -725,7 +736,7 @@
   }
   function stepBarSel(dir){
     var bars = music().bars, cur = mtBar !== null ? barOf(mtBar) : barAt(songAudioEl.currentTime), i = cur ? bars.indexOf(cur) : -1;
-    selectBar(bars[i < 0 ? 0 : i + dir], false);
+    selectBar(bars[i < 0 ? 0 : i + dir], null);
   }
   function setStep(n){
     mtStep = n;
@@ -782,7 +793,7 @@
   document.getElementById('mtUndoBtn').addEventListener('click', function(){ historyUndo(); });
   document.getElementById('mtRedoBtn').addEventListener('click', function(){ historyRedo(); });
   document.getElementById('mtResetBtn').addEventListener('click', function(){
-    confirmDelete('Grenzen, Schläge, die 1 und die Phrasierung dieses Lieds löschen?', function(){
+    confirmDelete('Grenzen, Schläge, die 1, Phrasierung und Figuren dieses Lieds löschen?', function(){
       mtSel = null; mtCut = -1; mtBar = null;
       setMusic(null, null);
       if(!prefillSections()) mtSay('Alles zurückgesetzt.');
@@ -838,15 +849,21 @@
     if(mtSel === null) return;
     if(secAt(mtSel).ones.indexOf(mtSel) !== -1) removeOne(mtSel); else makeOne(mtSel, true);
   });
-  mtPhrase.addEventListener('input', function(){ setPhrase(mtPhrase.value); });
-  mtPhrase.addEventListener('keydown', function(e){
-    if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); fillEmptyBars(); return; }
-    if((e.key !== 'Enter' && e.key !== 'Tab') || e.altKey || e.ctrlKey || e.metaKey) return;
-    var bars = music().bars, cur = barOf(mtBar), next = cur ? bars[bars.indexOf(cur) + (e.shiftKey ? -1 : 1)] : null;
-    if(!next){ if(e.key === 'Enter') e.preventDefault(); return; }
-    e.preventDefault();
-    saveStateDebounced.flush(); // each bar its own undo step
-    selectBar(next, true);
+  // Enter: the same field a bar on (Shift: back); Tab: Phrasierung → Figur → the next bar's Phrasierung.
+  [[mtPhrase, 'phrases'], [mtFigure, 'figures']].forEach(function(x){
+    var field = x[0];
+    field.addEventListener('input', function(){ setBarText(x[1], field.value); });
+    field.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); if(field === mtPhrase) fillEmptyBars(); return; }
+      if((e.key !== 'Enter' && e.key !== 'Tab') || e.altKey || e.ctrlKey || e.metaKey) return;
+      if(e.key === 'Tab' && field !== (e.shiftKey ? mtPhrase : mtFigure)) return; // Tab between the two fields of one bar
+      var to = e.key === 'Enter' ? field : field === mtPhrase ? mtFigure : mtPhrase;
+      var bars = music().bars, cur = barOf(mtBar), next = cur ? bars[bars.indexOf(cur) + (e.shiftKey ? -1 : 1)] : null;
+      if(!next){ if(e.key === 'Enter') e.preventDefault(); return; }
+      e.preventDefault();
+      saveStateDebounced.flush(); // each bar its own undo step
+      selectBar(next, to);
+    });
   });
   mtFillBtn.addEventListener('click', fillEmptyBars);
 
@@ -856,7 +873,7 @@
     var ae = document.activeElement, typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
     if(e.key === 'Escape'){
       e.stopImmediatePropagation(); // not also the Marker dialog this returns to (js/main.js)
-      if(ae === mtPhrase) mtLupe.focus(); else closeMusikView();
+      if(ae === mtPhrase || ae === mtFigure) mtLupe.focus(); else closeMusikView();
       return;
     }
     if(typing || e.ctrlKey || e.metaKey || e.altKey || e.repeat && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -964,9 +981,12 @@
       var x = X(b.t), w = X(b.end) - x - 6;
       g.fillStyle = col.pair; g.font = '800 11px ' + col.font;
       g.fillText(String(b.n), x + (ones.has(b.t) ? 8 : 4), 12);
-      if(b.p && w > 10){
+      if((b.p || b.f) && w > 10){
+        var fx = x + 5;
         g.save(); g.beginPath(); g.rect(x + 3, phraseY - 13, w, 17); g.clip();
-        g.fillStyle = col.ink; g.font = '600 12px ' + col.font; g.fillText(b.p, x + 5, phraseY);
+        g.font = '600 12px ' + col.font;
+        if(b.p){ g.fillStyle = col.ink; g.fillText(b.p, fx, phraseY); fx += g.measureText(b.p).width + 8; }
+        if(b.f){ g.fillStyle = col.ink2; g.fillText(b.f, fx, phraseY); }
         g.restore();
       }
     });
@@ -1083,7 +1103,7 @@
       // A tap: go there; on a cut or a beat also select it (a cut is a beat too), in step 5 the bar.
       var t = p.cut > 0 ? music().secs[p.cut].start : p.beat !== null ? p.beat : p.t, b = mtStep === 5 ? barAt(t) : null;
       mtCut = p.cut;
-      if(b) selectBar(b, true);
+      if(b) selectBar(b, mtPhrase);
       else{ mtSel = mtStep >= 2 && (p.cut > 0 || p.beat !== null) ? t : null; seek(t); renderMusikView(); }
     }
     if(p.resume) songAudioEl.play().catch(function(){});

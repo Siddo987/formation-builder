@@ -290,6 +290,7 @@
 .mt-info{font-size:.8rem;line-height:1.35;color:var(--ink-2);}
 .mt-panel kbd{font-family:var(--font-mono);font-size:.66rem;padding:0 .3rem;border:1px solid currentColor;border-radius:4px;opacity:.75;}
 .modal .mt-phrase{flex:1;min-width:7rem;max-width:14rem;font-family:var(--font-mono);}
+.modal .mt-figure{max-width:20rem;font-family:inherit;}
 #mtProgress{flex:1;min-width:8rem;height:8px;accent-color:var(--accent);}
 .mt-secs{display:flex;flex-direction:column;gap:.3rem;}
 .mt-sec{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .5rem;padding:.3rem .4rem;border:1px solid var(--line);border-radius:9px;background:var(--panel);}

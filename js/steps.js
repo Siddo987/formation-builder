@@ -246,7 +246,7 @@
       note.textContent = text;
       info.appendChild(note);
     }
-    // The Phrasierung of the bars up to the next Bild's mark (#2096, js/beats.js).
+    // The bars up to the next Bild's mark with their Phrasierung and Figur (#2096, js/beats.js).
     var times = syncTimes(), phrasing = barPhrasingLine(times[formationIdx], formationIdx + 1 < times.length ? times[formationIdx + 1] : null);
     if(phrasing){
       var phraseLine = document.createElement('p');
