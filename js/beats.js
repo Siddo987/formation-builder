@@ -720,9 +720,14 @@
   function prefillSections(){
     var dur = songDur();
     if(state.music || !dur) return false;
-    var secs = abschnittSections(state.formations).filter(function(s, k){ return !k || s.t < dur - 1; });
-    if(secs.length < 2 && !danceOfName(secs[0].name)) return false;
-    setMusic(state.beats, {sections: secs.map(function(s){ var d = danceOfName(s.name), out = {t: s.t}; if(d) out.dance = d.key; return out; }), ones: [], phrases: {}});
+    var secs = [];
+    abschnittSections(state.formations).forEach(function(s, k){
+      var d = danceOfName(s.name), last = secs[secs.length - 1];
+      if(k && (s.t >= dur - 1 || (d && last.d === d))) return; // the same dance goes on: no cut there
+      secs.push({t: s.t, name: s.name, d: d});
+    });
+    if(secs.length < 2 && !secs[0].d) return false;
+    setMusic(state.beats, {sections: secs.map(function(s){ var out = {t: s.t}; if(s.d) out.dance = s.d.key; return out; }), ones: [], phrases: {}});
     mtSay('Grenzen und Tänze sind aus deinen Abschnitten übernommen (' + secs.map(function(s){ return s.name || 'Anfang'; }).join(', ') + ') – beim Anhören prüfen.');
     return true;
   }
