@@ -285,6 +285,7 @@
     clickCtx.resume();
     clickedUntil = songAudioEl.currentTime - 0.01;
     clickTimer = setInterval(clickTick, 40);
+    clickTick(); // a beat right at the start is not past yet when the first interval fires
   }
   ['play', 'pause', 'ended'].forEach(function(t){ songAudioEl.addEventListener(t, syncBeatClicks); });
   songAudioEl.addEventListener('seeking', function(){ clickedUntil = songAudioEl.currentTime - 0.01; });
@@ -361,7 +362,7 @@
   var mtBeatDelBtn = document.getElementById('mtBeatDelBtn'), mtBeatOneBtn = document.getElementById('mtBeatOneBtn');
   var mtPhraseLabel = document.getElementById('mtPhraseLabel'), mtPhrase = document.getElementById('mtPhrase'), mtFillBtn = document.getElementById('mtFillBtn');
   var mtKeysEl = document.getElementById('mtKeys'), mtSecsEl = document.getElementById('mtSecs');
-  var STEP_NEXT = ['', 'Weiter zu 2: Schläge erkennen', 'Weiter zu 3: Takt & 1', 'Weiter zu 4: Korrigieren', 'Weiter zu 5: Phrasierung', 'Fertig'];
+  var STEP_NEXT = ['', 'Weiter zu 2: Schläge erkennen', 'Weiter zu 3: Takt & 1', 'Weiter zu 4: Korrigieren', 'Weiter zu 5: Phrasierung', '']; // step 5: "Fertig" below
   var STEP_KEYS = ['', 'Leertaste spielt und hält an · G setzt eine Grenze · Grenze in der Lupe ziehen verschiebt sie · Entf entfernt die gewählte',
     'Leertaste spielt und hält an · ← → springen von Schlag zu Schlag',
     'Leertaste spielt und hält an · Taste 1 beim Hören der 1 · ← → wählen einen Schlag',
@@ -398,7 +399,7 @@
       + (secs.length === 1 ? ' Nur ein Tanz im Lied? Dann keine Grenze setzen, nur den Tanz wählen.' : noDance.length ? ' Noch ohne Tanz: ' + secTitles(noDance) + '.' : '');
     if(mtStep === 2){
       if(detectJob) return 'Die App hört sich ' + secTitle(secs[detectJob.k] || secs[0]) + ' an (' + (detectJob.i + 1) + ' von ' + detectJob.n + ') – einen Moment.';
-      if(!state.beats) return 'Jetzt sucht die App die Schläge, je Abschnitt im Tempo seines Tanzes. Das Lied bleibt dabei auf diesem Gerät.';
+      if(!state.beats) return '„Schläge erkennen“ sucht die Schläge, je Abschnitt im Tempo seines Tanzes. Das Lied bleibt dabei auf diesem Gerät.';
       var noBeats = secs.filter(function(s){ return !s.beats.length; });
       if(noBeats.length) return 'In ' + secTitles(noBeats) + ' fehlen noch Schläge.';
       return 'Die Schläge sind da. Mit „Klicks“ anhören, ob sie sitzen – einzelne Fehler richtest du in Schritt 4.';
@@ -432,7 +433,8 @@
     mtGuideEl.textContent = guideText(mm);
     mtNoteEl.textContent = mtNote;
     mtNextBtn.textContent = STEP_NEXT[mtStep];
-    mtNextBtn.classList.toggle('btn-accent', !!done[mtStep] || mtStep === 5 || (mtStep === 4 && done[3]));
+    mtNextBtn.hidden = mtStep === 5;
+    mtNextBtn.classList.toggle('btn-accent', !!done[mtStep] || (mtStep === 4 && done[3]));
     mtKeysEl.textContent = STEP_KEYS[mtStep];
     renderSecList(mm);
     updatePanels();
@@ -772,7 +774,7 @@
   mtBackdrop.addEventListener('pointerdown', function(e){ mtBackdropDown = e.target === mtBackdrop; });
   mtBackdrop.addEventListener('click', function(e){ if(e.target === mtBackdrop && mtBackdropDown) closeMusikView(); });
   mtStepBtns.forEach(function(btn){ btn.addEventListener('click', function(){ setStep(+btn.dataset.step); }); });
-  mtNextBtn.addEventListener('click', function(){ if(mtStep === 5) closeMusikView(); else setStep(mtStep + 1); });
+  mtNextBtn.addEventListener('click', function(){ setStep(mtStep + 1); });
   function togglePlay(){
     if(!state.song || !state.song.url) return;
     if(songAudioEl.paused) songAudioEl.play().catch(function(){}); else songAudioEl.pause();
