@@ -35,8 +35,9 @@
     m.set('meta/showAxes', s.showAxes !== false);
     m.set('meta/showFacing', s.showFacing !== false);
     m.set('meta/stage', sanitizeStage(s.stage));
-    m.set('meta/beats', sanitizeBeats(s.beats));
-    m.set('meta/bars', sanitizeBars(s.bars, sanitizeBeats(s.beats)));
+    var mu = sanitizeMusic(s); // a snapshot from before has bars instead: converted
+    m.set('meta/beats', mu.beats);
+    m.set('meta/music', mu.music);
     m.set('meta/videoLayout', sanitizeVideoLayout(s.videoLayout));
     var rl = s.roomLabels || {};
     ['top','right','bottom','left'].forEach(function(side){ m.set('room/' + side, rl[side] || ''); });
@@ -184,7 +185,7 @@
       roomLabels: rl,
       stage: sanitizeStage(get('meta/stage', null)),
       beats: sanitizeBeats(get('meta/beats', null)),
-      bars: sanitizeBars(get('meta/bars', null), sanitizeBeats(get('meta/beats', null))), // a merge can pair bars with other beats
+      music: sanitizeMusic({beats: get('meta/beats', null), music: get('meta/music', null)}).music, // a merge can pair 1s with other beats
       videoLayout: sanitizeVideoLayout(get('meta/videoLayout', null)),
       pairs: pairs,
       customFigures: customFigures,
@@ -242,6 +243,20 @@
     return mm + ':' + (ss < 10 ? '0' : '') + (Math.round(ss * 10) / 10);
   }
 
+  // A change in Musik & Takte (js/beats.js), by the first part of it that differs.
+  function musicChangeLabel(a, b){
+    if(!b) return 'Musik & Takte zurückgesetzt';
+    a = a || {sections: [{t: 0}], ones: [], phrases: {}};
+    function col(list, k){ return list.map(function(s){ return s[k] || 0; }); }
+    var na = a.sections.length, nb = b.sections.length;
+    if(na !== nb) return nb - na === 1 ? 'Grenze gesetzt' : na - nb === 1 ? 'Grenze entfernt' : 'Grenzen: ' + (na - 1) + ' → ' + (nb - 1);
+    if(!hEq(col(a.sections, 'dance'), col(b.sections, 'dance'))) return 'Tanz gewählt';
+    if(!hEq(col(a.sections, 'per'), col(b.sections, 'per'))) return 'Schläge je Takt geändert';
+    if(!hEq(a.ones, b.ones)) return b.ones.length > a.ones.length ? 'Die 1 gesetzt' : b.ones.length < a.ones.length ? 'Die 1 entfernt' : 'Die 1 verschoben';
+    if(!hEq(col(a.sections, 't'), col(b.sections, 't'))) return 'Grenze verschoben';
+    return 'Phrasierung geändert';
+  }
+
   // One change -> a German sentence. `ctx` is the state whose names we describe against (usually
   // the "after" side).
   function changeLabel(path, kind, before, after, ctx){
@@ -250,12 +265,11 @@
     if(path === 'meta/tempo') return 'Tempo: ' + before + ' → ' + after;
     if(path === 'meta/showAxes') return after ? 'Achsen global eingeblendet' : 'Achsen global ausgeblendet';
     if(path === 'meta/showFacing') return after ? 'Blickrichtungen eingeblendet' : 'Blickrichtungen ausgeblendet';
-    if(path === 'meta/beats') return !after ? 'Schläge entfernt' : !before ? after.length + ' Schläge im Lied' : before.length === after.length ? 'Schläge verschoben' : 'Schläge: ' + before.length + ' → ' + after.length; // same count: moved (#2147)
-    if(path === 'meta/bars' && before && after && hEq(before.map(function(b){ return b.t; }), after.map(function(b){ return b.t; }))){
-      var barsSame = function(k){ return hEq(before.map(function(b){ return b[k] || 0; }), after.map(function(b){ return b[k] || 0; })); };
-      return !barsSame('n') ? 'Schläge je Takt geändert' : !barsSame('fill') ? 'Fixpunkte geändert' : 'Phrasierung geändert';
+    if(path === 'meta/beats'){
+      var nb = before ? before.length : 0, na = after ? after.length : 0;
+      return !na ? 'Schläge entfernt' : !nb ? na + ' Schläge im Lied' : nb === na ? 'Schläge verschoben' : na - nb === 1 ? 'Schlag gesetzt' : nb - na === 1 ? 'Schlag gelöscht' : 'Schläge: ' + nb + ' → ' + na; // same count: moved (#2147)
     }
-    if(path === 'meta/bars') return !after ? 'Takte entfernt' : before && before.length === after.length ? 'Takte verschoben' : 'Takte: ' + (before ? before.length : 0) + ' → ' + after.length;
+    if(path === 'meta/music') return musicChangeLabel(before, after);
     if(path === 'meta/videoLayout') return after ? 'Video-Layout geändert' : 'Video-Layout auf Standard zurückgesetzt';
     if(path === 'meta/stage') return 'Bühnengröße: ' + (before ? before.w + ' × ' + before.d : '14 × 14') + ' m → ' + after.w + ' × ' + after.d + ' m';
     if(parts[0] === 'room') return 'Bühnenrand ' + parts[1] + ': „' + (before || '') + '“ → „' + (after || '') + '“';
@@ -584,6 +598,7 @@
     clearTimeout(histCaptureTimer); histCaptureTimer = null;
     suppressHistoryCapture = true;
     var e = histEntries[index], v = entryView(e), snap = hClone(e.snapshot);
+    if(snap.bars){ var mu = sanitizeMusic(snap); snap.beats = mu.beats; snap.music = mu.music; delete snap.bars; } // a step from before Musik & Takte
     // Bilder someone else holds right now (#2076, js/share.js) keep their current state — undo
     // must not take back that person's work.
     if(typeof bildLockHolder === 'function' && snap.formations.some(function(f){ return bildLockHolder(f.id); })){

@@ -172,7 +172,7 @@
     var mime = file.type || (/\.(mp4|m4a)$/i.test(file.name) ? 'audio/mp4' : 'audio/mpeg');
     state.song = { name:file.name, mime:mime, blob:file, url:URL.createObjectURL(file) };
     state.beats = null; // they belonged to the old song (#2041)
-    state.bars = null;
+    state.music = null;
     idbHydrationGen++;
     idbPut(idbBlobKey('song'), { name:state.song.name, mime:state.song.mime, blob:state.song.blob });
     applySongSource();
@@ -185,7 +185,7 @@
       if(state.song && state.song.url) URL.revokeObjectURL(state.song.url);
       state.song = null;
       state.beats = null;
-      state.bars = null;
+      state.music = null;
       idbHydrationGen++;
       idbDelete(idbBlobKey('song'));
       applySongSource();

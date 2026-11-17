@@ -154,10 +154,9 @@
       logo: logoMeta || null,
       song: songMeta || null
     };
-    var beats = sanitizeBeats(s.beats);
-    if(beats) header.beats = beats; // only when there are any, so older snapshots stay comparable
-    var bars = sanitizeBars(s.bars, beats);
-    if(bars) header.bars = bars;
+    var mu = sanitizeMusic(s);
+    if(mu.beats) header.beats = mu.beats; // only when there are any, so older snapshots stay comparable
+    if(mu.music) header.music = mu.music;
     var videoLayout = sanitizeVideoLayout(s.videoLayout); // a copy: history snapshots must not share it
     if(videoLayout) header.videoLayout = videoLayout;
     return header;
@@ -255,6 +254,7 @@
     var customFigures = (Array.isArray(header.customFigures) ? header.customFigures : []).filter(function(fig){
       return fig && typeof fig.name === 'string' && fig.transform && typeof fig.transform === 'object';
     }).map(function(fig){ return {id: fig.id || uid('cf'), name: fig.name, transform: fig.transform}; });
+    var mu = sanitizeMusic(header); // older files have bars instead: converted
 
     return {
       projectName: header.projectName || 'Meine Formation',
@@ -270,8 +270,8 @@
         left: (header.roomLabels && typeof header.roomLabels.left === 'string') ? header.roomLabels.left : 'FENSTER'
       },
       stage: sanitizeStage(header.stage),
-      beats: sanitizeBeats(header.beats),
-      bars: sanitizeBars(header.bars, sanitizeBeats(header.beats)),
+      beats: mu.beats,
+      music: mu.music,
       pairs: pairs,
       customFigures: customFigures,
       activeIndex: typeof header.activeIndex === 'number' ? header.activeIndex : 0,

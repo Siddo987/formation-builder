@@ -44,16 +44,6 @@
   var BAR_MIN = 0.25; // s — the shortest bar a drag squeezes the ones beside it to
   var GRID_SNAP = 0.3; // share of a beat: a filled-in bar line snaps onto a detected beat this close
 
-  // Tournament tempi (WDSF) in beats per minute, beats per bar; matched by a word in the name.
-  var BEAT_DANCES = [
-    ['langsam', 'Langsamer Walzer', 84, 90, 3], ['wiener', 'Wiener Walzer', 174, 180, 3], ['tango', 'Tango', 124, 132, 4],
-    ['slow', 'Slowfox', 112, 120, 4], ['quick', 'Quickstep', 200, 208, 4], ['samba', 'Samba', 100, 104, 2],
-    ['cha', 'Cha-Cha-Cha', 120, 128, 4], ['rumba', 'Rumba', 100, 108, 4], ['paso', 'Paso Doble', 120, 124, 2], ['jive', 'Jive', 168, 176, 4]
-  ].map(function(d){ return {word: d[0], name: d[1], lo: d[2], hi: d[3], per: d[4]}; });
-  function danceOfName(name){
-    var n = (name || '').toLowerCase();
-    return BEAT_DANCES.filter(function(d){ return n.indexOf(d.word) !== -1; })[0] || null;
-  }
   function dancePer(name){ var d = danceOfName(name); return d ? d.per : 4; }
 
   var beatClickOn = false; // "Klicks" in the Vorhören row (#2146), kept under BEAT_CLICK_KEY

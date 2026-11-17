@@ -1102,7 +1102,7 @@ function describeConflictValue(path, val){
   if(path.indexOf('/pos/') !== -1) return '(' + val.x + ', ' + val.y + ')' + (val.rot ? ' · ' + val.rot + '°' : '');
   if(path === 'meta/tempo') return 'Tempo ' + val;
   if(path === 'meta/beats') return val ? val.length + ' Schläge' : 'keine Schläge';
-  if(path === 'meta/bars') return val ? val.length + ' Taktanfänge' : 'keine Taktanfänge';
+  if(path === 'meta/music') return val ? val.sections.length + (val.sections.length === 1 ? ' Abschnitt' : ' Abschnitte') + ' · ' + val.ones.length + '× die 1 · ' + Object.keys(val.phrases).length + ' Phrasierungen' : 'keine Takte';
   if(typeof val === 'object' && val.name !== undefined) return '„' + val.name + '“';
   if(typeof val === 'object') return JSON.stringify(val);
   return String(val);
@@ -1156,6 +1156,7 @@ function reconstructSharedState(payload){
     return out;
   });
 
+  var mu = sanitizeMusic(payload); // payloads from before have bars instead: converted
   var base = {
     projectName: payload.projectName || 'Meine Formation',
     dancers: payload.dancers || [],
@@ -1170,8 +1171,8 @@ function reconstructSharedState(payload){
       left: (payload.roomLabels && typeof payload.roomLabels.left === 'string') ? payload.roomLabels.left : 'FENSTER'
     },
     stage: sanitizeStage(payload.stage),
-    beats: sanitizeBeats(payload.beats),
-    bars: sanitizeBars(payload.bars, sanitizeBeats(payload.beats)),
+    beats: mu.beats,
+    music: mu.music,
     videoLayout: sanitizeVideoLayout(payload.videoLayout),
     pairs: (Array.isArray(payload.pairs) ? payload.pairs : []).map(function(p){
       return {id:p.id, memberIds:p.memberIds, name:p.name||'', collapsed:!!p.collapsed};

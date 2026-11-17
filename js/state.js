@@ -27,9 +27,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     return {w: side(v && v.w), d: side(v && v.d)};
   }
   // While a project is still being loaded (`state` not assigned yet) it's the default size.
-  // Erkannte Schläge (#2041, js/beats.js): sorted seconds, or null — what "Automatisch vorschlagen"
-  // found, which filled-in bar lines snap onto. Belong to the song — a new or removed song clears
-  // them (js/main.js).
+  // Schläge im Lied (#2041, js/beats.js): every beat, sorted seconds, or null — as detected and then
+  // corrected by hand. Belong to the song — a new or removed song clears them (js/main.js).
   function sanitizeBeats(v){
     if(!Array.isArray(v)) return null;
     var out = v.filter(function(t){ return typeof t === 'number' && isFinite(t) && t >= 0 && t < 36000; })
@@ -37,27 +36,130 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       .sort(function(a, b){ return a - b; }).slice(0, 20000);
     return out.length ? out : null;
   }
-  // Takte (#2096, js/beats.js): [{t, p, n, fill}] in song order, the only thing the user edits; the
-  // beats follow from them. t: the bar's start (s). p: its Phrasierung ("QQS+", optional). n: its
-  // beats when not the dance's. fill: the app placed it; without, it is an anchor the user set (tapped,
-  // dragged — or a bar start from before bars were filled in, which were all set by hand). The second
-  // argument (the beats, which bars once had to sit on) is ignored.
+  // Tournament tempi (WDSF) in beats per minute and beats per bar. key: the word that names the dance
+  // in an Abschnitt's name ("2. Rumba"), and what state.music keeps.
+  var BEAT_DANCES = [
+    ['langsam', 'Langsamer Walzer', 84, 90, 3], ['wiener', 'Wiener Walzer', 174, 180, 3], ['tango', 'Tango', 124, 132, 4],
+    ['slow', 'Slowfox', 112, 120, 4], ['quick', 'Quickstep', 200, 208, 4], ['samba', 'Samba', 100, 104, 2],
+    ['cha', 'Cha-Cha-Cha', 120, 128, 4], ['rumba', 'Rumba', 100, 108, 4], ['paso', 'Paso Doble', 120, 124, 2], ['jive', 'Jive', 168, 176, 4]
+  ].map(function(d){ return {key: d[0], name: d[1], lo: d[2], hi: d[3], per: d[4]}; });
+  var DANCE_OTHER = 'andere'; // „anderer Tanz“: any tempo, 4 beats per bar unless set
+  function danceOfName(name){
+    var n = (name || '').toLowerCase();
+    return BEAT_DANCES.filter(function(d){ return n.indexOf(d.key) !== -1; })[0] || null;
+  }
+  function danceByKey(key){ return BEAT_DANCES.filter(function(d){ return d.key === key; })[0] || null; }
+  // The Abschnitte (Bild categories) whose Bild has a mark of its own, as sections of the song:
+  // [{t, name}] from 0, the way js/beats.js once cut the song (an Abschnitt within the first second
+  // names the first section).
+  function abschnittSections(formations){
+    var cuts = [], out = [{t: 0, name: ''}];
+    (formations || []).forEach(function(f){
+      if(f && typeof f.category === 'string' && f.category.trim() && typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) cuts.push({t: f.time, name: f.category.trim()});
+    });
+    cuts.sort(function(a, b){ return a.t - b.t; }).forEach(function(c){
+      var last = out[out.length - 1];
+      if(c.t - last.t >= 1) out.push({t: Math.round(c.t * 1000) / 1000, name: c.name}); else last.name = c.name;
+    });
+    return out;
+  }
+  /* Musik & Takte (#2096, #2081, js/beats.js): state.music = {sections, ones, phrases} or null.
+     sections: [{t, dance?, per?}] sorted, the first at 0 — the dances of the song from where each
+       starts. They describe the music, so they are kept here and not taken from the Bild Abschnitte
+       (whose marks move with the choreography); the view fills them from those once. dance: a
+       BEAT_DANCES key or DANCE_OTHER (none: not chosen yet); per: beats per bar where not the dance's.
+     ones: the beats the user made a 1 (seconds, each one of state.beats). From each, every per-th beat
+       of its section starts a bar — back to the section's start before the first, on to the next 1 or
+       the section's end after it.
+     phrases: {time of a bar's 1: its Phrasierung ("QQS+")}, so it moves along when the beats do.
+     sanitizeMusic(src) reads beats and music from a project (localStorage, .stg, share payload,
+     history snapshot) and returns them checked: {beats, music}; 1s and Phrasierung that are not on a
+     beat (a merge paired them with other beats) are dropped. Projects from before keep src.bars
+     instead and are converted (musicFromBars). */
   var BAR_PHRASE_MAX = 16;
-  function sanitizeBars(v){
-    if(!Array.isArray(v)) return null;
-    var seen = new Set(), out = [];
-    v.forEach(function(b){
+  function sanitizeMusic(src){
+    src = src || {};
+    var beats = sanitizeBeats(src.beats), m = src.music;
+    if(!(m && typeof m === 'object') && Array.isArray(src.bars) && src.bars.length) return musicFromBars(beats, src.bars, src.formations);
+    if(!m || typeof m !== 'object' || !Array.isArray(m.sections)) return {beats: beats, music: null};
+    var secs = [], on = new Set(beats || []), ones = [], phrases = {};
+    m.sections.filter(function(s){ return s && typeof s.t === 'number' && isFinite(s.t) && s.t >= 0 && s.t < 36000; })
+      .sort(function(a, b){ return a.t - b.t; }).forEach(function(s){
+        var t = secs.length ? Math.round(s.t * 1000) / 1000 : 0, out = {t: t};
+        if(secs.length && t - secs[secs.length - 1].t < 0.5) return;
+        if(s.dance === DANCE_OTHER || danceByKey(s.dance)) out.dance = s.dance;
+        if(typeof s.per === 'number' && s.per >= 1 && s.per <= 12) out.per = Math.round(s.per);
+        secs.push(out);
+      });
+    if(!secs.length) secs.push({t: 0});
+    (Array.isArray(m.ones) ? m.ones : []).forEach(function(t){
+      t = typeof t === 'number' ? Math.round(t * 1000) / 1000 : NaN;
+      if(on.has(t) && ones.indexOf(t) === -1) ones.push(t);
+    });
+    if(m.phrases && typeof m.phrases === 'object') Object.keys(m.phrases).forEach(function(k){
+      var t = Math.round(parseFloat(k) * 1000) / 1000, p = typeof m.phrases[k] === 'string' ? m.phrases[k].trim().slice(0, BAR_PHRASE_MAX) : '';
+      if(p && on.has(t)) phrases[t] = p;
+    });
+    return {beats: beats, music: {sections: secs.slice(0, 200), ones: ones.sort(function(a, b){ return a - b; }), phrases: phrases}};
+  }
+  /* Bars from before: [{t, p}] on the beats (the first version), or [{t, p, n, fill}] from the „Nur
+     Takte“ version, whose beats followed from the bars. The Abschnitte with marks become the sections
+     (that version cut the song there too). A section whose bars don't all sit on stored beats gets the
+     beats that version played: each bar divided evenly into its beats, the last as long as the one
+     before. Every old bar start the count from the 1 before misses becomes a 1, so each stays a bar
+     start and keeps its Phrasierung.
+     shortcut: an Abschnitt whose Bild had no mark of its own (placed by spreading) is no section here,
+     its bars count to the one before; upgrade by passing the song length and using syncTimes(). */
+  function musicFromBars(beats, bars, formations){
+    var list = [], seen = new Set(), secs = abschnittSections(formations);
+    bars.forEach(function(b){
       var t = b && typeof b.t === 'number' && isFinite(b.t) && b.t >= 0 && b.t < 36000 ? Math.round(b.t * 1000) / 1000 : null;
       if(t === null || seen.has(t)) return;
       seen.add(t);
-      var bar = {t: t}, p = typeof b.p === 'string' ? b.p.trim().slice(0, BAR_PHRASE_MAX) : '';
-      if(p) bar.p = p;
-      if(typeof b.n === 'number' && b.n >= 1 && b.n <= 12) bar.n = Math.round(b.n);
-      if(b.fill) bar.fill = true;
-      out.push(bar);
+      list.push({t: t, p: typeof b.p === 'string' ? b.p.trim().slice(0, BAR_PHRASE_MAX) : '', n: typeof b.n === 'number' && b.n >= 1 && b.n <= 12 ? Math.round(b.n) : 0});
     });
-    out.sort(function(a, b){ return a.t - b.t; });
-    return out.length ? out.slice(0, 20000) : null;
+    list.sort(function(a, b){ return a.t - b.t; });
+    function lenAt(k){ return k + 1 < list.length ? list[k + 1].t - list[k].t : k > 0 ? list[k].t - list[k - 1].t : 0; }
+    secs.forEach(function(sec, i){ sec.end = i + 1 < secs.length ? secs[i + 1].t : Infinity; sec.bars = []; sec.dance = danceOfName(sec.name); });
+    // A bar starting less than a quarter bar before a cut is the next section's.
+    list.forEach(function(b, k){ secs.filter(function(s){ return s.t <= b.t + 0.25 * lenAt(k); }).pop().bars.push(k); });
+    var stored = beats || [], on = new Set(stored), all = [];
+    secs.forEach(function(sec){
+      sec.per = (sec.bars.map(function(k){ return list[k].n; }).filter(Boolean)[0]) || (sec.dance ? sec.dance.per : 4);
+      if(!sec.bars.length || sec.bars.every(function(k){ return on.has(list[k].t); })){
+        stored.forEach(function(t){ if(t >= sec.t && t < sec.end) all.push(t); });
+        return;
+      }
+      var len = 0;
+      sec.bars.forEach(function(k, j){
+        var next = sec.bars[j + 1], n = list[k].n || sec.per, stop = k + 1 < list.length ? list[k + 1].t - 0.03 : Infinity;
+        if(next !== undefined) len = list[next].t - list[k].t;
+        for(var x = 0; x < n; x++){
+          var t = Math.round((list[k].t + x * len / n) * 1000) / 1000;
+          if(x && (!len || t >= stop)) break;
+          all.push(t);
+        }
+      });
+    });
+    all.sort(function(a, b){ return a - b; });
+    all = all.filter(function(t, i){ return !i || t - all[i - 1] > 0.08; });
+    var ones = [], phrases = {};
+    secs.forEach(function(sec){
+      var own = all.filter(function(t){ return t >= sec.t && t < sec.end; }), one = null;
+      sec.bars.forEach(function(k){
+        var i = own.indexOf(list[k].t);
+        if(i < 0) own.forEach(function(t, x){ if(i < 0 || Math.abs(t - list[k].t) < Math.abs(own[i] - list[k].t)) i = x; });
+        if(i < 0) return;
+        if(one === null || (i - one) % sec.per){ ones.push(own[i]); one = i; }
+        if(list[k].p) phrases[own[i]] = list[k].p;
+      });
+    });
+    return sanitizeMusic({beats: all, music: {sections: secs.map(function(s){
+      var out = {t: s.t};
+      if(s.dance) out.dance = s.dance.key;
+      if(s.per !== (s.dance ? s.dance.per : 4)) out.per = s.per;
+      return out;
+    }), ones: ones, phrases: phrases}});
   }
   // Video-Layout (#2095): null = the standard layout (defaultVideoLayout in js/export.js), else
   // {format, bg, els: [{id, type, x, y, w, h, hidden?, …type options}]}, built in js/videolayout.js.
@@ -561,7 +663,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       roomLabels: {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'},
       stage: sanitizeStage(null),
       beats: null,
-      bars: null,
+      music: null,
       pairs: [],
       customFigures: [],
       logo: null,
@@ -626,8 +728,10 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(typeof parsed.projectName !== 'string' || !parsed.projectName.trim()) parsed.projectName = 'Meine Formation';
       if(!Array.isArray(parsed.axes)) parsed.axes = [];
       parsed.stage = sanitizeStage(parsed.stage);
-      parsed.beats = sanitizeBeats(parsed.beats);
-      parsed.bars = sanitizeBars(parsed.bars, parsed.beats);
+      var mu = sanitizeMusic(parsed); // older saves have bars instead: converted
+      parsed.beats = mu.beats;
+      parsed.music = mu.music;
+      delete parsed.bars;
       parsed.videoLayout = sanitizeVideoLayout(parsed.videoLayout); // older saves have none: the standard layout
       if(typeof parsed.showAxes !== 'boolean') parsed.showAxes = true;
       if(typeof parsed.showFacing !== 'boolean'){
@@ -725,7 +829,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         roomLabels: state.roomLabels,
         stage: state.stage,
         beats: state.beats,
-        bars: state.bars,
+        music: state.music,
         videoLayout: state.videoLayout || null,
         pairs: state.pairs,
         customFigures: state.customFigures,
