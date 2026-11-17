@@ -316,6 +316,9 @@
       var d = danceOfName(sec.name), per = sectionPer(s), hint = barsLen(s.bars) || gridBarLen(sec, per);
       // The dance's tempo only tells how many bars the first two taps are apart, not where they lie.
       run = tapRun = {sec: sec, snap: snap, taps: [], hint: hint, prior: hint || (d ? per * 120 / (d.lo + d.hi) : 0), per: per, len: 0, last: -Infinity, had: s.bars.length};
+      // A lone 1 set before (while paused, or with a pause since) is this run's first tap.
+      var lone = s.bars.length === 1 && !s.bars[0].bar.fill ? s.bars[0].t : null;
+      if(lone !== null && t > lone && t - lone < (run.prior ? 8 * run.prior : TAP_RUN_FIRST)){ run.taps.push(lone); run.last = lone; }
     }
     run.taps.push(t);
     run.last = t;
@@ -325,9 +328,9 @@
     clearTimeout(run.timer);
     run.timer = setTimeout(endTapRun, Math.max(2, TAP_RUN_BARS * (run.len || run.prior || 2)) * 1000);
     var own = barSections().filter(function(x){ return x.start === sec.start; })[0].bars;
-    if(!run.had && own.length > 1 && !run.zoomed){ run.zoomed = true; zoomToBars(t, run.len || run.hint); }
+    if(run.had < 2 && own.length > 1 && !run.zoomed){ run.zoomed = true; zoomToBars(t, run.len || run.hint); }
     barStatusEl.textContent = own.length > 1 ? '„' + sectionName(sec, beatSections(songDur())) + '“: ' + own.length + ' Takte. Jede weitere 1 macht es genauer.'
-      : 'Und weiter bei jeder 1 tippen – ab der zweiten füllt sich der Abschnitt.';
+      : songAudioEl.paused ? 'Gesetzt. Jetzt ▶ starten und bei jeder weiteren 1 tippen.' : 'Und weiter bei jeder 1 tippen – ab der zweiten füllt sich der Abschnitt.';
     renderBeats();
     barTapBtn.classList.add('bar-tap-btn--hit');
     setTimeout(function(){ barTapBtn.classList.remove('bar-tap-btn--hit'); }, 90);
@@ -338,6 +341,8 @@
     tapRun = null;
     clearTimeout(run.timer);
     setBars(state.bars);
+    var own = barSections().filter(function(x){ return x.start === run.sec.start; })[0].bars;
+    if(own.length > 1) barStatusEl.textContent = '„' + sectionName(run.sec, beatSections(songDur())) + '“: ' + own.length + ' Takte. Mit „Klicks“ anhören, ob sie sitzen; wo nicht, den Taktstrich an die richtige Stelle ziehen.';
   }
   ['pause', 'seeking'].forEach(function(t){ songAudioEl.addEventListener(t, endTapRun); });
   window.addEventListener('pagehide', endTapRun);
@@ -404,8 +409,13 @@
     if(!bars.length){
       var empty = document.createElement('p');
       empty.className = 'bar-strip-empty';
-      empty.textContent = state.beats ? 'Schläge sind erkannt: Lied starten und je Abschnitt einmal bei der 1 auf „Tippe auf die 1“ tippen.'
-        : 'Lied starten und bei jeder 1 auf „Tippe auf die 1“ tippen – den Rest des Abschnitts füllt die App.';
+      var line = empty.appendChild(document.createElement('span')), key = document.createElement('span'); // one flex item
+      line.textContent = state.beats ? 'Schläge sind erkannt: Lied starten und je Abschnitt einmal bei der 1 auf „Tippe auf die 1“ tippen'
+        : 'Lied starten und bei jeder 1 auf „Tippe auf die 1“ tippen – ab der zweiten füllt die App den Abschnitt';
+      key.className = 'bar-hint-keys';
+      key.textContent = ' (oder Taste 1)';
+      line.appendChild(key);
+      line.appendChild(document.createTextNode('.'));
       barStripEl.appendChild(empty);
       return;
     }
@@ -494,7 +504,16 @@
       if(e.pointerType === 'mouse' && state.bars) barStripEl.style.cursor = barHitAt(e.clientX, 'mouse').line >= 0 ? 'ew-resize' : '';
       return;
     }
-    if(e.pointerId !== p.id || !p.mover || (!p.moved && Math.abs(e.clientX - p.x) < 4)) return; // a shaky tap stays a tap
+    if(e.pointerId !== p.id) return;
+    if(!p.mover){ // off a line: a sideways swipe pans the zoomed view, as on the waveform
+      if(!markerSpan || (!p.panned && Math.abs(e.clientX - p.x) < 6)) return;
+      p.panned = true;
+      markerViewStart = p.v.t0 - (e.clientX - p.x) / barStripEl.clientWidth * (p.v.t1 - p.v.t0); // js/marker.js clamps it
+      renderMarkerTimeline();
+      updateMarkerPlayheadUI();
+      return;
+    }
+    if(!p.moved && Math.abs(e.clientX - p.x) < 4) return; // a shaky tap stays a tap
     p.moved = true;
     state.bars = p.mover.to(p.mover.from + (e.clientX - p.x) / barStripEl.clientWidth * (p.v.t1 - p.v.t0));
     renderBarStrip();
@@ -512,7 +531,7 @@
       return;
     }
     var k = p.hit.line >= 0 ? p.hit.line : p.hit.box;
-    if(k < 0) return;
+    if(k < 0 || p.panned) return;
     if(p.hit.dense) zoomToBars(state.bars[k].t, barsLen(state.bars.slice(Math.max(0, k - 1), k + 2)));
     selectBar(k, p.type === 'mouse' ? 'input' : null);
   }
@@ -561,12 +580,12 @@
     var sel = selectedBar();
     barEditorEl.hidden = !sel;
     if(!sel) return;
-    barEditorTitle.textContent = 'Takt ' + sel.n + ' · ' + sectionName(sel.sec, sel.secs) + ' · ' + formatTime(sel.bar.t, 2);
+    barEditorTitle.textContent = 'Takt ' + sel.n + ' · ' + sectionName(sel.sec, sel.secs) + ' · ' + formatTime(sel.bar.t, 2) + (sel.bar.fill ? '' : ' · Fixpunkt');
     if(document.activeElement !== barPhraseInput) barPhraseInput.value = sel.bar.p || '';
     barReleaseBtn.hidden = !!sel.bar.fill;
     var span = selSpan(sel);
-    barInsertBtn.hidden = barRemoveBtn.hidden = !span;
-    barRemoveBtn.disabled = !!span && span.q - span.p < 2;
+    barInsertBtn.hidden = !span;
+    barRemoveBtn.hidden = !span || span.q - span.p < 2;
   }
   // The selected bar's Abschnitt laid out again after edit(list, j) changed its bars; the selection
   // stays on the bar returned (or j's).

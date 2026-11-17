@@ -98,6 +98,8 @@
    where it is an anchor. A sideways finger drag goes to the line, not the page. */
 .bar-strip{position:relative;height:40px;margin-top:-.55rem;overflow:hidden;background:var(--panel-2);border:1px solid var(--line);border-top:none;border-radius:0 0 8px 8px;touch-action:pan-y;user-select:none;-webkit-user-select:none;}
 .marker-timeline:has(+ .bar-strip) .marker-timeline-bar{border-radius:8px 8px 0 0;}
+.bar-hint-dot{color:var(--pair);}
+@media (pointer:coarse){.bar-hint-keys{display:none;}}
 .bar-strip-empty{margin:0;height:100%;display:flex;align-items:center;justify-content:center;padding:0 .6rem;font-size:.76rem;font-weight:600;line-height:1.3;color:var(--ink-2);text-align:center;}
 .bar-box{
   position:absolute;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;gap:1px;
