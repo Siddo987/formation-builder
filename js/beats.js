@@ -54,9 +54,10 @@
   function music(){
     var dur = songDur(), c = musicMemo;
     if(c.beats === state.beats && c.music === state.music && c.dur === dur) return c;
-    var all = state.beats || [], m = state.music, phrases = m ? m.phrases : {};
+    var m = state.music, phrases = m ? m.phrases : {};
     var list = (m ? m.sections : [{t: 0}]).filter(function(s, k){ return !k || !dur || s.t < dur - 0.5; });
-    c = musicMemo = {beats: state.beats, music: state.music, dur: dur, bars: [], starts: new Set()};
+    var all = beatsWithCuts(state.beats || [], list); // js/state.js: each cut is a beat
+    c = musicMemo = {beats: state.beats, music: state.music, dur: dur, all: all, bars: [], starts: new Set()};
     c.secs = list.map(function(s, k){
       var start = k ? s.t : 0, end = k + 1 < list.length ? list[k + 1].t : (dur || Infinity), d = danceByKey(s.dance);
       var sec = {k: k, start: start, end: end, key: s.dance || '', dance: d, per: s.per || (d ? d.per : 4), beats: all.slice(lowerBound(all, start), lowerBound(all, end))};
@@ -75,6 +76,9 @@
     });
     return c;
   }
+  // Every beat, the cuts included — what is drawn, clicked and counted.
+  function allBeats(){ return music().all; }
+  function isCut(t){ return music().secs.some(function(s){ return s.k && s.start === t; }); }
   function secAt(t){
     var secs = music().secs;
     for(var k = secs.length - 1; k > 0; k--) if(t >= secs[k].start) return secs[k];
@@ -116,6 +120,12 @@
     if(live === 'soon') saveStateDebounced(); else if(!live) saveState();
     renderBeats();
   }
+  // m with the 1 and Phrasierung at time a moved to b (dropped for b null).
+  function carryMarks(m, a, b){
+    if(m.ones.indexOf(a) !== -1){ m.ones = m.ones.filter(function(t){ return t !== a; }); if(b !== null) m.ones.push(b); }
+    if(m.phrases[a]){ if(b !== null && !m.phrases[b]) m.phrases[b] = m.phrases[a]; delete m.phrases[a]; }
+    return m;
+  }
   // m without the 1s and Phrasierung from a to b (their beats are about to go).
   function musicWithout(m, a, b){
     m.ones = m.ones.filter(function(t){ return !inRange(t, a, b); });
@@ -129,12 +139,13 @@
     var beats = base.beats || [], m = musicCopy(base.music), secs = m.sections;
     var start = k ? secs[k].t : 0, end = k + 1 < secs.length ? secs[k + 1].t : Infinity, i0 = lowerBound(beats, start), i1 = lowerBound(beats, end);
     if(i0 === i1) return null;
-    var lo = Math.min(0, (i0 ? beats[i0 - 1] + 0.05 : 0) - beats[i0]), hi = Math.max(0, (i1 < beats.length ? beats[i1] - 0.05 : Infinity) - beats[i1 - 1]);
+    var first = k ? start : beats[i0]; // a cut is its section's first beat (beatsWithCuts)
+    var lo = Math.min(0, (i0 ? beats[i0 - 1] + 0.05 : 0) - first), hi = Math.max(0, Math.min(i1 < beats.length ? beats[i1] : Infinity, end) - 0.05 - beats[i1 - 1]);
     d = Math.min(hi, Math.max(lo, d));
     function mv(t){ return inRange(t, start, end) ? roundMs(t + d) : t; }
     var out = beats.map(mv), ph = {};
-    if(k) secs[k].t = Math.min(start, out[i0]);
-    if(k + 1 < secs.length) secs[k + 1].t = Math.max(end, roundMs(out[i1 - 1] + 0.001));
+    if(k) secs[k].t = roundMs(start + d);
+    if(k && secs[k].t < secs[k - 1].t + 0.5) return null; // would swallow the section before
     m.ones = m.ones.map(mv);
     Object.keys(m.phrases).forEach(function(key){ ph[mv(+key)] = m.phrases[key]; });
     m.phrases = ph;
@@ -171,17 +182,21 @@
           if(state.song !== song) return; // song swapped meanwhile
           detectJob.i = i; detectJob.k = r.k;
           renderMusikView();
-          var d = r.dance, samples = mono.slice(Math.floor(r.start * 44100), Math.floor(Math.min(r.end, dur) * 44100));
+          var from = r.k ? Math.max(0, r.start - 1) : 0; // a beat before the cut, to hear the beat it should sit on
+          var d = r.dance, samples = mono.slice(Math.floor(from * 44100), Math.floor(Math.min(r.end, dur) * 44100));
           return new Promise(function(resolve, reject){
             worker.onmessage = function(e){ if(e.data.error) reject(new Error(e.data.error)); else resolve(e.data); };
             worker.onerror = function(e){ reject(new Error(e.message || 'Worker')); };
             worker.postMessage({id: i, samples: samples, minTempo: d ? Math.round(d.lo * 0.9) : 40, maxTempo: d ? Math.round(d.hi * 1.1) : 208}, [samples.buffer]);
           }).then(function(res){
             if(state.song !== song) return;
-            var ticks = res.ticks.map(function(t){ return roundMs(t + r.start); }).filter(function(t){ return inRange(t, r.start, r.end); });
-            var beats = (state.beats || []).filter(function(t){ return !inRange(t, r.start, r.end); }).concat(ticks).sort(byNum);
+            var ticks = res.ticks.map(function(t){ return roundMs(t + from); }), m = musicWithout(musicCopy(), r.start, r.end), start = r.start;
+            var near = r.k ? nearestIn(ticks, r.start) : null, half = ticks.length > 1 ? (ticks[ticks.length - 1] - ticks[0]) / (ticks.length - 1) / 2 : 0;
+            if(near !== null && Math.abs(near - r.start) < Math.max(CUT_BEAT_GAP, half) && m.sections[r.k]){ start = near; m.sections[r.k].t = near; } // the cut onto the beat heard there, as it is the section's first
+            ticks = ticks.filter(function(t){ return inRange(t, start, r.end); });
+            var beats = (state.beats || []).filter(function(t){ return !inRange(t, Math.min(start, r.start), r.end); }).concat(ticks).sort(byNum);
             found += ticks.length;
-            setMusic(beats.filter(function(t, x){ return !x || t - beats[x - 1] > 0.08; }), musicWithout(musicCopy(), r.start, r.end));
+            setMusic(beats.filter(function(t, x){ return !x || t - beats[x - 1] > 0.08; }), m);
           });
         });
       }, Promise.resolve());
@@ -230,7 +245,7 @@
     if(v.t1 <= v.t0 || !state.beats) return;
     function x(t){ return Math.round((t - v.t0) / (v.t1 - v.t0) * W); }
     var cs = getComputedStyle(beatCanvas), starts = music().starts, pair = cs.getPropertyValue('--pair').trim() || cs.color;
-    state.beats.forEach(function(t){
+    allBeats().forEach(function(t){
       if(t < v.t0 || t > v.t1) return;
       var bar = starts.has(t);
       g.fillStyle = bar ? pair : cs.color;
@@ -241,7 +256,7 @@
   }
   // A time set from the play position ("Jetzt", a Bild added while paused) on the nearest beat.
   function nearestBeat(t, maxDist){
-    var b = nearestIn(state.beats, t);
+    var b = nearestIn(allBeats(), t);
     return b !== null && Math.abs(b - t) <= maxDist ? b : null;
   }
   function beatSnap(t){
@@ -265,7 +280,7 @@
   var clickCtx = null, clickTimer = null, clickedUntil = 0;
   function clickTick(){
     var now = songAudioEl.currentTime, until = now + 0.12, rate = songAudioEl.playbackRate || 1, starts = music().starts;
-    (state.beats || []).forEach(function(t){
+    allBeats().forEach(function(t){
       if(t <= clickedUntil || t < now || t > until) return;
       var at = clickCtx.currentTime + (t - now) / rate, o = clickCtx.createOscillator(), g = clickCtx.createGain();
       o.frequency.value = starts.has(t) ? 2500 : 1500;
@@ -363,7 +378,7 @@
   var mtPhraseLabel = document.getElementById('mtPhraseLabel'), mtPhrase = document.getElementById('mtPhrase'), mtFillBtn = document.getElementById('mtFillBtn');
   var mtKeysEl = document.getElementById('mtKeys'), mtSecsEl = document.getElementById('mtSecs');
   var STEP_NEXT = ['', 'Weiter zu 2: Schläge erkennen', 'Weiter zu 3: Takt & 1', 'Weiter zu 4: Korrigieren', 'Weiter zu 5: Phrasierung', '']; // step 5: "Fertig" below
-  var STEP_KEYS = ['', 'Leertaste spielt und hält an · G setzt eine Grenze · Grenze in der Lupe ziehen verschiebt sie · Entf entfernt die gewählte',
+  var STEP_KEYS = ['', 'Leertaste spielt und hält an · G setzt eine Grenze · Grenze in der Lupe ziehen verschiebt sie · Rechtsklick oder Entf entfernt sie',
     'Leertaste spielt und hält an · ← → springen von Schlag zu Schlag',
     'Leertaste spielt und hält an · Taste 1 beim Hören der 1 · ← → wählen einen Schlag',
     'Leertaste · ← → wählen einen Schlag · Entf löscht ihn · 1 macht ihn zur 1 · S setzt einen an der Abspielposition · Umschalt + ← → rückt den Abschnitt um 10 ms',
@@ -387,7 +402,7 @@
   }
   // The beat an action on "the 1" means: paused, the selected one, else the one at the play position;
   // playing, the one heard.
-  function beatNow(eventTime){ return songAudioEl.paused && mtSel !== null ? mtSel : nearestIn(state.beats, timeNow(eventTime)); }
+  function beatNow(eventTime){ return songAudioEl.paused && mtSel !== null ? mtSel : nearestIn(allBeats(), timeNow(eventTime)); }
   function stepsDone(mm){
     return {1: mm.secs.every(function(s){ return s.key; }), 2: mm.secs.every(function(s){ return s.beats.length; }),
       3: mm.secs.every(function(s){ return s.bars.length; }), 4: false, 5: mm.bars.length > 0 && mm.bars.every(function(b){ return b.p; })};
@@ -421,7 +436,7 @@
     if(mtBackdrop.hidden) return;
     var mm = music(), done = stepsDone(mm);
     mtSeen.state = state; mtSeen.beats = state.beats; mtSeen.music = state.music; mtSeen.drawn = null;
-    if(mtSel !== null && (state.beats || []).indexOf(mtSel) === -1) mtSel = null;
+    if(mtSel !== null && allBeats().indexOf(mtSel) === -1) mtSel = null;
     if(mtCut >= mm.secs.length) mtCut = -1;
     if(mtBar !== null && !barOf(mtBar)) mtBar = null;
     mtStepBtns.forEach(function(btn){
@@ -573,7 +588,8 @@
   /* ---------- the view's actions ---------- */
 
   function addCutHere(eventTime){
-    var t = roundMs(timeNow(eventTime)), dur = songDur(), m = musicCopy();
+    var t = roundMs(timeNow(eventTime)), dur = songDur(), m = musicCopy(), near = nearestIn(state.beats, t);
+    if(near !== null && Math.abs(near - t) < CUT_BEAT_GAP) t = near; // a beat right there: the cut is that beat
     if(t < 1 || t > dur - 1){ mtSay('So nah am Anfang oder Ende des Lieds braucht es keine Grenze.'); return; }
     if(m.sections.some(function(s){ return Math.abs(s.t - t) < 1; })){ mtSay('Hier ist schon eine Grenze.'); return; }
     m.sections.push({t: t});
@@ -587,16 +603,18 @@
   function removeCut(k){
     var m = musicCopy();
     if(!(k > 0 && k < m.sections.length)) return;
+    var at = m.sections[k].t, back = nearestIn(state.beats, at);
     m.sections.splice(k, 1);
+    carryMarks(m, at, back !== null && Math.abs(back - at) < CUT_BEAT_GAP ? back : null);
     mtCut = -1;
     mtSay('Grenze entfernt – Abschnitt ' + (k + 1) + ' gehört jetzt zu Abschnitt ' + k + '.');
     setMusic(state.beats, m);
   }
   // The cut before section k at t, kept half a second from its neighbours; live: during a drag.
   function moveCut(k, t, base, live){
-    var m = musicCopy(base), s = m.sections, lo = s[k - 1].t + 0.5, hi = (k + 1 < s.length ? s[k + 1].t : songDur()) - 0.5;
+    var b = base || {beats: state.beats, music: state.music}, m = musicCopy(b.music), s = m.sections, lo = s[k - 1].t + 0.5, hi = (k + 1 < s.length ? s[k + 1].t : songDur()) - 0.5, at = s[k].t;
     s[k].t = roundMs(Math.min(hi, Math.max(lo, t)));
-    setMusic(state.beats, m, live);
+    setMusic(b.beats, carryMarks(m, at, s[k].t), live);
   }
   function setDance(k, key){
     var m = musicCopy(), s = m.sections[k], had = music().secs[k].beats.length;
@@ -643,13 +661,14 @@
     mtSay(sec.ones.length > 1 ? 'Keine feste 1 mehr bei ' + formatTime(t, 2) + ' – die Takte zählen von der 1 davor weiter.' : secTitle(sec) + ' hat jetzt keine 1 mehr – in Schritt 3 eine festlegen.');
   }
   function deleteBeat(t){
+    if(isCut(t)){ mtSay('Das ist eine Grenze – sie zählt als Schlag. Entfernen: Rechtsklick auf die Grenze (oder in Schritt 1 „Grenze davor entfernen“).'); return; }
     var counted = secAt(t).bars.length > 0;
     mtSel = null;
     setMusic((state.beats || []).filter(function(x){ return x !== t; }), musicCopy());
     mtSay('Schlag bei ' + formatTime(t, 2) + ' gelöscht.' + (counted ? ' Die Takte dahinter zählen neu.' : ''));
   }
   function addBeatHere(eventTime){
-    var t = roundMs(timeNow(eventTime)), near = nearestIn(state.beats, t);
+    var t = roundMs(timeNow(eventTime)), near = nearestIn(allBeats(), t);
     if(!songDur()) return;
     if(near !== null && Math.abs(near - t) < 0.06){ mtSel = near; mtSay('Dort ist schon ein Schlag – er ist jetzt gewählt.'); renderMusikView(); return; }
     setMusic((state.beats || []).concat([t]), musicCopy());
@@ -697,7 +716,7 @@
   }
   // The previous or next beat (dir -1 / 1) from the selected one or the play position, selected.
   function stepBeat(dir){
-    var beats = state.beats || [], from = mtSel !== null ? mtSel : songAudioEl.currentTime, i = lowerBound(beats, from);
+    var beats = allBeats(), from = mtSel !== null ? mtSel : songAudioEl.currentTime, i = lowerBound(beats, from);
     var t = dir > 0 ? beats[mtSel !== null ? i + 1 : (beats[i] - from < 0.01 ? i + 1 : i)] : beats[i - 1];
     if(t === undefined){ if(!beats.length) seek(from + dir); return; }
     mtSel = t;
@@ -777,8 +796,20 @@
   mtNextBtn.addEventListener('click', function(){ setStep(mtStep + 1); });
   function togglePlay(){
     if(!state.song || !state.song.url) return;
-    if(songAudioEl.paused) songAudioEl.play().catch(function(){}); else songAudioEl.pause();
+    if(songAudioEl.paused) songAudioEl.play().catch(function(){}); else holdSong();
   }
+  // Pause where the song is heard (Bluetooth delay, js/playback.js), so the picture doesn't jump
+  // ahead and play carries on from there.
+  function holdSong(){
+    var h = heardSongTime();
+    songAudioEl.pause();
+    songAudioEl.currentTime = h;
+  }
+  // What the view shows: while playing, what is heard — but not before where play started, until
+  // the sound arrives there.
+  var mtPlayFrom = 0;
+  ['play', 'seeking'].forEach(function(t){ songAudioEl.addEventListener(t, function(){ mtPlayFrom = songAudioEl.currentTime; }); });
+  function viewTime(){ return songAudioEl.paused ? songAudioEl.currentTime : Math.max(mtPlayFrom, heardSongTime()); }
   function syncPlayIcon(){
     var paused = songAudioEl.paused;
     mtIconPlay.hidden = !paused; mtIconPause.hidden = paused;
@@ -879,7 +910,7 @@
   // The Lupe: a few seconds around what is heard — 8 on a wide screen, about 4 on a phone, so the
   // beats stay a finger apart.
   function lupeView(){
-    var W = mtLupe.clientWidth || 1, span = Math.min(8, Math.max(4, W / 90)), c = heardSongTime();
+    var W = mtLupe.clientWidth || 1, span = Math.min(8, Math.max(4, W / 90)), c = viewTime();
     return {c: c, t0: c - span / 2, t1: c + span / 2, W: W, pps: W / span};
   }
   function drawOverview(col){
@@ -918,7 +949,7 @@
     drawWave(g, v.t0, v.t1, W, top + 4, H - top - foot - 30);
     g.globalAlpha = 1;
     // Beats as thin lines, the bars' 1s as thick ones with the bar's number; a triangle on a 1 the user set.
-    var beats = state.beats || [], ones = new Set(state.music ? state.music.ones : []);
+    var beats = allBeats(), ones = new Set(state.music ? state.music.ones : []);
     for(var i = lowerBound(beats, v.t0 - 0.2); i < beats.length && beats[i] <= v.t1 + 0.2; i++){
       var t = beats[i], x = X(t), bar = mm.starts.has(t);
       g.fillStyle = bar ? col.pair : col.ink2;
@@ -967,7 +998,7 @@
     if(mtBackdrop.hidden) return;
     mtRaf = requestAnimationFrame(mtFrame);
     if(mtSeen.state !== state || mtSeen.beats !== state.beats || mtSeen.music !== state.music) renderMusikView();
-    var t = heardSongTime(), key = [t, mtLupe.clientWidth, mtOverview.clientWidth, !!wavePeaks, mtSel, mtCut, mtBar, mtStep].join('|');
+    var t = viewTime(), key = [t, mtLupe.clientWidth, mtOverview.clientWidth, !!wavePeaks, mtSel, mtCut, mtBar, mtStep].join('|');
     if(key !== mtSeen.drawn){
       mtSeen.drawn = key;
       var col = mtColors();
@@ -984,7 +1015,7 @@
 
   /* ---------- pressing and dragging in the overview and the Lupe ---------- */
 
-  var mtLupePtr = null;
+  var mtLupePtr = null, mtLastTouch = false;
   mtOverview.addEventListener('pointerdown', function(e){
     if(e.button !== 0 || !songDur()) return;
     var rect = mtOverview.getBoundingClientRect(), at = function(x){ return (x - rect.left) / rect.width * songDur(); };
@@ -996,13 +1027,24 @@
     mtOverview.addEventListener('pointerup', up);
     mtOverview.addEventListener('pointercancel', up);
   });
+  // The cut (its section's k) within reach px of clientX in the Lupe or the overview, or -1.
+  function cutNear(canvas, clientX, reach){
+    var rect = canvas.getBoundingClientRect(), v = lupeView(), dur = songDur(), best = -1, dist = Infinity;
+    var pps = canvas === mtLupe ? v.pps : rect.width / (dur || 1), t = canvas === mtLupe ? v.t0 + (clientX - rect.left) / pps : (clientX - rect.left) / pps;
+    music().secs.forEach(function(s){ var dd = Math.abs(s.start - t) * pps; if(s.k && dd <= reach && dd < dist){ best = s.k; dist = dd; } });
+    return best;
+  }
+  // Holding the Lupe stops the song where it is heard, so what is grabbed stays under the pointer;
+  // letting go plays on from where it was let go.
   mtLupe.addEventListener('pointerdown', function(e){
+    mtLastTouch = e.pointerType !== 'mouse';
     if(e.button !== 0 || !songDur() || mtLupePtr) return;
-    var v = lupeView(), rect = mtLupe.getBoundingClientRect(), t = v.t0 + (e.clientX - rect.left) / v.pps, reach = (e.pointerType === 'mouse' ? 8 : 18) / v.pps;
-    var p = mtLupePtr = {id: e.pointerId, x: e.clientX, v: v, t: t, from: songAudioEl.currentTime, moved: false, cut: -1, beat: null};
-    if(mtStep === 1) music().secs.forEach(function(s){ if(s.k && Math.abs(s.start - t) <= reach && (p.cut < 0 || Math.abs(s.start - t) < Math.abs(music().secs[p.cut].start - t))) p.cut = s.k; });
-    else{ var b = nearestIn(state.beats, t); if(b !== null && Math.abs(b - t) <= reach) p.beat = b; }
-    if(p.cut > 0) p.base = state.music;
+    var resume = !songAudioEl.paused;
+    if(resume) holdSong();
+    var v = lupeView(), rect = mtLupe.getBoundingClientRect(), t = v.t0 + (e.clientX - rect.left) / v.pps, reach = e.pointerType === 'mouse' ? 8 : 18;
+    var p = mtLupePtr = {id: e.pointerId, x: e.clientX, v: v, t: t, from: songAudioEl.currentTime, moved: false, cut: cutNear(mtLupe, e.clientX, reach), beat: null, resume: resume};
+    if(p.cut < 0 && mtStep >= 2){ var b = nearestIn(allBeats(), t); if(b !== null && Math.abs(b - t) * v.pps <= reach) p.beat = b; }
+    if(p.cut > 0) p.base = {beats: state.beats, music: state.music};
     if(mtStep === 4 && p.beat !== null && p.beat === mtSel) p.base = {beats: state.beats, music: state.music, k: secAt(p.beat).k};
     mtLupe.setPointerCapture(e.pointerId);
     mtLupe.focus({preventScroll: true});
@@ -1010,12 +1052,20 @@
   });
   mtLupe.addEventListener('pointermove', function(e){
     var p = mtLupePtr;
-    if(!p || e.pointerId !== p.id) return;
+    if(!p){ // the mouse shows what can be dragged
+      if(e.pointerType === 'mouse') mtLupe.style.cursor = cutNear(mtLupe, e.clientX, 8) > 0 ? 'col-resize'
+        : mtStep === 4 && mtSel !== null && Math.abs(lupeView().t0 + (e.clientX - mtLupe.getBoundingClientRect().left) / lupeView().pps - mtSel) * lupeView().pps <= 8 ? 'ew-resize' : '';
+      return;
+    }
+    if(e.pointerId !== p.id) return;
     var dx = e.clientX - p.x;
     if(!p.moved && Math.abs(dx) < 5) return; // a shaky tap stays a tap
     p.moved = true;
-    if(p.cut > 0) moveCut(p.cut, music().secs[p.cut] && p.base.sections[p.cut].t + dx / p.v.pps, p.base, true);
-    else if(p.base && p.base.k !== undefined){
+    if(p.cut > 0){
+      // A cut dropped near a beat lands on it.
+      var t = p.base.music.sections[p.cut].t + dx / p.v.pps, b = nearestIn(p.base.beats, t);
+      moveCut(p.cut, b !== null && Math.abs(b - t) * p.v.pps <= 6 ? b : t, p.base, true);
+    }else if(p.base){
       var r = shiftedSection(p.base, p.base.k, dx / p.v.pps);
       if(r){ mtSel = roundMs(p.beat + r.d); setMusic(r.beats, r.music, true); }
     }else seek(p.from - dx / p.v.pps); // scrub
@@ -1025,21 +1075,29 @@
     if(!p || e.pointerId !== p.id) return;
     mtLupePtr = null;
     if(e.type === 'pointercancel'){
-      if(p.moved && p.base){ state.beats = p.base.beats !== undefined ? p.base.beats : state.beats; state.music = p.base.music !== undefined && p.base.k !== undefined ? p.base.music : p.base; renderBeats(); }
-      return;
-    }
-    if(p.moved){
+      if(p.moved && p.base){ state.beats = p.base.beats; state.music = p.base.music; renderBeats(); }
+    }else if(p.moved){
       if(p.cut > 0){ mtCut = p.cut; setMusic(state.beats, state.music); mtSay('Grenze verschoben auf ' + formatTime(music().secs[p.cut].start, 2) + '.'); }
       else if(p.base){ setMusic(state.beats, state.music); var ms = Math.round((mtSel - p.beat) * 1000); mtSay('Alle Schläge in ' + secTitle(secAt(mtSel)) + ' ' + Math.abs(ms) + ' ms ' + (ms < 0 ? 'früher' : 'später') + '.'); }
-      return;
+    }else{
+      // A tap: go there; on a cut or a beat also select it (a cut is a beat too), in step 5 the bar.
+      var t = p.cut > 0 ? music().secs[p.cut].start : p.beat !== null ? p.beat : p.t, b = mtStep === 5 ? barAt(t) : null;
+      mtCut = p.cut;
+      if(b) selectBar(b, true);
+      else{ mtSel = mtStep >= 2 && (p.cut > 0 || p.beat !== null) ? t : null; seek(t); renderMusikView(); }
     }
-    // A tap: go there; on a cut, a beat or (step 5) into a bar, also select it.
-    if(p.cut > 0){ mtCut = p.cut; seek(music().secs[p.cut].start); }
-    else if(mtStep === 5){ var b = barAt(p.t); if(b){ selectBar(b, true); return; } seek(p.t); }
-    else if(p.beat !== null){ mtSel = p.beat; seek(p.beat); }
-    else{ mtSel = null; mtCut = -1; seek(p.t); }
-    renderMusikView();
+    if(p.resume) songAudioEl.play().catch(function(){});
   }
   mtLupe.addEventListener('pointerup', endLupePtr);
   mtLupe.addEventListener('pointercancel', endLupePtr);
+  // Right-click on a cut removes it (with a finger the long press only selects: no menu there).
+  [mtLupe, mtOverview].forEach(function(c){
+    c.addEventListener('contextmenu', function(e){
+      var k = cutNear(c, e.clientX, c === mtLupe ? 10 : 6);
+      if(k < 0) return;
+      e.preventDefault();
+      if(!mtLastTouch) removeCut(k);
+    });
+  });
+  mtOverview.addEventListener('pointerdown', function(e){ mtLastTouch = e.pointerType !== 'mouse'; }, true);
   window.addEventListener('resize', function(){ mtSeen.drawn = null; if(!markerBackdrop.hidden) drawBeatTicks(); });

@@ -68,7 +68,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
        starts. They describe the music, so they are kept here and not taken from the Bild Abschnitte
        (whose marks move with the choreography); the view fills them from those once. dance: a
        BEAT_DANCES key or DANCE_OTHER (none: not chosen yet); per: beats per bar where not the dance's.
-     ones: the beats the user made a 1 (seconds, each one of state.beats). From each, every per-th beat
+     A cut counts as a beat too, the first of its section (beatsWithCuts), once that section has beats.
+     ones: the beats the user made a 1 (seconds, each one of those beats). From each, every per-th beat
        of its section starts a bar — back to the section's start before the first, on to the next 1 or
        the section's end after it.
      phrases: {time of a bar's 1: its Phrasierung ("QQS+")}, so it moves along when the beats do.
@@ -77,12 +78,25 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
      beat (a merge paired them with other beats) are dropped. Projects from before keep src.bars
      instead and are converted (musicFromBars). */
   var BAR_PHRASE_MAX = 16;
+  // The beats with every cut as one: stored beats closer than CUT_BEAT_GAP to a cut give way to it
+  // (they come back when the cut moves away). A section without beats of its own gets none.
+  var CUT_BEAT_GAP = 0.12;
+  function beatsWithCuts(beats, sections){
+    if(!beats || !sections || sections.length < 2) return beats;
+    var out = beats;
+    sections.forEach(function(s, k){
+      var next = k + 1 < sections.length ? sections[k + 1].t : Infinity;
+      if(!k || !beats.some(function(b){ return b >= s.t && b < next; })) return;
+      out = out.filter(function(b){ return Math.abs(b - s.t) >= CUT_BEAT_GAP; }).concat([s.t]);
+    });
+    return out === beats ? beats : out.sort(function(a, b){ return a - b; });
+  }
   function sanitizeMusic(src){
     src = src || {};
     var beats = sanitizeBeats(src.beats), m = src.music;
     if(!(m && typeof m === 'object') && Array.isArray(src.bars) && src.bars.length) return musicFromBars(beats, src.bars, src.formations);
     if(!m || typeof m !== 'object' || !Array.isArray(m.sections)) return {beats: beats, music: null};
-    var secs = [], on = new Set(beats || []), ones = [], phrases = {};
+    var secs = [], on, ones = [], phrases = {};
     m.sections.filter(function(s){ return s && typeof s.t === 'number' && isFinite(s.t) && s.t >= 0 && s.t < 36000; })
       .sort(function(a, b){ return a.t - b.t; }).forEach(function(s){
         var t = secs.length ? Math.round(s.t * 1000) / 1000 : 0, out = {t: t};
@@ -92,13 +106,20 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         secs.push(out);
       });
     if(!secs.length) secs.push({t: 0});
+    on = new Set(beatsWithCuts(beats, secs) || []);
+    // A 1 or Phrasierung on a beat that gave way to a cut goes onto the cut.
+    function onBeat(t){
+      if(on.has(t)) return t;
+      var c = secs.filter(function(s, k){ return k && Math.abs(s.t - t) < CUT_BEAT_GAP && on.has(s.t); })[0];
+      return c ? c.t : null;
+    }
     (Array.isArray(m.ones) ? m.ones : []).forEach(function(t){
-      t = typeof t === 'number' ? Math.round(t * 1000) / 1000 : NaN;
-      if(on.has(t) && ones.indexOf(t) === -1) ones.push(t);
+      t = onBeat(typeof t === 'number' ? Math.round(t * 1000) / 1000 : NaN);
+      if(t !== null && ones.indexOf(t) === -1) ones.push(t);
     });
     if(m.phrases && typeof m.phrases === 'object') Object.keys(m.phrases).forEach(function(k){
-      var t = Math.round(parseFloat(k) * 1000) / 1000, p = typeof m.phrases[k] === 'string' ? m.phrases[k].trim().slice(0, BAR_PHRASE_MAX) : '';
-      if(p && on.has(t)) phrases[t] = p;
+      var t = onBeat(Math.round(parseFloat(k) * 1000) / 1000), p = typeof m.phrases[k] === 'string' ? m.phrases[k].trim().slice(0, BAR_PHRASE_MAX) : '';
+      if(p && t !== null && !phrases[t]) phrases[t] = p;
     });
     return {beats: beats, music: {sections: secs.slice(0, 200), ones: ones.sort(function(a, b){ return a - b; }), phrases: phrases}};
   }
