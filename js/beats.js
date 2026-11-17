@@ -162,7 +162,7 @@
 
   /* Lays out one Abschnitt's bars (in order, changed in place) around its anchors and returns them:
      between two anchors they keep their number and are spread evenly; before the first and after the
-     last they go on at the bar length there up to the Abschnitt's edges (a partial bar is dropped),
+     last they go on at the anchors' bar length up to the Abschnitt's edges (a partial bar is dropped),
      reusing the bars that were there in order from the anchor out, so their Phrasierung stays. Each
      filled-in line snaps onto a detected beat close by, the next one going on from there. len: the
      bar length to go on with where the anchors don't tell (one anchor only); 0 leaves those as they are. */
@@ -178,13 +178,6 @@
       var i0 = anchors[a], i1 = anchors[a + 1], t0 = list[i0].t, t1 = list[i1].t;
       for(var i = i0 + 1; i < i1; i++) list[i].t = roundMs(gridSnap(t0 + (t1 - t0) * (i - i0) / (i1 - i0), (t1 - t0) / (i1 - i0), per, shift));
     }
-    // The bar length at the first or last anchor, over up to 8 bars to the anchors inward — taps jitter.
-    function edgeLen(i, inward){
-      var ds = anchors.map(function(j){ return (j - i) * inward; }).filter(function(d){ return d > 0; });
-      if(!ds.length) return len;
-      var near = ds.filter(function(d){ return d <= 8; }), d = near.length ? Math.max.apply(null, near) : Math.min.apply(null, ds);
-      return Math.abs(list[i + d * inward].t - list[i].t) / d;
-    }
     function extend(old, from, l, dir){
       if(!(l > BAR_MIN)) return old;
       var made = [], lo = Math.max(0, sec.start - BAR_CUT_SHARE * l);
@@ -196,9 +189,10 @@
       }
       return made;
     }
-    var first = anchors[0], last = anchors[anchors.length - 1];
-    var head = extend(list.slice(0, first).reverse(), list[first].t, edgeLen(first, 1), -1).reverse();
-    var tail = extend(list.slice(last + 1), list[last].t, edgeLen(last, -1), 1);
+    // Outside the anchors: their mean bar length (taps jitter; a drag between two anchors leaves it be).
+    var first = anchors[0], last = anchors[anchors.length - 1], edge = last > first ? (list[last].t - list[first].t) / (last - first) : len;
+    var head = extend(list.slice(0, first).reverse(), list[first].t, edge, -1).reverse();
+    var tail = extend(list.slice(last + 1), list[last].t, edge, 1);
     return head.concat(list.slice(first, last + 1), tail);
   }
   // `bars` (the whole song's) with one Abschnitt changed: edit(list, sec) gets copies of its bars in
