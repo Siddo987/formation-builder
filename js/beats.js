@@ -1,8 +1,9 @@
 "use strict";
 
 /* ---------- Musik & Takte (#2041, #2096, #2081) ----------
-   The beats are the source (state.beats; js/state.js has the shape of state.music): Essentia finds
-   them per section of the song in its dance's tempo (js/beats-worker.js), the user corrects them.
+   The beats are the source (state.beats; js/state.js has the shape of state.music): an AI (Beat This,
+   #2155) finds them and each section's 1, Essentia in the dance's tempo where it can't (js/beats-
+   worker.js); the user corrects them.
    Each section has its dance and beats per bar; the user marks a 1 once, and from it every per-th
    beat starts a bar — back to the section's start and on to the next 1 or the section's end.
    "Klicks", "Jetzt", "Alle Marken auf Schläge rücken", the bar in the playbar and the Phrasierung on
@@ -160,48 +161,103 @@
     return {beats: out, music: m, d: d};
   }
 
-  /* ---------- detection (Essentia, js/beats-worker.js) ---------- */
+  /* ---------- detection: Beat This (AI), Essentia as the fallback ---------- */
 
-  function songMono(blob){
+  // Beat This! (CPJKU, MIT; js/beatthis.js, models/) is a neural network trained to hear beats and
+  // bar starts (#2155). It listens to the whole song at once and also finds the 1s. onnxruntime-web
+  // comes from the CDN: offline, or where the AI hears a section in a tempo its dance doesn't have
+  // (half or double time), the old Essentia search in the dance's tempo takes over (js/beats-worker.js).
+  var ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/';
+  var JS_BASE = document.currentScript.src.replace(/beats\.js.*$/, '');
+  var beatThis = null, aiMemo = null;
+  function loadBeatThis(){
+    if(!beatThis){
+      beatThis = Promise.all([import(ORT_URL + 'ort.wasm.bundle.min.mjs'), import(JS_BASE + 'beatthis.js')]).then(function(mods){
+        var ort = mods[0];
+        ort.env.wasm.wasmPaths = ORT_URL;
+        ort.env.wasm.numThreads = 1; // threads would need cross-origin isolation
+        return ort.InferenceSession.create(JS_BASE + '../models/beat_this_small0.onnx', {executionProviders: ['wasm']})
+          .then(function(session){ return {ort: ort, bt: mods[1], session: session}; });
+      });
+      beatThis.catch(function(){ beatThis = null; }); // try again next time
+    }
+    return beatThis;
+  }
+  // The whole song's beats and bar starts as the AI hears them, kept per song.
+  function aiBeats(blob, onProgress){
+    if(aiMemo && aiMemo.blob === blob) return Promise.resolve(aiMemo);
+    return loadBeatThis().then(function(L){
+      return songMono(blob, L.bt.SR).then(function(sig){
+        return L.bt.predict(L.ort, L.session, L.bt.logMel(sig), onProgress);
+      }).then(function(p){ return (aiMemo = Object.assign({blob: blob}, L.bt.beatsFromLogits(p.beat, p.down))); });
+    });
+  }
+  // A section's 1 from the AI's bar starts: the place in the bar (beat index mod per) most of them
+  // agree on, so one misheard bar start doesn't shift the count. Works on Essentia's beats too —
+  // each bar start counts for the beat within 70 ms. null without any.
+  function aiOne(ticks, downs, per){
+    var votes = [], best = -1;
+    downs.forEach(function(d){
+      var i = ticks.indexOf(nearestIn(ticks, d));
+      if(i >= 0 && Math.abs(ticks[i] - d) <= 0.07) votes[i % per] = (votes[i % per] || 0) + 1;
+    });
+    votes.forEach(function(v, ph){ if(v && (best < 0 || v > votes[best])) best = ph; });
+    return best < 0 || best >= ticks.length ? null : ticks[best];
+  }
+
+  function songMono(blob, sr){
     return blob.arrayBuffer().then(function(buf){
-      return new OfflineAudioContext(1, 1, 44100).decodeAudioData(buf);
+      return new OfflineAudioContext(1, 1, sr).decodeAudioData(buf);
     }).then(function(audio){
-      var off = new OfflineAudioContext(1, Math.ceil(audio.duration * 44100), 44100);
+      var off = new OfflineAudioContext(1, Math.ceil(audio.duration * sr), sr);
       var src = off.createBufferSource();
       src.buffer = audio; src.connect(off.destination); src.start();
       return off.startRendering();
     }).then(function(r){ return r.getChannelData(0); });
   }
-  // Finds the beats of the given sections (from music().secs), one after the other, each in its
-  // dance's tempo. Each section's beats replace only its own (its 1s and Phrasierung go with them),
-  // and each is saved as soon as it is done.
+  // Finds the beats of the given sections (from music().secs), one after the other. Each section's
+  // beats replace only its own (its 1s and Phrasierung go with them), and each is saved as soon as it
+  // is done. With the AI loaded, every section also gets its 1.
   var detectJob = null;
   function detectSections(list){
     if(detectJob || !state.song || !state.song.blob || !list.length) return;
-    var song = state.song, worker = null, found = 0, todo = list.map(function(s){ return {k: s.k, start: s.start, end: s.end, dance: s.dance}; });
-    detectJob = {i: 0, n: todo.length, k: todo[0].k};
+    var song = state.song, worker = null, mono = null, ai = null, found = 0, fallback = [];
+    var todo = list.map(function(s){ return {k: s.k, start: s.start, end: s.end, dance: s.dance, per: s.per}; });
+    detectJob = {i: 0, n: todo.length, k: todo[0].k, pct: 0};
     mtSay('');
     renderMusikView();
-    songMono(song.blob).then(function(mono){
-      var dur = mono.length / 44100;
-      worker = new Worker(BEATS_WORKER_URL);
+    // Essentia in the section's dance tempo, the song decoded at 44.1 kHz only when it's needed.
+    function essentiaTicks(r, from){
+      return (mono ? Promise.resolve(mono) : songMono(song.blob, 44100).then(function(m){ return (mono = m); })).then(function(mo){
+        var d = r.dance, samples = mo.slice(Math.floor(from * 44100), Math.floor(Math.min(r.end, mo.length / 44100) * 44100));
+        if(!worker) worker = new Worker(BEATS_WORKER_URL);
+        return new Promise(function(resolve, reject){
+          worker.onmessage = function(e){ if(e.data.error) reject(new Error(e.data.error)); else resolve(e.data); };
+          worker.onerror = function(e){ reject(new Error(e.message || 'Worker')); };
+          worker.postMessage({id: r.k, samples: samples, minTempo: d ? Math.round(d.lo * 0.9) : 40, maxTempo: d ? Math.round(d.hi * 1.1) : 208}, [samples.buffer]);
+        });
+      }).then(function(res){ return res.ticks.map(function(t){ return roundMs(t + from); }); });
+    }
+    aiBeats(song.blob, function(p){ detectJob.pct = p; renderMusikView(); }).then(function(r){ ai = r; }, function(err){
+      console.warn('Beat This nicht verfügbar – Essentia übernimmt', err);
+    }).then(function(){
       return todo.reduce(function(chain, r, i){
         return chain.then(function(){
           if(state.song !== song) return; // song swapped meanwhile
-          detectJob.i = i; detectJob.k = r.k;
+          detectJob.i = i; detectJob.k = r.k; detectJob.pct = null;
           renderMusikView();
           var from = r.k ? Math.max(0, r.start - 1) : 0; // a beat before the cut, to hear the beat it should sit on
-          var d = r.dance, samples = mono.slice(Math.floor(from * 44100), Math.floor(Math.min(r.end, dur) * 44100));
-          return new Promise(function(resolve, reject){
-            worker.onmessage = function(e){ if(e.data.error) reject(new Error(e.data.error)); else resolve(e.data); };
-            worker.onerror = function(e){ reject(new Error(e.message || 'Worker')); };
-            worker.postMessage({id: i, samples: samples, minTempo: d ? Math.round(d.lo * 0.9) : 40, maxTempo: d ? Math.round(d.hi * 1.1) : 208}, [samples.buffer]);
-          }).then(function(res){
+          var heard = ai && ai.beats.filter(function(t){ return inRange(t, from, r.end); }).map(roundMs);
+          var tempo = heard && sectionTempo({beats: heard, dance: r.dance, per: r.per}), useAi = !!tempo && !tempo.off;
+          if(ai && !useAi) fallback.push(r);
+          return (useAi ? Promise.resolve(heard) : essentiaTicks(r, from)).then(function(ticks){
             if(state.song !== song) return;
-            var ticks = res.ticks.map(function(t){ return roundMs(t + from); }), m = musicWithout(musicCopy(), r.start, r.end), start = r.start;
+            var m = musicWithout(musicCopy(), r.start, r.end), start = r.start;
             var near = r.k ? nearestIn(ticks, r.start) : null, half = ticks.length > 1 ? (ticks[ticks.length - 1] - ticks[0]) / (ticks.length - 1) / 2 : 0;
             if(near !== null && Math.abs(near - r.start) < Math.max(CUT_BEAT_GAP, half) && m.sections[r.k]){ start = near; m.sections[r.k].t = near; } // the cut onto the beat heard there, as it is the section's first
             ticks = ticks.filter(function(t){ return inRange(t, start, r.end); });
+            var one = ai ? aiOne(ticks, ai.downbeats, r.per) : null;
+            if(one !== null) m.ones.push(one);
             var beats = (state.beats || []).filter(function(t){ return !inRange(t, Math.min(start, r.start), r.end); }).concat(ticks).sort(byNum);
             found += ticks.length;
             setMusic(beats.filter(function(t, x){ return !x || t - beats[x - 1] > 0.08; }), m);
@@ -210,7 +266,9 @@
       }, Promise.resolve());
     }).then(function(){
       var off = music().secs.filter(function(s){ return (sectionTempo(s) || {}).off; });
-      mtSay(found + ' Schläge gefunden. ' + (off.length ? 'Achtung: In ' + secTitles(off) + ' passt das Tempo nicht zum Tanz – Tanz prüfen, dann dort „Neu erkennen“.' : 'Weiter mit Schritt 3.'));
+      mtSay(found + ' Schläge gefunden' + (ai ? ', mit KI – die 1 hat sie auch gleich vorgeschlagen. ' : '. ')
+        + (!ai ? 'Die KI ließ sich nicht laden (offline?), darum die einfache Erkennung im Tempo des Tanzes. ' : fallback.length ? 'In ' + secTitles(fallback.map(function(r){ return music().secs[r.k]; }).filter(Boolean)) + ' fand die KI kein Tempo, das zum Tanz passt – dort sucht die einfache Erkennung in seinem Tempo. ' : '')
+        + (off.length ? 'Achtung: In ' + secTitles(off) + ' passt das Tempo nicht zum Tanz – Tanz prüfen, dann dort „Neu erkennen“.' : 'Weiter mit Schritt 3.'));
     }).catch(function(err){
       console.error('Schläge erkennen fehlgeschlagen', err);
       mtSay('Erkennen hat nicht geklappt: ' + (err && err.message || err));
@@ -421,8 +479,9 @@
     if(mtStep === 1) return 'Wo wechselt der Tanz? Lied abspielen und an jedem Wechsel „Grenze hier“ drücken. Dann unten in der Liste je Abschnitt den Tanz wählen.'
       + (secs.length === 1 ? ' Nur ein Tanz im Lied? Dann keine Grenze setzen, nur den Tanz wählen.' : noDance.length ? ' Noch ohne Tanz: ' + secTitles(noDance) + '.' : '');
     if(mtStep === 2){
-      if(detectJob) return 'Die App hört sich ' + secTitle(secs[detectJob.k] || secs[0]) + ' an (' + (detectJob.i + 1) + ' von ' + detectJob.n + ') – einen Moment.';
-      if(!state.beats) return '„Schläge erkennen“ sucht die Schläge, je Abschnitt im Tempo seines Tanzes. Das Lied bleibt dabei auf diesem Gerät.';
+      if(detectJob) return detectJob.pct !== null ? 'Die KI hört sich das Lied an (' + Math.round(detectJob.pct * 100) + ' %) – einen Moment.'
+        : 'Die App hört sich ' + secTitle(secs[detectJob.k] || secs[0]) + ' an (' + (detectJob.i + 1) + ' von ' + detectJob.n + ') – einen Moment.';
+      if(!state.beats) return '„Schläge erkennen“ lässt eine KI die Schläge und Taktanfänge hören und schlägt je Abschnitt die 1 vor. Das Lied bleibt dabei auf diesem Gerät.';
       var noBeats = secs.filter(function(s){ return !s.beats.length; });
       if(noBeats.length) return 'In ' + secTitles(noBeats) + ' fehlen noch Schläge.';
       return 'Die Schläge sind da. Mit „Klicks“ anhören, ob sie sitzen – einzelne Fehler richtest du in Schritt 4.';
@@ -479,7 +538,7 @@
       mtDetectBtn.textContent = detectJob ? 'Erkenne …' : !state.beats ? 'Schläge erkennen' : missing.length ? 'Fehlende Schläge erkennen' : 'Alle neu erkennen';
       mtDetectBtn.classList.toggle('btn-accent', !!detectJob || missing.length > 0);
       mtProgress.hidden = !detectJob;
-      if(detectJob){ mtProgress.max = detectJob.n; mtProgress.value = detectJob.i + 0.5; }
+      if(detectJob){ mtProgress.max = detectJob.pct !== null ? 1 : detectJob.n; mtProgress.value = detectJob.pct !== null ? detectJob.pct : detectJob.i + 0.5; }
     }else if(mtStep === 3){
       mtOneBtn.disabled = !state.beats;
       mtOneInfo.textContent = !state.beats ? '' : playing ? 'beim Schlag, den du gerade hörst' : mtSel !== null ? 'für den gewählten Schlag bei ' + formatTime(mtSel, 2) : 'für den Schlag an der Abspielposition';
@@ -630,7 +689,7 @@
     if(!s) return;
     if(key) s.dance = key; else delete s.dance;
     delete s.per; // the new dance's beats per bar
-    mtSay(had ? 'Tanz geändert. Die Schläge hier wurden im Tempo des alten gesucht – passen sie nicht, in Schritt 2 „Neu erkennen“.' : '');
+    mtSay(had ? 'Tanz geändert. Passen die Schläge oder die 1 hier nicht mehr, in Schritt 2 „Neu erkennen“.' : '');
     setMusic(state.beats, m);
   }
   function setPer(k, value){

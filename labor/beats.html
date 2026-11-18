@@ -182,10 +182,10 @@ const ORT = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/';
 async function lib(i){
   if(i === 3){
     if(btLib) return btLib;
-    const [ort, bt] = await Promise.all([import(ORT + 'ort.wasm.bundle.min.mjs'), import('./beatthis.js?v=1')]);
+    const [ort, bt] = await Promise.all([import(ORT + 'ort.wasm.bundle.min.mjs'), import('../js/beatthis.js?v=1')]);
     ort.env.wasm.wasmPaths = ORT;
     ort.env.wasm.numThreads = 1; // no cross-origin isolation here, so no threads anyway
-    const session = await ort.InferenceSession.create('models/beat_this_small0.onnx', {executionProviders: ['wasm']});
+    const session = await ort.InferenceSession.create('../models/beat_this_small0.onnx', {executionProviders: ['wasm']});
     return btLib = {ort, bt, session};
   }
   if(i === 0) return wabd || (wabd = await import('https://cdn.jsdelivr.net/npm/web-audio-beat-detector@8.2.39/+esm'));
