@@ -46,16 +46,68 @@
   function updateSyncBadge(){
     var sync = isSyncActive();
     syncBadge.hidden = !sync;
-    // The marked Bilder as ticks on the playbar timeline, which spans the song in sync (#2054).
+    document.getElementById('playScrub').classList.toggle('synced', sync); // room for sections, bars and waveform
+    // Every Bild as a numbered mark on the dock's timeline: in sync where it is in the song (#2054),
+    // unmarked ones outlined where playback spreads them; without the song one equal stretch per move.
     scrubTicksEl.innerHTML = '';
-    var dur = songAudioEl.duration;
-    if(!sync || !isFinite(dur) || dur <= 0) return;
-    markerWaypoints().forEach(function(w){
+    var dur = songAudioEl.duration, n = state.formations.length, times = sync ? syncTimes() : null;
+    if(!sync || isFinite(dur) && dur > 0) state.formations.forEach(function(f, i){
+      var pct = times ? (times[i] === null ? null : times[i] / dur * 100) : n > 1 ? i / (n - 1) * 100 : 0;
+      if(pct === null) return;
       var tick = document.createElement('span');
-      tick.style.left = Math.min(100, w.time/dur*100) + '%';
+      tick.textContent = i + 1;
+      tick.dataset.idx = i;
+      if(times && formationTime(f) === null) tick.className = 'spread';
+      tick.style.left = Math.min(100, pct) + '%';
+      if(pct < 1 || pct > 99) tick.style.transform = pct < 1 ? 'none' : 'translateX(-100%)'; // keep the end marks inside the dock
       scrubTicksEl.appendChild(tick);
     });
+    if(sync) loadWavePeaks();
+    if(typeof drawDockTimeline === 'function') drawDockTimeline(); // js/beats.js
+    updateBildBar();
+    updateFilmMarks(); // js/formations.js
+    if(typeof renderDancerView === 'function') renderDancerView(); // js/dancerview.js
   }
+  songAudioEl.addEventListener('durationchange', updateSyncBadge);
+
+  /* „Bild auf Takt setzen“ in the dock: held in the middle of a move, the Bild arriving next lands on
+     the bar line nearest the playhead; standing on a Bild, its own mark moves onto the nearest one. */
+  var bildBarBtn = document.getElementById('bildBarBtn'), bildMarkLabel = document.getElementById('bildMarkLabel'), bildBarShown = '';
+  function bildBarTarget(){
+    if(!state.song || !state.song.url || !state.music || !music().bars.length) return null; // js/beats.js
+    var mid = pausedMidMove(), idx = mid ? mid.fromIdx + 1 : state.activeIndex, f = state.formations[idx];
+    var t = mid ? mid.songTime : formationTime(f);
+    if(t === null && isSyncActive()) t = syncTimes()[idx];
+    var line = t === null || t === undefined ? null : nearestBarLine(t);
+    var holder = typeof bildLockHolder === 'function' ? bildLockHolder(f.id) : null; // js/share.js (#2076)
+    return line === null || holder ? null : {idx: idx, f: f, t: line};
+  }
+  function updateBildBar(){
+    Array.prototype.forEach.call(scrubTicksEl.children, function(el){ el.classList.toggle('active', +el.dataset.idx === state.activeIndex); });
+    var own = formationTime(currentFormation()), ownBar = barLineLabel(own); // js/beats.js
+    var mark = own === null ? 'ohne Marke' : (ownBar ? ownBar + ' · ' : '') + formatTime(own, 2);
+    var tg = playing ? null : bildBarTarget(), on = tg && formationTime(tg.f) !== null && Math.abs(formationTime(tg.f) - tg.t) < 0.006;
+    var text = playing ? 'Bild auf Takt setzen' : !tg ? 'Bild auf Takt setzen' : 'Bild ' + (tg.idx + 1) + (on ? ' steht auf ' : ' auf ') + barLineLabel(tg.t);
+    var bars = !!(state.music && music().bars.length);
+    var title = !state.song || !state.song.url ? 'Erst unter Musik ein Lied wählen'
+      : !bars ? 'Erst unter Musik → Takte & Abschnitte die Takte festlegen'
+      : 'Steht die Zeitleiste zwischen zwei Bildern, kommt das nächste an der nächsten Taktgrenze an; steht sie auf einem Bild, rückt seine Marke auf die nächste Taktgrenze.';
+    var disabled = playing ? !bars : !tg || on;
+    var key = [mark, text, title, disabled].join('|');
+    if(key === bildBarShown) return;
+    bildBarShown = key;
+    bildMarkLabel.textContent = mark;
+    bildBarBtn.textContent = text;
+    bildBarBtn.disabled = disabled;
+    bildBarBtn.title = title;
+  }
+  bildBarBtn.addEventListener('click', function(){
+    if(playing) playPause(); // hold where it is heard: the Bild arriving next lands there
+    var tg = bildBarTarget();
+    if(!tg) return;
+    tg.f.time = snapTime(tg.t);
+    selectFormation(tg.idx); // js/formations.js — saves, and list, timeline and stage show it there
+  });
 
   // Time markers should climb in Bild order. When they don't — hand-entered out of sequence, or a
   // filmstrip reorder scrambled them — sync playback jumps around between Bilder (syncWaypoints()
@@ -327,6 +379,7 @@
       }
       wavePeaks = {data: data, max: max || 1};
       drawMarkerWave();
+      if(typeof drawDockTimeline === 'function') drawDockTimeline(); // js/beats.js
     }).catch(function(err){ console.warn('Wellenform nicht verfügbar', err); });
   }
   function drawMarkerWave(){

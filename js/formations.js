@@ -1185,6 +1185,9 @@
       indexEl.className = 'film-index';
       indexEl.textContent = String(idx+1).padStart(2,'0');
       categoryWrap.insertBefore(indexEl, categoryWrap.firstChild);
+      var markEl = document.createElement('span');
+      markEl.className = 'film-mark'; // its place in the song, filled by updateFilmMarks()
+      categoryWrap.appendChild(markEl);
 
       var removeEl = document.createElement('button');
       removeEl.className = 'film-remove';
@@ -1283,6 +1286,14 @@
     if(typeof updateBildLocks === 'function') updateBildLocks(true); // lock badges of shared Bilder (js/share.js)
     updateClashBadges(); // too-close warnings per move (js/stage.js) — now, cached, so rows don't grow after the scroll is restored (#2084)
     filmTrackEl.scrollTop = keepTop; filmTrackEl.scrollLeft = keepLeft;
+  }
+
+  // Each Bild's mark beside its name: the bar line („T. 8|9“) or else the time; nothing without a mark.
+  function updateFilmMarks(){
+    Array.prototype.forEach.call(filmTrackEl.querySelectorAll('.film-card'), function(card, i){
+      var f = state.formations[i], t = f ? formationTime(f) : null, el = card.querySelector('.film-mark');
+      if(el) el.textContent = t === null ? '' : barLineLabel(t) || formatTime(t); // js/beats.js, js/marker.js
+    });
   }
 
   // Recomputes each section-start badge's running number without touching the

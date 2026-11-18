@@ -1,0 +1,807 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-18T22:50:06+00:00",
+  "title": "Design System: Aufstellung",
+  "extensions": {
+    "colorMeta": {
+      "canvas-grey": {
+        "role": "neutral",
+        "displayName": "Canvas Grey",
+        "canonical": "#f5f5f5",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#1e1e1e"
+      },
+      "panel-white": {
+        "role": "neutral",
+        "displayName": "Panel White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#2c2c2c"
+      },
+      "field-grey": {
+        "role": "neutral",
+        "displayName": "Field Grey",
+        "canonical": "#f5f5f5",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#383838"
+      },
+      "hover-grey": {
+        "role": "neutral",
+        "displayName": "Hover Grey",
+        "canonical": "#ebebeb",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#444444"
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#e6e6e6",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#3d3d3d"
+      },
+      "hairline-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline",
+        "canonical": "#d4d4d4",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#525252"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1e1e1e",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#f5f5f5"
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Secondary Ink",
+        "canonical": "#4d4d4d",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#c7c7c7"
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#6e6e6e",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#a3a3a3"
+      },
+      "selection-blue": {
+        "role": "primary",
+        "displayName": "Selection Blue",
+        "canonical": "#0d99ff",
+        "tonalRamp": [
+          "#0c2a40",
+          "#0e4a76",
+          "#0b6bb2",
+          "#028df3",
+          "#36a6f7",
+          "#74bcf1",
+          "#b0d6f2",
+          "#ebf3fa"
+        ],
+        "dark": "#0d99ff"
+      },
+      "link-blue": {
+        "role": "primary",
+        "displayName": "Link Blue",
+        "canonical": "#0b6fcb",
+        "tonalRamp": [
+          "#0f273e",
+          "#144471",
+          "#1461a9",
+          "#0f7fe6",
+          "#409aed",
+          "#7ab5eb",
+          "#b4d2ee",
+          "#ebf3f9"
+        ],
+        "dark": "#5cb8ff"
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Fill Blue",
+        "canonical": "#0b6fcb",
+        "tonalRamp": [
+          "#0f273e",
+          "#144471",
+          "#1461a9",
+          "#0f7fe6",
+          "#409aed",
+          "#7ab5eb",
+          "#b4d2ee",
+          "#ebf3f9"
+        ],
+        "dark": "#0b6fcb"
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Fill Blue Hover",
+        "canonical": "#095fae",
+        "tonalRamp": [
+          "#0f273e",
+          "#134471",
+          "#1362a9",
+          "#0e7fe7",
+          "#409aed",
+          "#7ab5eb",
+          "#b4d2ef",
+          "#ebf3f9"
+        ],
+        "dark": "#095fae"
+      },
+      "pair-green": {
+        "role": "secondary",
+        "displayName": "Pair Green",
+        "canonical": "#0a7f63",
+        "tonalRamp": [
+          "#103d32",
+          "#166f59",
+          "#17a583",
+          "#14e1b0",
+          "#44e9c1",
+          "#7de8ce",
+          "#b5ede0",
+          "#ecf9f6"
+        ],
+        "dark": "#34c79e"
+      },
+      "split-amber": {
+        "role": "secondary",
+        "displayName": "Split Amber",
+        "canonical": "#b45309",
+        "tonalRamp": [
+          "#3e230f",
+          "#713c13",
+          "#aa5413",
+          "#e76c0e",
+          "#ed8b40",
+          "#ebab7a",
+          "#efcdb4",
+          "#f9f1eb"
+        ],
+        "dark": "#f2a65a"
+      },
+      "danger-red": {
+        "role": "tertiary",
+        "displayName": "Danger Red",
+        "canonical": "#d92d20",
+        "tonalRamp": [
+          "#3a1613",
+          "#69211c",
+          "#9c2920",
+          "#d42e21",
+          "#de594f",
+          "#e18a84",
+          "#e9bcb9",
+          "#f8eded"
+        ],
+        "dark": "#ff6b61"
+      },
+      "warn-cream": {
+        "role": "tertiary",
+        "displayName": "Warn Cream",
+        "canonical": "#fff4cc",
+        "tonalRamp": [
+          "#40350c",
+          "#76600e",
+          "#b28e0b",
+          "#f3bf02",
+          "#f7cd36",
+          "#f1d674",
+          "#f2e4b0",
+          "#faf7eb"
+        ],
+        "dark": "#3b3212"
+      },
+      "warn-ink": {
+        "role": "tertiary",
+        "displayName": "Warn Ink",
+        "canonical": "#5c4700",
+        "tonalRamp": [
+          "#40340c",
+          "#765f0e",
+          "#b28c0b",
+          "#f3bc02",
+          "#f7cb36",
+          "#f1d574",
+          "#f2e3b0",
+          "#faf6eb"
+        ],
+        "dark": "#ffe28a"
+      },
+      "floor-white": {
+        "role": "neutral",
+        "displayName": "Floor",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#262626"
+      },
+      "grid-line": {
+        "role": "neutral",
+        "displayName": "Grid",
+        "canonical": "#efefef",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "rgba(255,255,255,.06)"
+      },
+      "grid-zero": {
+        "role": "neutral",
+        "displayName": "Grid Axis",
+        "canonical": "#cfcfcf",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "rgba(255,255,255,.22)"
+      },
+      "stage-edge": {
+        "role": "neutral",
+        "displayName": "Stage Edge",
+        "canonical": "#dadada",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#454545"
+      },
+      "ghost-grey": {
+        "role": "neutral",
+        "displayName": "Ghost Grey",
+        "canonical": "#8c8c8c",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ],
+        "dark": "#9a9a9a"
+      },
+      "dancer-saffron": {
+        "role": "data",
+        "displayName": "Dancer Saffron",
+        "canonical": "#e0a336",
+        "tonalRamp": [
+          "#392c13",
+          "#684d1c",
+          "#9b7021",
+          "#d29322",
+          "#ddaa50",
+          "#e0bf85",
+          "#e9d8b9",
+          "#f8f4ed"
+        ]
+      },
+      "dancer-teal": {
+        "role": "data",
+        "displayName": "Dancer Teal",
+        "canonical": "#4fa3a0",
+        "tonalRamp": [
+          "#1d2f2f",
+          "#305453",
+          "#417b79",
+          "#51a4a1",
+          "#75b8b5",
+          "#9dc8c7",
+          "#c6dcdc",
+          "#f0f5f5"
+        ]
+      },
+      "dancer-lavender": {
+        "role": "data",
+        "displayName": "Dancer Lavender",
+        "canonical": "#8d79d1",
+        "tonalRamp": [
+          "#1f1933",
+          "#34295c",
+          "#483687",
+          "#5a40b5",
+          "#7d67c5",
+          "#a294d1",
+          "#c8c1e1",
+          "#f0eff6"
+        ]
+      },
+      "dancer-rose": {
+        "role": "data",
+        "displayName": "Dancer Rose",
+        "canonical": "#d1637d",
+        "tonalRamp": [
+          "#35181f",
+          "#5f2633",
+          "#8c3146",
+          "#bc3958",
+          "#cb627b",
+          "#d590a0",
+          "#e3bfc8",
+          "#f6eef0"
+        ]
+      },
+      "dancer-steel": {
+        "role": "data",
+        "displayName": "Dancer Steel",
+        "canonical": "#5b93c4",
+        "tonalRamp": [
+          "#1a2733",
+          "#2a445b",
+          "#376186",
+          "#427eb3",
+          "#6999c4",
+          "#95b4d0",
+          "#c2d2e0",
+          "#eff2f6"
+        ]
+      },
+      "dancer-moss": {
+        "role": "data",
+        "displayName": "Dancer Moss",
+        "canonical": "#8fae4f",
+        "tonalRamp": [
+          "#2a301c",
+          "#49562f",
+          "#697e3f",
+          "#8aa84d",
+          "#a3bb72",
+          "#bbca9b",
+          "#d5ddc5",
+          "#f3f5ef"
+        ]
+      },
+      "dancer-rust": {
+        "role": "data",
+        "displayName": "Dancer Rust",
+        "canonical": "#c96b3f",
+        "tonalRamp": [
+          "#352118",
+          "#5f3825",
+          "#8d4d30",
+          "#be6237",
+          "#cc8361",
+          "#d6a68f",
+          "#e3cabf",
+          "#f7f1ee"
+        ]
+      },
+      "dancer-lilac": {
+        "role": "data",
+        "displayName": "Dancer Lilac",
+        "canonical": "#a688c9",
+        "tonalRamp": [
+          "#251c30",
+          "#412f56",
+          "#5c3f7e",
+          "#774da8",
+          "#9472bb",
+          "#b19bca",
+          "#d0c5dd",
+          "#f2eff5"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Running play time in the dock; phone-size titles and menu rows."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Project name, dialog and sheet titles, live Bild name, selection label."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Base size on body, menu items, workspace tabs."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Buttons, inputs, selects, list rows, names."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Sentence-case section heads (600); field labels and captions at 400 in Muted Ink."
+      },
+      "micro": {
+        "displayName": "Micro",
+        "purpose": "Timeline flags, chip numbers, step badges."
+      }
+    },
+    "washes": [
+      {
+        "name": "accent-wash",
+        "light": "rgba(13,153,255,.12)",
+        "dark": "rgba(13,153,255,.2)",
+        "purpose": "Selected rows, active Bild, pressed toggles, played timeline."
+      },
+      {
+        "name": "pair-wash",
+        "light": "rgba(10,127,99,.10)",
+        "dark": "rgba(52,199,158,.14)",
+        "purpose": "Couple selection, move chips, speed curve area."
+      },
+      {
+        "name": "split-wash",
+        "light": "rgba(180,83,9,.11)",
+        "dark": "rgba(242,166,90,.15)",
+        "purpose": "Split couple rows and the Split toggle hover."
+      },
+      {
+        "name": "danger-wash",
+        "light": "rgba(217,45,32,.09)",
+        "dark": "rgba(255,107,97,.15)",
+        "purpose": "Danger hover, warnings, armed-delete pulse."
+      },
+      {
+        "name": "scrim",
+        "light": "rgba(0,0,0,.32)",
+        "dark": "rgba(0,0,0,.5)",
+        "purpose": "Behind dialogs and bottom sheets."
+      }
+    ],
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 10px 30px -8px var(--shadow), 0 0 0 .5px var(--shadow)",
+        "purpose": "Menus, popovers, floating selection bar."
+      },
+      {
+        "name": "dialog",
+        "value": "0 20px 50px -12px var(--shadow), 0 0 0 .5px var(--shadow)",
+        "purpose": "Modal dialogs."
+      },
+      {
+        "name": "sheet",
+        "value": "0 -10px 40px -10px var(--shadow)",
+        "purpose": "Phone bottom sheets."
+      },
+      {
+        "name": "stage",
+        "value": "0 0 0 1px var(--stage-edge), 0 1px 3px rgba(0,0,0,.06)",
+        "purpose": "The dance floor."
+      },
+      {
+        "name": "selection-ring",
+        "value": "0 0 0 2px var(--floor), 0 0 0 4px var(--accent)",
+        "purpose": "Selected dancer; Pair Green for couple selection."
+      },
+      {
+        "name": "shadow-colour",
+        "value": "rgba(0,0,0,.14) light / rgba(0,0,0,.5) dark",
+        "purpose": "The --shadow token used by all floating shadows."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "150ms ease-out",
+        "purpose": "All hover, press, selection and focus changes on background, border, colour, opacity, box-shadow."
+      },
+      {
+        "name": "sheet",
+        "value": "200ms ease-out (transform)",
+        "purpose": "Phone dancer-list sheet sliding in and out."
+      },
+      {
+        "name": "armed-pulse",
+        "value": "1.1s ease-in-out infinite",
+        "purpose": "Armed delete button waiting for the second press."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce → durations .001ms",
+        "purpose": "Everything collapses to instant."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-chrome",
+        "value": "max-width:1320px",
+        "purpose": "Hide brand name in the header."
+      },
+      {
+        "name": "narrow-desktop",
+        "value": "max-width:1199.98px",
+        "purpose": "Side 224px, inspector 264px, icon-only secondary buttons."
+      },
+      {
+        "name": "tablet-landscape",
+        "value": "max-width:1023.98px",
+        "purpose": "Tighter workspace tabs."
+      },
+      {
+        "name": "short-landscape",
+        "value": "(max-height:560px) and (orientation:landscape)",
+        "purpose": "40px header, 184/232px columns, one-row dock."
+      },
+      {
+        "name": "phone",
+        "value": "(max-width:899.98px) and (orientation:portrait), (max-width:599.98px)",
+        "purpose": "Restacked editor, bottom sheets, 34px controls."
+      },
+      {
+        "name": "dialog-sheet",
+        "value": "max-width:899.98px",
+        "purpose": "Dialogs dock to the bottom as sheets."
+      },
+      {
+        "name": "touch",
+        "value": "(hover:none), (pointer:coarse)",
+        "purpose": "No hover-only controls, larger hit areas, 16px inputs."
+      }
+    ],
+    "fonts": {
+      "ui": "Inter (fonts/inter.woff2, 400-700)",
+      "exportOnly": [
+        "Manrope",
+        "JetBrains Mono"
+      ],
+      "note": "Inter is a sanctioned exception in .impeccable/config.json; Manrope and JetBrains Mono are drawn only by the video export canvas."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled action per area: Teilen, Bild auf Takt, confirm in dialogs.",
+      "html": "<button class=\"ds-btn-primary\">Teilen</button>",
+      "css": ".ds-btn-primary{font-family:'Inter',system-ui,sans-serif;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border:1px solid var(--primary,#0b6fcb);border-radius:5px;background:var(--primary,#0b6fcb);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s ease-out;} .ds-btn-primary:hover{background:var(--primary-hover,#095fae);border-color:var(--primary-hover,#095fae);} .ds-btn-primary:focus-visible{outline:2px solid var(--accent,#0d99ff);outline-offset:1px;} .ds-btn-primary:disabled{background:var(--panel-2,#f5f5f5);border-color:transparent;color:var(--ink-3,#6e6e6e);cursor:not-allowed;}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Default button everywhere: white, hairline border, grey on hover.",
+      "html": "<button class=\"ds-btn-ghost\">Notiz</button>",
+      "css": ".ds-btn-ghost{font-family:'Inter',system-ui,sans-serif;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid var(--line,#e6e6e6);border-radius:5px;background:var(--panel,#fff);color:var(--ink,#1e1e1e);font-size:12px;font-weight:500;cursor:pointer;transition:background .15s ease-out,border-color .15s ease-out;} .ds-btn-ghost:hover{background:var(--panel-2,#f5f5f5);border-color:var(--line-strong,#d4d4d4);} .ds-btn-ghost:focus-visible{outline:2px solid var(--accent,#0d99ff);outline-offset:1px;}"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "button-icon",
+      "description": "Header and toolbar actions: undo, redo, history, close.",
+      "html": "<button class=\"ds-btn-icon\" aria-label=\"Rückgängig\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 14 4 9l5-5\"/><path d=\"M4 9h10.5a5.5 5.5 0 0 1 0 11H11\"/></svg></button>",
+      "css": ".ds-btn-icon{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--ink-2,#4d4d4d);cursor:pointer;transition:background .15s ease-out,color .15s ease-out;} .ds-btn-icon:hover{background:var(--panel-3,#ebebeb);color:var(--ink,#1e1e1e);} .ds-btn-icon:focus-visible{outline:2px solid var(--accent,#0d99ff);outline-offset:1px;}"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Borderless grey-filled field; hairline on hover, blue inset outline on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" value=\"Kreis\" aria-label=\"Name\">",
+      "css": ".ds-input{font-family:'Inter',system-ui,sans-serif;height:28px;padding:0 8px;border:1px solid transparent;border-radius:5px;background:var(--panel-2,#f5f5f5);color:var(--ink,#1e1e1e);font-size:12px;transition:border-color .15s ease-out;} .ds-input:hover{border-color:var(--line-strong,#d4d4d4);} .ds-input:focus{outline:2px solid var(--accent,#0d99ff);outline-offset:-2px;border-color:transparent;background:var(--panel,#fff);}"
+    },
+    {
+      "name": "Workspace Tabs",
+      "kind": "nav",
+      "refersTo": "tab-workspace",
+      "description": "Choreo · Musik · Teilen & Export in the header, ink underline on the current tab.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab\" aria-current=\"page\">Choreo</button><button class=\"ds-tab\">Musik</button><button class=\"ds-tab\">Teilen &amp; Export</button></nav>",
+      "css": ".ds-tabs{display:flex;gap:2px;height:44px;border-bottom:1px solid var(--line,#e6e6e6);background:var(--panel,#fff);} .ds-tab{font-family:'Inter',system-ui,sans-serif;position:relative;padding:0 10px;border:none;background:transparent;color:var(--ink-3,#6e6e6e);font-size:13px;font-weight:500;cursor:pointer;transition:color .15s ease-out;} .ds-tab:hover{color:var(--ink,#1e1e1e);} .ds-tab::after{content:\"\";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;border-radius:1px;background:transparent;} .ds-tab[aria-current=\"page\"]{color:var(--ink,#1e1e1e);font-weight:600;} .ds-tab[aria-current=\"page\"]::after{background:var(--ink,#1e1e1e);} .ds-tab:focus-visible{outline:2px solid var(--accent,#0d99ff);outline-offset:-4px;}"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "nav",
+      "description": "Bilder | Tänzer switch above the side list.",
+      "html": "<div class=\"ds-seg\"><button class=\"ds-seg-btn\" aria-selected=\"true\">Bilder <span>02 / 03</span></button><button class=\"ds-seg-btn\">Tänzer <span>5</span></button></div>",
+      "css": ".ds-seg{display:flex;gap:2px;padding:2px;border-radius:6px;background:var(--panel-2,#f5f5f5);width:240px;} .ds-seg-btn{font-family:'Inter',system-ui,sans-serif;flex:1;height:26px;border:none;border-radius:4px;background:transparent;color:var(--ink-3,#6e6e6e);font-size:12px;font-weight:500;cursor:pointer;transition:background .15s ease-out,color .15s ease-out;} .ds-seg-btn span{font-size:11px;color:var(--ink-3,#6e6e6e);font-variant-numeric:tabular-nums;margin-left:4px;} .ds-seg-btn:hover{color:var(--ink,#1e1e1e);} .ds-seg-btn[aria-selected=\"true\"]{background:var(--panel,#fff);color:var(--ink,#1e1e1e);box-shadow:0 0 0 1px var(--line,#e6e6e6),0 1px 2px rgba(0,0,0,.05);}"
+    },
+    {
+      "name": "View Card",
+      "kind": "card",
+      "refersTo": "view-card",
+      "description": "Card on the Musik and Teilen & Export pages: white, hairline, 8px corners, no shadow.",
+      "html": "<section class=\"ds-card\"><header class=\"ds-card-h\">Teilen</header><div class=\"ds-card-b\"><h3>Link</h3><p>Nur ansehen oder bearbeiten.</p></div></section>",
+      "css": ".ds-card{font-family:'Inter',system-ui,sans-serif;width:340px;background:var(--panel,#fff);border:1px solid var(--line,#e6e6e6);border-radius:8px;color:var(--ink,#1e1e1e);} .ds-card-h{display:flex;align-items:center;min-height:44px;padding:0 16px;border-bottom:1px solid var(--line,#e6e6e6);font-size:13px;font-weight:600;} .ds-card-b{padding:16px;} .ds-card-b h3{margin:0 0 8px;font-size:11px;font-weight:600;} .ds-card-b p{margin:0;font-size:12px;line-height:1.45;color:var(--ink-3,#6e6e6e);}"
+    },
+    {
+      "name": "Move Chip",
+      "kind": "chip",
+      "description": "Zwischenposition chip between two Bilder, Pair Green; solid when active.",
+      "html": "<button class=\"ds-chip\">1</button><button class=\"ds-chip is-active\">2</button>",
+      "css": ".ds-chip{font-family:'Inter',system-ui,sans-serif;width:20px;height:20px;margin-right:6px;border:1.5px solid var(--pair,#0a7f63);border-radius:4px;background:var(--pair-wash,rgba(10,127,99,.10));color:var(--pair,#0a7f63);font-size:10px;font-weight:600;cursor:pointer;transition:background .15s ease-out,color .15s ease-out;} .ds-chip:hover{background:var(--pair,#0a7f63);color:var(--panel,#fff);} .ds-chip.is-active{background:var(--pair,#0a7f63);color:var(--panel,#fff);box-shadow:0 0 0 2px var(--panel,#fff),0 0 0 4px var(--pair,#0a7f63);}"
+    },
+    {
+      "name": "Bild Row",
+      "kind": "custom",
+      "description": "A Bild in the side list, like a layer: floor preview, number, name, mark; current Bild in the selection wash.",
+      "html": "<div class=\"ds-bild is-active\"><div class=\"ds-bild-pv\"><i style=\"left:30%;top:40%;background:#e0a336\"></i><i style=\"left:70%;top:60%;background:#8d79d1\"></i></div><div><div class=\"ds-bild-n\">02 <span>T. 1|2</span></div><div class=\"ds-bild-name\">Kreis</div></div></div>",
+      "css": ".ds-bild{font-family:'Inter',system-ui,sans-serif;display:grid;grid-template-columns:40px 1fr;gap:0 10px;align-items:center;width:230px;padding:6px;border-radius:5px;transition:background .15s ease-out;} .ds-bild:hover{background:var(--panel-2,#f5f5f5);} .ds-bild.is-active{background:var(--accent-wash,rgba(13,153,255,.12));} .ds-bild-pv{position:relative;width:40px;aspect-ratio:1;border-radius:3px;background:var(--floor,#fff);box-shadow:0 0 0 1px var(--line-strong,#d4d4d4);} .ds-bild-pv i{position:absolute;width:3px;height:3px;border-radius:50%;} .ds-bild-n{display:flex;font-size:11px;font-weight:600;color:var(--accent-ink,#0b6fcb);font-variant-numeric:tabular-nums;} .ds-bild-n span{margin-left:auto;font-weight:400;} .ds-bild-name{font-size:12px;font-weight:500;color:var(--ink,#1e1e1e);}"
+    },
+    {
+      "name": "Dancer Dot",
+      "kind": "custom",
+      "refersTo": "dancer-dot",
+      "description": "A dancer on the floor: palette colour, white rim and initials; selection adds a floor-gap ring in blue.",
+      "html": "<div class=\"ds-floor\"><span class=\"ds-dancer\" style=\"background:#e0a336\">1</span><span class=\"ds-dancer is-sel\" style=\"background:#8d79d1\">3</span></div>",
+      "css": ".ds-floor{font-family:'Inter',system-ui,sans-serif;display:flex;gap:24px;padding:20px;background:var(--floor,#fff);box-shadow:0 0 0 1px var(--stage-edge,#dadada);border-radius:2px;} .ds-dancer{width:26px;height:26px;border-radius:50%;border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.25);transition:box-shadow .15s ease-out;cursor:grab;} .ds-dancer:hover,.ds-dancer.is-sel{box-shadow:0 0 0 2px var(--floor,#fff),0 0 0 4px var(--accent,#0d99ff);}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Precise Editor",
+    "overview": "Aufstellung looks like the editor its users already know: a canvas in the middle, a list of layers on the left, properties on the right, a timeline underneath. The familiarity is deliberate; the quality bar is precision rather than novelty. Every surface is a flat white panel on a light grey canvas, divided by single hairlines, set in Inter at 11 to 13 pixels, with one blue for whatever is selected, playing or focused.\n\nDensity is high and calm. Controls are 28px tall on desktop, labels sit at 11px, and nothing is decorated. Colour is spent almost entirely on the work: the dancers on the floor carry the only saturated colours, and two semantic hues (green for couples and moves, amber for split couples) mark formation structure. The stage is the work piece; the chrome around it recedes. Light comes first, the dark theme mirrors it value for value, and a device-following mode sits between them.\n\nOn the phone the same parts restack instead of shrinking: stage on top, the selection as a single bar beneath, the Bilder as a horizontal strip, the dock at the bottom, and the dancer list and stage properties rising as bottom sheets.",
+    "keyCharacteristics": [
+      "Flat white panels on a #f5f5f5 canvas, 1px hairlines, no decorative shadows.",
+      "Inter only, 10 to 15px, weights 400 to 600, sentence case.",
+      "One blue for selection, playhead and focus; a deeper blue for filled buttons.",
+      "Dancer colours are the only saturated data colours.",
+      "Borderless grey-filled inputs, underline tabs, 5px corners.",
+      "State changes in 150ms ease-out and nothing else."
+    ],
+    "rules": [
+      {
+        "name": "The One Blue Rule",
+        "body": "Blue means \"this is selected, playing or focused\" (Selection Blue) or \"this is the action\" (Fill Blue). No other UI element is blue, and no other hue signals selection.",
+        "section": "colors"
+      },
+      {
+        "name": "The Floor Owns the Colour Rule",
+        "body": "Saturated colour belongs to the dancers. Chrome stays neutral; green, amber and red appear only when they mark couple structure, a split or a danger.",
+        "section": "colors"
+      },
+      {
+        "name": "The Panel-Ink Rule",
+        "body": "Text and icons on a saturated semantic fill (pair, split, danger) use the panel colour, not white, so they read in both themes: white on the light-theme fills, near-black on the brighter dark-theme fills. White text is reserved for Fill Blue, which keeps one value in both themes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular-Where-Numbers-Run Rule",
+        "body": "Tabular numerals only on elements that hold changing or stacked numbers: play time, coordinates, timeline flags, bar readouts, marks, inspector values, counts. Never on the body: Inter's tabular feature widens the hyphen in running German text.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence-Case Rule",
+        "body": "No uppercase, no letter-spaced labels in the UI. Section heads are 11px semibold in normal case.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Page-Scroll Rule",
+        "body": "The editor is a fixed frame. Lists, the inspector and the strip scroll inside it; the stage never moves.",
+        "section": "layout"
+      },
+      {
+        "name": "The One-Layer Rule",
+        "body": "Musik and Teilen & Export are pages, not dialogs. A real dialog is only for a short question and never opens over another dialog.",
+        "section": "layout"
+      },
+      {
+        "name": "The Float-Only Rule",
+        "body": "A shadow means \"this sits above the editor and will go away\". Nothing that is part of the frame casts one.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use Selection Blue for selection, playhead and focus, and Fill Blue for any blue fill that carries white text.",
+      "Do put panel-coloured text (var(--panel)) on pair, split and danger fills so it reads in both themes.",
+      "Do keep controls at 28px with 12px text on desktop and grow them to 34 to 44px with 16px input text on touch.",
+      "Do separate surfaces by tone and 1px hairlines; reserve shadows for menus, popovers, dialogs and sheets.",
+      "Do animate state changes as 150ms ease-out on background, border, colour or opacity, and honour prefers-reduced-motion.",
+      "Do set tabular numerals on each numeric element individually.",
+      "Do define every colour as a token with a light value and a dark mirror under both the prefers-color-scheme guard and data-theme=\"dark\".",
+      "Do give every function a visible control; context menus and shortcuts are extra paths."
+    ],
+    "donts": [
+      "Don't introduce a second accent hue or use blue for anything that is not selection, focus, playback or the primary action.",
+      "Don't use saturated colour in the chrome; it belongs to the dancers.",
+      "Don't put white text on Selection Blue or on the semantic fills.",
+      "Don't set tabular numerals on body text.",
+      "Don't use uppercase or letter-spaced labels, kickers or eyebrows in the UI.",
+      "Don't use Manrope or JetBrains Mono in the interface; they exist for the video export only.",
+      "Don't open a dialog on top of another dialog, or turn a workspace page back into a dialog.",
+      "Don't add decorative motion, gradients or shadows on frame elements."
+    ]
+  }
+}

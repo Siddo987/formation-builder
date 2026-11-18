@@ -1,15 +1,14 @@
 "use strict";
 
-/* ---------- settings panel: project name, logo, song ---------- */
+/* ---------- project settings: stage size, logo (Bühne), song (Musik page) ---------- */
 
-  function openSettings(){
+  // The fields stand open on their pages, so they follow every swap of the whole state (js/export.js).
+  function updateSettingsUI(){
     stageWidthInput.value = stageSize().w;
     stageDepthInput.value = stageSize().d;
     updateLogoSettingsUI();
     updateSongSettingsUI();
-    settingsBackdrop.hidden = false;
   }
-  function closeSettings(){ settingsBackdrop.hidden = true; }
 
   // Design (#2165): Hell, Dunkel or like the device — per device; index.html's head applies it on load.
   var themeSelect = document.getElementById('themeSelect');
@@ -18,25 +17,23 @@
     if(themeSelect.value) document.documentElement.dataset.theme = themeSelect.value;
     else delete document.documentElement.dataset.theme;
     try{ localStorage.setItem('aufstellung-theme', themeSelect.value); }catch(e){}
+    drawDockTimeline(); // js/beats.js — the canvas takes its colours from the theme
   });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawDockTimeline);
+  // The UI is Inter; the video export still draws with these two, which no element uses any more.
+  if(document.fonts) ['500 12px "Manrope"', '700 12px "Manrope"', '600 12px "JetBrains Mono"', '700 12px "JetBrains Mono"'].forEach(function(f){ document.fonts.load(f); });
 
-  settingsBtn.addEventListener('click', openSettings);
-  settingsCloseBtn.addEventListener('click', closeSettings);
-  settingsBackdrop.addEventListener('click', function(e){ if(e.target === settingsBackdrop) closeSettings(); });
   helpBtn.addEventListener('click', function(){ helpBackdrop.hidden = false; });
+  document.getElementById('helpMenuBtn').addEventListener('click', function(){ helpBackdrop.hidden = false; });
   helpCloseBtn.addEventListener('click', function(){ helpBackdrop.hidden = true; });
   helpBackdrop.addEventListener('click', function(e){ if(e.target === helpBackdrop) helpBackdrop.hidden = true; });
   document.addEventListener('keydown', function(e){
     if(e.key !== 'Escape') return;
     if(!confirmBackdrop.hidden){ closeConfirm(); return; } // only the popup, not the dialog behind it
-    if(!settingsBackdrop.hidden) closeSettings();
     if(!helpBackdrop.hidden) helpBackdrop.hidden = true;
     if(!openBackdrop.hidden) closeOpenProjectsModal();
     if(!newChoreoBackdrop.hidden) closeNewChoreoModal();
     if(!videoBackdrop.hidden && exportState) exportState.cancelled = true;
-    if(!exportBackdrop.hidden) closeExportDialog();
-    if(!markerBackdrop.hidden) closeMarkerModal();
-    if(!musicBackdrop.hidden) closeMusicModal();
     if(!addBildBackdrop.hidden) closeAddBildModal();
     if(!videosBackdrop.hidden) closeVideos();
     var hb = document.getElementById('historyBackdrop');
@@ -124,14 +121,11 @@
   function updateSongSettingsUI(){
     var nameEl = document.getElementById('songName');
     var removeBtn = document.getElementById('songRemoveBtn');
-    if(state.song && state.song.url){
-      nameEl.hidden = false;
-      nameEl.textContent = 'Aktuell: ' + state.song.name;
-      removeBtn.hidden = false;
-    }else{
-      nameEl.hidden = true;
-      removeBtn.hidden = true;
-    }
+    var has = !!(state.song && state.song.url);
+    nameEl.textContent = has ? state.song.name : 'Noch kein Lied';
+    nameEl.classList.toggle('empty', !has);
+    removeBtn.hidden = !has;
+    document.getElementById('songUploadBtn').textContent = has ? 'Anderes Lied …' : 'Lied wählen …';
   }
 
   // Chrome jumps in a VBR MP3 by the file's coarse seek table, up to 2 s off the sound played
@@ -267,40 +261,67 @@
   startTabProjectGuard(!openingShareLink);
   ensureFiguresLoaded();
   renderLayoutSelectOptions();
+  updateSettingsUI();
 
-  /* ---------- Tänzer-Schublade ---------- */
-  // Breit genug (≥1200px): die Liste steht neben der Bühne und merkt sich, ob sie offen war.
-  // Schmaler: sie legt sich über die Bühne und startet immer geschlossen.
+  /* ---------- Bilder | Tänzer, am Handy Tänzer und „Bild & Bühne“ als Blatt von unten ---------- */
+  // Links stehen die Bilder oder die Tänzer (gemerkt). Am Handy laufen die Bilder als Streifen unter
+  // der Bühne; die Tänzerliste und die Eigenschaften kommen dort als Blatt von unten.
+  var phoneMq = window.matchMedia('(max-width:899.98px) and (orientation:portrait),(max-width:599.98px)');
   (function(){
-    var KEY = 'aufstellung.rosterOpen';
-    var toggleBtn = document.getElementById('rosterToggleBtn');
-    var closeBtn = document.getElementById('rosterCloseBtn');
+    var KEY = 'aufstellung.sideTab';
+    var bilderTab = document.getElementById('sideBilderTab');
+    var taenzerTab = document.getElementById('sideTaenzerTab');
+    var rosterBtn = document.getElementById('rosterToggleBtn');
+    var inspectorBtn = document.getElementById('inspectorBtn');
     var scrim = document.getElementById('rosterScrim');
     var countEl = document.getElementById('dancerCount');
     var toggleCount = document.getElementById('rosterToggleCount');
-    var wideMq = window.matchMedia('(min-width:1200px)');
-    function stored(){ try{ return localStorage.getItem(KEY); }catch(e){ return null; } }
-    function setOpen(open, remember){
+    function setRoster(open, remember){
       document.body.classList.toggle('roster-open', open);
-      if(open) document.body.classList.remove('menu-open');
-      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      toggleBtn.classList.toggle('active', open);
-      if(remember && wideMq.matches){ try{ localStorage.setItem(KEY, open ? '1' : '0'); }catch(e){} }
+      if(open) document.body.classList.remove('inspector-open');
+      bilderTab.setAttribute('aria-selected', open ? 'false' : 'true');
+      taenzerTab.setAttribute('aria-selected', open ? 'true' : 'false');
+      bilderTab.tabIndex = open ? -1 : 0;
+      taenzerTab.tabIndex = open ? 0 : -1;
+      rosterBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if(remember && !phoneMq.matches){ try{ localStorage.setItem(KEY, open ? 'taenzer' : 'bilder'); }catch(e){} }
     }
-    function initial(){ setOpen(wideMq.matches && stored() !== '0', false); }
-    toggleBtn.addEventListener('click', function(){ setOpen(!document.body.classList.contains('roster-open'), true); });
-    closeBtn.addEventListener('click', function(){ setOpen(false, true); });
-    scrim.addEventListener('click', function(){ setOpen(false, false); });
-    if(wideMq.addEventListener) wideMq.addEventListener('change', initial);
+    function setInspector(open){
+      document.body.classList.toggle('inspector-open', open);
+      if(open) setRoster(false, false);
+      inspectorBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function stored(){ try{ return localStorage.getItem(KEY); }catch(e){ return null; } }
+    function initial(){ setInspector(false); setRoster(!phoneMq.matches && stored() === 'taenzer', false); }
+    bilderTab.addEventListener('click', function(){ setRoster(false, true); });
+    taenzerTab.addEventListener('click', function(){ setRoster(true, true); });
+    bilderTab.parentNode.addEventListener('keydown', function(e){
+      if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      var toRoster = !document.body.classList.contains('roster-open');
+      setRoster(toRoster, true);
+      (toRoster ? taenzerTab : bilderTab).focus();
+    });
+    rosterBtn.addEventListener('click', function(){ setRoster(!document.body.classList.contains('roster-open'), false); });
+    document.getElementById('rosterCloseBtn').addEventListener('click', function(){ setRoster(false, false); });
+    inspectorBtn.addEventListener('click', function(){ setInspector(!document.body.classList.contains('inspector-open')); });
+    document.getElementById('inspectorCloseBtn').addEventListener('click', function(){ setInspector(false); });
+    scrim.addEventListener('click', function(){ setRoster(false, false); setInspector(false); });
+    document.addEventListener('keydown', function(e){
+      if(e.key !== 'Escape' || !phoneMq.matches) return;
+      if(document.body.classList.contains('roster-open')) setRoster(false, false);
+      if(document.body.classList.contains('inspector-open')) setInspector(false);
+    });
+    if(phoneMq.addEventListener) phoneMq.addEventListener('change', initial);
     function syncCount(){ toggleCount.textContent = countEl.textContent; }
     new MutationObserver(syncCount).observe(countEl, {childList:true, characterData:true, subtree:true});
     syncCount();
     initial();
+    window.closeSideSheets = function(){ if(phoneMq.matches) setRoster(false, false); setInspector(false); };
   })();
 
-  /* ---------- „Mehr“-Menü ---------- */
-  // Am Handy liegen alle Aktionen der Kopfleiste in einer Ausklappliste, auf dem Desktop nur
-  // die seltenen (.tb-rare) – welche, regelt allein das CSS.
+  /* ---------- Projekt-Menü (Pfeil neben dem Namen) ---------- */
+  // Neu, Öffnen, Design, Bedienung, Löschen.
   (function(){
     var moreBtn = document.getElementById('moreBtn');
     var menu = document.getElementById('topbarMenu');
@@ -320,4 +341,76 @@
       if(!btn) return;
       setMenu(false);
     });
+  })();
+
+  /* ---------- Arbeitsbereiche: Choreo · Musik · Teilen & Export ---------- */
+  // Musik und Teilen & Export sind Seiten statt Dialoge. Ihre Ansichten öffnen und schließen
+  // marker.js, beats.js, music.js, export.js, share.js und videolayout.js wie bisher über hidden;
+  // hier steht nur, welche Seite zu sehen ist. Eine nicht sichtbare Seite hat keine offene Ansicht.
+  (function(){
+    var pages = {choreo: document.getElementById('wsChoreo'), musik: document.getElementById('wsMusik'), teilen: document.getElementById('wsTeilen')};
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.ws-tab'));
+    var vlBackdrop = document.getElementById('videoLayoutBackdrop');
+    var musikTabs = [document.getElementById('musikOpenBtn'), markerBtn, musicOnlyBtn];
+    var musikViews = [mtBackdrop, markerBackdrop, musicBackdrop];
+    var musikClose = [function(){ closeMusikView(true); }, closeMarkerModal, closeMusicModal];
+    var lastMusik = markerBtn, current = 'choreo';
+
+    function leave(ws){
+      if(ws === 'musik') musikViews.forEach(function(v, i){ if(!v.hidden) musikClose[i](); });
+      if(ws === 'teilen'){
+        if(!vlBackdrop.hidden) closeVideoLayout();
+        if(!exportBackdrop.hidden) closeExportDialog();
+        if(!shareBackdrop.hidden) closeShareModal();
+      }
+    }
+    function show(ws){
+      if(ws !== current){
+        leave(current);
+        if(current === 'choreo'){
+          if(document.body.classList.contains('dancer-view')) setDancerView(false); // js/dancerview.js
+          pausePlayback();
+          if(typeof closeSelectionMenu === 'function') closeSelectionMenu(); // js/stage.js
+          window.closeSideSheets();
+        }
+        current = ws;
+        Object.keys(pages).forEach(function(k){ pages[k].hidden = k !== ws; });
+        document.body.dataset.ws = ws;
+        tabs.forEach(function(t){ if(t.dataset.ws === ws) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
+        document.body.classList.remove('menu-open');
+      }
+      if(ws === 'musik' && musikViews.every(function(v){ return v.hidden; })){
+        var btn = [lastMusik].concat(musikTabs).filter(function(b){ return !b.disabled && b.offsetParent !== null; })[0] || markerBtn;
+        btn.click();
+      }
+      if(ws === 'teilen'){
+        if(shareBackdrop.hidden) openShareModal();
+        if(exportBackdrop.hidden && vlBackdrop.hidden) openExportDialog();
+      }
+    }
+    function syncMusikTabs(){
+      musikViews.forEach(function(v, i){
+        if(!v.hidden) lastMusik = musikTabs[i];
+        musikTabs[i].setAttribute('aria-current', v.hidden ? 'false' : 'page');
+      });
+    }
+    // Whoever opens a view (a tab, Teilen, „Alle Marken …“) brings its page along.
+    var mo = new MutationObserver(function(records){
+      records.forEach(function(r){
+        var v = r.target;
+        if(v.hidden) return;
+        var ws = pages.musik.contains(v) ? 'musik' : 'teilen';
+        if(ws !== current) show(ws);
+        if(ws === 'musik') musikViews.forEach(function(o, i){ if(o !== v && !o.hidden) musikClose[i](); });
+      });
+      syncMusikTabs();
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.ws .view'), function(v){ mo.observe(v, {attributes: true, attributeFilter: ['hidden']}); });
+
+    document.getElementById('wsChoreoTab').addEventListener('click', function(){ show('choreo'); });
+    document.getElementById('wsMusikTab').addEventListener('click', function(){ show('musik'); });
+    document.getElementById('bildMarksBtn').addEventListener('click', function(){ markerBtn.click(); });
+    // exportBtn (the Teilen & Export tab) and shareBtn open their view themselves — the observer follows.
+    document.body.dataset.ws = 'choreo';
+    window.showWorkspace = show;
   })();

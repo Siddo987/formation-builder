@@ -7,22 +7,23 @@
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
-<meta name="theme-color" content="#16161a">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#2c2c2c" media="(prefers-color-scheme: dark)">
 <script>
 /* Offline support (#2058): sw.js keeps a copy of the app for use without a network. Registering
    it at the root scope also replaces the worker an earlier app at this domain left behind. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
 }
-/* Design (#2165): Hell or Dunkel chosen in Einstellungen, set before the CSS so nothing flashes. */
+/* Design (#2165): Hell or Dunkel chosen in the project menu, set before the CSS so nothing flashes. */
 try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; } catch (e) {}
 </script>
 <!-- ?v= cache-busts these behind Cloudflare's edge cache (js/css get a 4h max-age there, keyed
      purely on the URL) — bump this on every deploy that touches css/ or js/ so browsers/CDN
      fetch the new bytes immediately instead of serving stale ones for up to 4h. index.html
      itself is never edge-cached (cf-cache-status: DYNAMIC), so this always reaches clients. -->
-<link rel="stylesheet" href="css/app.css?v=65">
-<link rel="stylesheet" href="css/dialogs.css?v=65">
+<link rel="stylesheet" href="css/app.css?v=66">
+<link rel="stylesheet" href="css/dialogs.css?v=66">
 </head>
 <body>
 
@@ -39,169 +40,240 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <img class="brand-mark" src="img/logo.svg" width="22" height="22" alt="">
-      <h1>Aufstellung</h1>
+      <img class="brand-mark" src="img/logo.svg" width="20" height="20" alt="">
+      <span class="brand-name">Aufstellung</span>
+      <span class="crumb-sep" aria-hidden="true">/</span>
       <div class="project-name-field">
-        <svg class="pencil-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        <input type="text" class="project-name" id="projectNameInput" placeholder="Projektname" maxlength="60" aria-label="Projektname (wird als Dateiname verwendet)">
+        <input type="text" class="project-name" id="projectNameInput" placeholder="Name der Choreo" maxlength="60" aria-label="Name der Choreo (wird auch als Dateiname verwendet)">
       </div>
-    </div>
-
-    <span class="import-error" id="importError" hidden>Datei konnte nicht gelesen werden (ungültiges .stg/.auf-Format)</span>
-
-    <div class="tb-group tb-history">
-      <button class="btn-ghost btn-icon-only" id="historyUndoBtn" type="button" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)" disabled>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>
+      <button class="btn-icon menu-btn" id="moreBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="topbarMenu" aria-label="Projekt-Menü" title="Neu, öffnen, Design, Bedienung, löschen">
+        <svg class="ico" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
       </button>
-      <button class="btn-ghost btn-icon-only" id="historyRedoBtn" type="button" aria-label="Wiederholen (Strg+Umschalt+Z)" title="Wiederholen (Strg+Umschalt+Z)" disabled>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg>
-      </button>
-      <button class="btn-ghost btn-icon-only" id="historyBtn" type="button" aria-label="Verlauf" title="Verlauf">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 3"/></svg>
-      </button>
-    </div>
-
-    <!-- Desktop: Knopfleiste, Seltenes (.tb-rare) hinter „Mehr“. Handy/Tablet hoch: alles hinter „Mehr“ -->
-    <div class="topbar-actions" id="topbarMenu">
-      <div class="tb-group">
-        <button class="btn-ghost" id="importBtn" type="button" title="Projekt öffnen">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
-          <span class="lbl">Öffnen</span>
+      <div class="project-menu" id="topbarMenu">
+        <button class="menu-item" id="newChoreoBtn" type="button" aria-haspopup="dialog">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M12 12v6"/><path d="M9 15h6"/></svg>
+          <span>Neue Choreo …</span>
+        </button>
+        <button class="menu-item" id="importBtn" type="button" aria-haspopup="dialog">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+          <span>Öffnen …</span>
         </button>
         <input type="file" id="importInput" accept=".stg,.auf" hidden>
-        <button class="btn-ghost" id="exportBtn" type="button" aria-haspopup="dialog" title="Speichern &amp; exportieren (.stg, .auf, Video, Schritte-PDF)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11V8l-5-5H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/><path d="M14 3v5h5"/><path d="M15 17h7"/><path d="m19 14 3 3-3 3"/></svg>
-          <span class="lbl">Exportieren</span>
+        <div class="menu-sep" role="separator"></div>
+        <label class="menu-row" for="themeSelect">
+          <span>Design</span>
+          <select id="themeSelect">
+            <option value="">Wie das Gerät</option>
+            <option value="light">Hell</option>
+            <option value="dark">Dunkel</option>
+          </select>
+        </label>
+        <button class="menu-item" id="helpMenuBtn" type="button" aria-haspopup="dialog">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17h.01"/></svg>
+          <span>Bedienung &amp; Tastenkürzel</span>
         </button>
-      </div>
-
-      <div class="tb-group">
-        <button class="btn-ghost" id="markerBtn" type="button" title="Musik &amp; Marker">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
-          <span class="lbl">Marker</span>
-        </button>
-      </div>
-
-      <div class="tb-group tb-rare">
-        <button class="btn-ghost btn-icon-only" id="newChoreoBtn" type="button" aria-label="Neue Choreo" title="Neue Choreo (die aktuelle bleibt unter „Öffnen“ gespeichert)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M12 12v6"/><path d="M9 15h6"/></svg>
-          <span class="lbl">Neue Choreo</span>
-        </button>
-        <button class="btn-ghost btn-icon-only" id="settingsBtn" type="button" aria-label="Einstellungen" title="Einstellungen">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.830 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span class="lbl">Einstellungen</span>
-        </button>
-        <button class="btn-ghost btn-icon-only danger" id="deleteChoreoBtn" type="button" aria-label="Choreo löschen" title="Choreo löschen">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-          <span class="lbl">Choreo löschen</span>
+        <div class="menu-sep" role="separator"></div>
+        <button class="menu-item danger" id="deleteChoreoBtn" type="button" aria-haspopup="dialog">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          <span>Choreo löschen …</span>
         </button>
       </div>
     </div>
 
-    <button class="btn-ghost btn-accent" id="shareBtn" type="button" title="Teilen">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5"/><path d="M8.6 13.5 15.4 17.5"/></svg>
-      <span class="lbl">Teilen</span>
+    <nav class="ws-tabs" aria-label="Arbeitsbereiche">
+      <button class="ws-tab" id="wsChoreoTab" type="button" data-ws="choreo" aria-current="page">Choreo</button>
+      <button class="ws-tab" id="wsMusikTab" type="button" data-ws="musik">Musik</button>
+      <button class="ws-tab" id="exportBtn" type="button" data-ws="teilen">Teilen &amp; Export</button>
+    </nav>
+
+    <span class="import-error" id="importError" role="alert" hidden>Datei konnte nicht gelesen werden (ungültiges .stg/.auf-Format)</span>
+
+    <div class="tb-group tb-history">
+      <button class="btn-icon" id="historyUndoBtn" type="button" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)" disabled>
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>
+      </button>
+      <button class="btn-icon" id="historyRedoBtn" type="button" aria-label="Wiederholen (Strg+Umschalt+Z)" title="Wiederholen (Strg+Umschalt+Z)" disabled>
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg>
+      </button>
+      <button class="btn-icon" id="historyBtn" type="button" aria-haspopup="dialog" aria-label="Verlauf" title="Verlauf: alle Stände, Äste und wer was geändert hat">
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 3"/></svg>
+      </button>
+    </div>
+    <button class="btn-ghost" id="dancerViewBtn" type="button" aria-pressed="false" title="Die Choreo aus der Sicht eines Tänzers: der eigene Weg, Takt für Takt">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="7" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>
+      <span class="lbl">Tänzer-Ansicht</span>
     </button>
-    <button class="btn-ghost btn-icon-only more-btn" id="moreBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="topbarMenu" aria-label="Weitere Aktionen" title="Weitere Aktionen">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+    <button class="btn-primary" id="shareBtn" type="button" title="Per Link teilen">
+      <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5"/><path d="M8.6 13.5 15.4 17.5"/></svg>
+      <span class="lbl">Teilen</span>
     </button>
   </header>
 
-  <main class="workspace">
-    <!-- Links: alle Bilder untereinander (Handy: waagerechter Streifen unter der Bühne) -->
-    <section class="filmstrip-area" aria-label="Bilder">
-      <div class="panel-head">
-        <span class="eyebrow">Bilder</span>
-        <span class="count" id="activeReadout">01 / 01</span>
+  <!-- Choreo: links Bilder | Tänzer, Mitte Werkzeuge und Bühne, rechts Eigenschaften, unten das Dock mit Zeitleiste -->
+  <main class="ws ws-choreo workspace" id="wsChoreo" aria-label="Choreo">
+    <aside class="side" aria-label="Bilder und Tänzer">
+      <div class="side-tabs" role="tablist" aria-label="Liste">
+        <button class="side-tab" id="sideBilderTab" type="button" role="tab" aria-controls="sideBilder" aria-selected="true">Bilder <span class="count" id="activeReadout">01 / 01</span></button>
+        <button class="side-tab" id="sideTaenzerTab" type="button" role="tab" aria-controls="rosterDrawer" aria-selected="false" tabindex="-1">Tänzer <span class="count" id="dancerCount">0</span></button>
       </div>
-      <div class="film-track" id="filmTrack"></div>
+      <section class="filmstrip-area" id="sideBilder" role="tabpanel" aria-labelledby="sideBilderTab">
+        <div class="film-track" id="filmTrack"></div>
+      </section>
+      <section class="roster" id="rosterDrawer" role="tabpanel" aria-labelledby="sideTaenzerTab">
+        <div class="roster-header">
+          <span class="sheet-title">Tänzer &amp; Paare</span>
+          <button class="btn-icon roster-close" id="rosterCloseBtn" type="button" aria-label="Tänzerliste schließen" title="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div class="roster-list" id="rosterList"></div>
+        <div class="roster-foot">
+          <button class="btn-add" id="addDancerBtn" type="button"><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Tänzer hinzufügen</span></button>
+          <p class="hint">Raster 1 m, rastet ein · Shift = frei · <strong>Doppelklick</strong> oder der L/F-Knopf teilt ein Paar nur in diesem Bild.</p>
+        </div>
+      </section>
+      <section class="dancer-panel" id="dancerPanel" aria-labelledby="dvWhoLabel">
+        <label class="dv-who"><span id="dvWhoLabel">Ich bin</span><select id="dvWho"></select></label>
+        <div class="dv-list" id="dvList"></div>
+        <div class="dv-foot">
+          <button class="btn-ghost" id="dvStepsBtn" type="button" disabled>Meine Schritte als PDF</button>
+        </div>
+      </section>
+    </aside>
+
+    <section class="center stage-area" aria-label="Bühne">
+      <div class="stage-toolbar">
+        <label class="layout-select-wrap float-pill" id="layoutSelectWrap" hidden><span class="tool-label">Vorlage</span>
+          <select id="layoutSelect" title="Nur ein Hilfsbild zum Ausrichten – überschreibt keine Positionen. Positionen relativ zueinander — auf der Bühne per Ziehen verschieben, rechts drehen und Größe ändern. Punkt antippen fixiert ihn: Ziehen eines anderen Punkts dreht und skaliert dann um ihn."><option value="">— Vorlage einblenden —</option></select>
+          <span class="layout-rotate-field" id="layoutRotateField" hidden><input type="number" id="layoutRotateInput" class="coord-input" value="0" step="5" aria-label="Drehung der Vorlage in Grad">°<input type="number" id="layoutScaleInput" class="coord-input" value="100" step="10" min="10" aria-label="Größe der Vorlage in Prozent" title="Größe der Vorlage">%</span>
+        </label>
+        <label class="tool-toggle" title="Die Wege vom gewählten Bild zum nächsten, mit Zwischenpositionen und Drehungen. Nur auf diesem Gerät."><input type="checkbox" id="pathsToggle"><span>Wege</span></label>
+        <label class="tool-toggle" title="Markiert rot, wo sich zwei Punkte unterwegs näher als etwa 1 Rasterfeld kommen – und näher als in den Bildern, in denen sie gestellt sind. Nur auf diesem Gerät."><input type="checkbox" id="clashToggle"><span>Abstände prüfen</span></label>
+        <span class="stage-toolbar-spacer"></span>
+        <div class="between-edit-banner" id="betweenEditBanner" hidden>
+          <span id="betweenEditBannerText">Zwischenposition wird bearbeitet</span>
+          <button class="btn-ghost between-edit-rename" id="betweenEditRenameBtn" type="button" title="Zwischenposition umbenennen" aria-label="Zwischenposition umbenennen"><svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+          <input type="text" id="betweenEditTime" class="between-edit-time" inputmode="decimal" autocomplete="off" aria-label="Zeitpunkt der Zwischenposition">
+          <button class="btn-ghost" id="betweenEditDoneBtn" type="button">Fertig</button>
+        </div>
+        <div class="bild-lock-banner" id="bildLockBanner" role="status" hidden></div>
+        <span class="stage-toolbar-spacer"></span>
+        <button class="float-pill" id="videosBtn" type="button" aria-haspopup="dialog" title="Videos zu den Abschnitten">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="m16 10 6-3.5v11L16 14"/></svg>
+          <span class="tool-lbl">Videos</span>
+        </button>
+        <button class="float-pill phone-only roster-toggle" id="rosterToggleBtn" type="button" aria-controls="rosterDrawer" aria-expanded="false" title="Tänzer und Paare">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="7" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>
+          <span class="tool-lbl">Tänzer</span> <span class="count" id="rosterToggleCount">0</span>
+        </button>
+        <button class="float-pill phone-only" id="inspectorBtn" type="button" aria-controls="inspector" aria-expanded="false" title="Bild und Bühne">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 18h4"/><path d="M12 18h8"/><circle cx="10" cy="18" r="2"/></svg>
+          <span class="tool-lbl">Bild &amp; Bühne</span>
+        </button>
+      </div>
+
+      <div class="stage-wrap">
+        <div class="stage-frame">
+          <input type="text" class="room-label room-label-top stage-caption" id="roomLabelTop" maxlength="24" aria-label="Beschriftung oberer Bühnenrand, z. B. Wand" title="Beschriftung des oberen Bühnenrands – wird auch in der Schritte-PDF verwendet">
+          <input type="text" class="room-label room-label-left" id="roomLabelLeft" maxlength="20" aria-label="Beschriftung linker Bühnenrand, z. B. Fenster" title="Beschriftung des linken Bühnenrands – wird auch in der Schritte-PDF verwendet">
+          <div class="stage" id="stage" aria-label="Bühnenfläche – Tänzer per Ziehen positionieren"></div>
+          <input type="text" class="room-label room-label-right" id="roomLabelRight" maxlength="20" aria-label="Beschriftung rechter Bühnenrand, z. B. Spiegel" title="Beschriftung des rechten Bühnenrands – wird auch in der Schritte-PDF verwendet">
+          <div class="stage-audience">
+            <input type="text" class="room-label room-label-bottom" id="roomLabelBottom" maxlength="24" aria-label="Beschriftung unterer Bühnenrand, z. B. Eingang" title="Beschriftung des unteren Bühnenrands – wird auch in der Schritte-PDF verwendet">
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- Mitte: Werkzeugzeile, Bühne, Auswahlzeile, Abspielleiste — feste Zeilen, nichts liegt über der Bühne -->
-    <div class="center">
-      <section class="stage-area" aria-label="Bühne">
-        <div class="stage-toolbar">
-          <label class="layout-select-wrap float-pill" id="layoutSelectWrap" hidden><span class="tool-label">Vorlage</span>
-            <select id="layoutSelect" title="Nur ein Hilfsbild zum Ausrichten – überschreibt keine Positionen. Positionen relativ zueinander — auf der Bühne per Ziehen verschieben, rechts drehen und Größe ändern. Punkt antippen fixiert ihn: Ziehen eines anderen Punkts dreht und skaliert dann um ihn."><option value="">— Vorlage einblenden —</option></select>
-            <span class="layout-rotate-field" id="layoutRotateField" hidden><input type="number" id="layoutRotateInput" class="coord-input" value="0" step="5" aria-label="Drehung der Vorlage in Grad">°<input type="number" id="layoutScaleInput" class="coord-input" value="100" step="10" min="10" aria-label="Größe der Vorlage in Prozent" title="Größe der Vorlage">%</span>
-          </label>
-          <span class="stage-toolbar-spacer"></span>
-          <div class="between-edit-banner" id="betweenEditBanner" hidden>
-            <span id="betweenEditBannerText">Zwischenposition wird bearbeitet</span>
-            <button class="btn-ghost between-edit-rename" id="betweenEditRenameBtn" type="button" title="Zwischenposition umbenennen" aria-label="Zwischenposition umbenennen"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-            <input type="text" id="betweenEditTime" class="between-edit-time" inputmode="decimal" autocomplete="off" aria-label="Zeitpunkt der Zwischenposition">
-            <button class="btn-ghost" id="betweenEditDoneBtn" type="button">Fertig</button>
-          </div>
-          <div class="bild-lock-banner" id="bildLockBanner" role="status" hidden></div>
-          <span class="stage-toolbar-spacer"></span>
-          <button class="float-pill note-toggle" id="noteBtn" type="button" aria-haspopup="dialog">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
-            <span class="roster-toggle-lbl">Notiz</span>
-          </button>
-          <button class="float-pill" id="videosBtn" type="button" aria-haspopup="dialog" title="Videos zu den Abschnitten">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="m16 10 6-3.5v11L16 14"/></svg>
-            <span class="roster-toggle-lbl">Videos</span>
-          </button>
-          <button class="float-pill roster-toggle" id="rosterToggleBtn" type="button" aria-controls="rosterDrawer" aria-expanded="false" title="Tänzerliste ein-/ausblenden">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>
-            <span class="roster-toggle-lbl">Tänzer</span> <span class="count" id="rosterToggleCount">0</span>
-          </button>
-        </div>
+    <!-- Rechts: Eigenschaften. Am Handy steht „Auswahl“ als Leiste unter der Bühne, Bild und Bühne kommen als Blatt von unten. -->
+    <aside class="inspector" id="inspector" aria-label="Eigenschaften">
+      <div class="sheet-head">
+        <span class="sheet-title">Bild &amp; Bühne</span>
+        <button class="btn-icon" id="inspectorCloseBtn" type="button" aria-label="Schließen" title="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
 
-        <div class="stage-wrap">
-          <div class="stage-frame">
-            <input type="text" class="room-label room-label-top stage-caption" id="roomLabelTop" maxlength="24" aria-label="Beschriftung oberer Bühnenrand, z. B. Wand" title="Beschriftung des oberen Bühnenrands – wird auch in der Schritte-PDF verwendet">
-            <input type="text" class="room-label room-label-left" id="roomLabelLeft" maxlength="20" aria-label="Beschriftung linker Bühnenrand, z. B. Fenster" title="Beschriftung des linken Bühnenrands – wird auch in der Schritte-PDF verwendet">
-            <div class="stage" id="stage" aria-label="Bühnenfläche – Tänzer per Ziehen positionieren"></div>
-            <input type="text" class="room-label room-label-right" id="roomLabelRight" maxlength="20" aria-label="Beschriftung rechter Bühnenrand, z. B. Spiegel" title="Beschriftung des rechten Bühnenrands – wird auch in der Schritte-PDF verwendet">
-            <div class="stage-audience">
-              <input type="text" class="room-label room-label-bottom" id="roomLabelBottom" maxlength="24" aria-label="Beschriftung unterer Bühnenrand, z. B. Eingang" title="Beschriftung des unteren Bühnenrands – wird auch in der Schritte-PDF verwendet">
-            </div>
-          </div>
-        </div>
-
-        <!-- Auswahlzeile: feste Höhe unter der Bühne. Ohne Auswahl steht hier ein kurzer Bedienhinweis. -->
-        <div class="context-bar">
-          <div class="pair-rotate" id="pairRotate" hidden>
-            <span class="pair-rotate-label" id="pairRotateLabel">Paar: – &amp; –</span>
-            <div class="pair-rotate-turn">
-              <input type="text" class="pair-rotate-input" id="pairRotateAngle" placeholder="1/4 oder 90" aria-label="Drehwinkel für die Auswahl – Bruch (z. B. 1/4) oder Gradzahl">
-              <button class="btn-ghost" id="pairRotateBtn" type="button" title="Dreht die Auswahl samt Blickrichtung um ihren gemeinsamen Mittelpunkt."><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg><span class="pair-rotate-long">Auf diesem Bild drehen</span><span class="pair-rotate-short">Drehen</span></button>
-            </div>
-            <div class="pair-turn" id="pairTurn" hidden>
-              <svg class="ico pair-turn-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
-              <span class="pair-turn-label" id="pairTurnLabel">Paardrehung bis –</span>
-              <input type="text" class="pair-rotate-input" id="pairTurnInput" placeholder="1/2 oder 180" aria-label="Drehung im Paar bis zur nächsten Station – Bruch (z. B. 1/2) oder Gradzahl, positiv im Uhrzeigersinn, negativ dagegen" title="Wie weit sich Lead und Follow auf dem Weg zur nächsten Station (Zwischenposition oder Bild) umeinander drehen – beim geschlossenen Paar dreht sich der Punkt: 1/2 oder 180 = halbe Drehung im Uhrzeigersinn, -1/2 = gegen den Uhrzeigersinn, 1/1 oder 360 = ganze Drehung, auch mehrere.">
-              <button class="btn-ghost" id="pairTurnBtn" type="button" title="Lead und Follow drehen sich auf dem Weg zur nächsten Station um ihren gemeinsamen Mittelpunkt, während der Mittelpunkt seinen Weg geht – dort stehen sie dann entsprechend gedreht.">Setzen</button>
-              <button class="btn-icon" id="pairTurnClearBtn" type="button" hidden aria-label="Drehung entfernen" title="Drehung entfernen – das Paar dreht sich dann wieder auf dem kürzesten Weg. Die Positionen an der nächsten Station bleiben."><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-            </div>
-            <div class="pair-turn" id="pairSpin" hidden>
-              <svg class="ico pair-turn-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><circle cx="12" cy="12" r="2.5"/></svg>
-              <span class="pair-turn-label" id="pairSpinLabel">Eigendrehung bis –</span>
-              <input type="text" class="pair-rotate-input" id="pairSpinInput" placeholder="1/1 oder 360" aria-label="Eigendrehung bis zur nächsten Station – Bruch (z. B. 1/1) oder Gradzahl, positiv im Uhrzeigersinn, negativ dagegen" title="Wie weit sich diese eine Person auf dem Weg zur nächsten Station um sich selbst dreht, z. B. Solodrehung der Dame: 1/1 oder 360 = ganze Drehung im Uhrzeigersinn, -1/1 = gegen den Uhrzeigersinn, 1/2 = halbe.">
-              <button class="btn-ghost" id="pairSpinBtn" type="button" title="Die Person dreht sich auf dem Weg zur nächsten Station um sich selbst, egal wohin sie geht – dort schaut sie dann entsprechend gedreht.">Setzen</button>
-              <button class="btn-icon" id="pairSpinClearBtn" type="button" hidden aria-label="Eigendrehung entfernen" title="Eigendrehung entfernen – die Blickrichtung ändert sich dann wieder auf dem kürzesten Weg. Die Blickrichtung an der nächsten Station bleibt."><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-            </div>
-            <div class="pair-turn" id="pairOrbit" hidden>
-              <svg class="ico pair-turn-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/><circle cx="12" cy="4" r="2" fill="currentColor"/><circle cx="12" cy="20" r="2" fill="currentColor"/></svg>
-              <span class="pair-turn-label" id="pairOrbitLabel">Kreisbahn bis –</span>
-              <input type="text" class="pair-rotate-input" id="pairOrbitInput" placeholder="1/4 oder 90" aria-label="Kreisbahn bis zur nächsten Station – Bruch (z. B. 1/4) oder Gradzahl, positiv im Uhrzeigersinn, negativ dagegen" title="Wie weit die Auswahl auf dem Weg zur nächsten Station um ihren gemeinsamen Mittelpunkt läuft, statt geradeaus – z. B. ein drehender Kreis: 1/4 oder 90 = Viertel im Uhrzeigersinn, -1/4 = gegen den Uhrzeigersinn, 1/1 oder 360 = einmal ganz herum. Die Plätze im nächsten Bild bleiben; die Bahn nimmt den Weg dorthin, der diesem Wert am nächsten kommt.">
-              <button class="btn-ghost" id="pairOrbitBtn" type="button" title="Die Auswahl läuft auf dem Weg zur nächsten Station im Bogen um ihren gemeinsamen Mittelpunkt, während der Mittelpunkt seinen Weg geht – dort steht sie dann entsprechend gedreht.">Setzen</button>
-              <button class="btn-icon" id="pairOrbitClearBtn" type="button" hidden aria-label="Kreisbahn entfernen" title="Kreisbahn entfernen – die Auswahl läuft dann wieder geradeaus. Die Positionen an der nächsten Station bleiben."><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-            </div>
-            <div class="pair-rotate-actions">
-              <button class="btn-ghost pair-split-btn" id="pairSplitBtn" type="button" hidden title="Lead und Follow bewegen sich nur in diesem Bild unabhängig voneinander – in allen anderen Bildern bleibt das Paar gekoppelt.">Paar lösen (nur dieses Bild)</button>
-              <button class="btn-ghost" id="pairSameRoleBtn" type="button" hidden title="Wählt alle Tänzer mit dieser Rolle aus allen gespeicherten Paaren aus.">Alle auswählen</button>
-            </div>
-            <span class="pair-rotate-hint">Die ganze Auswahl wird gemeinsam gegriffen, verschoben und gedreht. Strg/Cmd-Klick wählt einzelne Tänzer ab oder dazu, Esc hebt die Auswahl auf.</span>
-            <button class="btn-icon" id="pairRotateClearBtn" type="button" aria-label="Auswahl aufheben" title="Auswahl aufheben (Esc)"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-          </div>
-          <p class="context-idle"><span>Klick wählt aus</span><span class="hint-mouse">Rechtsklick zeigt alle Funktionen</span><span class="hint-touch">Lange drücken zeigt alle Funktionen</span></p>
+      <section class="insp-sec insp-sel context-bar" aria-labelledby="inspSelTitle">
+        <div class="insp-h-row">
+          <h2 class="insp-h" id="inspSelTitle">Auswahl</h2>
           <button class="btn-icon help-btn" id="helpBtn" type="button" aria-haspopup="dialog" aria-label="Bedienung: alle Tastenkürzel und Gesten" title="Bedienung: alle Tastenkürzel und Gesten">?</button>
+        </div>
+        <div class="pair-rotate" id="pairRotate" hidden>
+          <span class="pair-rotate-label" id="pairRotateLabel">Paar: – &amp; –</span>
+          <div class="pair-rotate-turn">
+            <input type="text" class="pair-rotate-input" id="pairRotateAngle" placeholder="1/4 oder 90" aria-label="Drehwinkel für die Auswahl – Bruch (z. B. 1/4) oder Gradzahl">
+            <button class="btn-ghost" id="pairRotateBtn" type="button" title="Dreht die Auswahl samt Blickrichtung um ihren gemeinsamen Mittelpunkt."><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg><span class="pair-rotate-long">Auf diesem Bild drehen</span><span class="pair-rotate-short">Drehen</span></button>
+          </div>
+          <div class="pair-turn" id="pairTurn" hidden>
+            <svg class="ico pair-turn-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+            <span class="pair-turn-label" id="pairTurnLabel">Paardrehung bis –</span>
+            <input type="text" class="pair-rotate-input" id="pairTurnInput" placeholder="1/2 oder 180" aria-label="Drehung im Paar bis zur nächsten Station – Bruch (z. B. 1/2) oder Gradzahl, positiv im Uhrzeigersinn, negativ dagegen" title="Wie weit sich Lead und Follow auf dem Weg zur nächsten Station (Zwischenposition oder Bild) umeinander drehen – beim geschlossenen Paar dreht sich der Punkt: 1/2 oder 180 = halbe Drehung im Uhrzeigersinn, -1/2 = gegen den Uhrzeigersinn, 1/1 oder 360 = ganze Drehung, auch mehrere.">
+            <button class="btn-ghost" id="pairTurnBtn" type="button" title="Lead und Follow drehen sich auf dem Weg zur nächsten Station um ihren gemeinsamen Mittelpunkt, während der Mittelpunkt seinen Weg geht – dort stehen sie dann entsprechend gedreht.">Setzen</button>
+            <button class="btn-icon" id="pairTurnClearBtn" type="button" hidden aria-label="Drehung entfernen" title="Drehung entfernen – das Paar dreht sich dann wieder auf dem kürzesten Weg. Die Positionen an der nächsten Station bleiben."><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          </div>
+          <div class="pair-turn" id="pairSpin" hidden>
+            <svg class="ico pair-turn-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><circle cx="12" cy="12" r="2.5"/></svg>
+            <span class="pair-turn-label" id="pairSpinLabel">Eigendrehung bis –</span>
+            <input type="text" class="pair-rotate-input" id="pairSpinInput" placeholder="1/1 oder 360" aria-label="Eigendrehung bis zur nächsten Station – Bruch (z. B. 1/1) oder Gradzahl, positiv im Uhrzeigersinn, negativ dagegen" title="Wie weit sich diese eine Person auf dem Weg zur nächsten Station um sich selbst dreht, z. B. Solodrehung der Dame: 1/1 oder 360 = ganze Drehung im Uhrzeigersinn, -1/1 = gegen den Uhrzeigersinn, 1/2 = halbe.">
+            <button class="btn-ghost" id="pairSpinBtn" type="button" title="Die Person dreht sich auf dem Weg zur nächsten Station um sich selbst, egal wohin sie geht – dort schaut sie dann entsprechend gedreht.">Setzen</button>
+            <button class="btn-icon" id="pairSpinClearBtn" type="button" hidden aria-label="Eigendrehung entfernen" title="Eigendrehung entfernen – die Blickrichtung ändert sich dann wieder auf dem kürzesten Weg. Die Blickrichtung an der nächsten Station bleibt."><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          </div>
+          <div class="pair-turn" id="pairOrbit" hidden>
+            <svg class="ico pair-turn-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/><circle cx="12" cy="4" r="2" fill="currentColor"/><circle cx="12" cy="20" r="2" fill="currentColor"/></svg>
+            <span class="pair-turn-label" id="pairOrbitLabel">Kreisbahn bis –</span>
+            <input type="text" class="pair-rotate-input" id="pairOrbitInput" placeholder="1/4 oder 90" aria-label="Kreisbahn bis zur nächsten Station – Bruch (z. B. 1/4) oder Gradzahl, positiv im Uhrzeigersinn, negativ dagegen" title="Wie weit die Auswahl auf dem Weg zur nächsten Station um ihren gemeinsamen Mittelpunkt läuft, statt geradeaus – z. B. ein drehender Kreis: 1/4 oder 90 = Viertel im Uhrzeigersinn, -1/4 = gegen den Uhrzeigersinn, 1/1 oder 360 = einmal ganz herum. Die Plätze im nächsten Bild bleiben; die Bahn nimmt den Weg dorthin, der diesem Wert am nächsten kommt.">
+            <button class="btn-ghost" id="pairOrbitBtn" type="button" title="Die Auswahl läuft auf dem Weg zur nächsten Station im Bogen um ihren gemeinsamen Mittelpunkt, während der Mittelpunkt seinen Weg geht – dort steht sie dann entsprechend gedreht.">Setzen</button>
+            <button class="btn-icon" id="pairOrbitClearBtn" type="button" hidden aria-label="Kreisbahn entfernen" title="Kreisbahn entfernen – die Auswahl läuft dann wieder geradeaus. Die Positionen an der nächsten Station bleiben."><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          </div>
+          <div class="pair-rotate-actions">
+            <button class="btn-ghost pair-split-btn" id="pairSplitBtn" type="button" hidden title="Lead und Follow bewegen sich nur in diesem Bild unabhängig voneinander – in allen anderen Bildern bleibt das Paar gekoppelt.">Paar lösen (nur dieses Bild)</button>
+            <button class="btn-ghost" id="pairSameRoleBtn" type="button" hidden title="Wählt alle Tänzer mit dieser Rolle aus allen gespeicherten Paaren aus.">Alle auswählen</button>
+          </div>
+          <span class="pair-rotate-hint">Die ganze Auswahl wird gemeinsam gegriffen, verschoben und gedreht. Strg/Cmd-Klick wählt einzelne Tänzer ab oder dazu, Esc hebt die Auswahl auf.</span>
+          <button class="btn-icon" id="pairRotateClearBtn" type="button" aria-label="Auswahl aufheben" title="Auswahl aufheben (Esc)"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <p class="context-idle"><span>Klicken oder Tippen wählt einen Punkt aus</span><span class="hint-mouse">Rechtsklick zeigt alle Funktionen</span><span class="hint-touch">Lange drücken zeigt alle Funktionen</span></p>
+      </section>
+
+      <section class="insp-sec insp-bild" aria-labelledby="inspBildTitle">
+        <h2 class="insp-h" id="inspBildTitle">Bild</h2>
+        <div class="insp-row">
+          <span class="insp-label">Marke</span>
+          <span class="insp-value" id="bildMarkLabel">–</span>
+        </div>
+        <div class="insp-actions">
+          <button class="btn-ghost note-toggle" id="noteBtn" type="button" aria-haspopup="dialog">
+            <svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+            <span>Notiz</span>
+          </button>
+          <button class="btn-ghost" id="bildMarksBtn" type="button">Alle Marken …</button>
         </div>
       </section>
 
-      <div class="playbar">
+      <section class="insp-sec insp-stage" aria-labelledby="inspStageTitle">
+        <h2 class="insp-h" id="inspStageTitle">Bühne</h2>
+        <div class="insp-row insp-size" title="Breite von links nach rechts, Tiefe von vorn nach hinten, 4 bis 40 m – das Raster zeigt 1 m. Wer bei einer kleineren Fläche draußen stünde, wird an den Rand geholt. Gilt für die ganze Choreo.">
+          <label class="insp-field"><span>B</span><input type="number" id="stageWidthInput" class="coord-input" min="4" max="40" step="0.5" inputmode="decimal" aria-label="Bühnenbreite in Metern"><span>m</span></label>
+          <label class="insp-field"><span>T</span><input type="number" id="stageDepthInput" class="coord-input" min="4" max="40" step="0.5" inputmode="decimal" aria-label="Bühnentiefe in Metern"><span>m</span></label>
+        </div>
+        <label class="toggle-label" title="Die kleinen Pfeile an den Punkten, auf der Bühne und im Video. Gilt für die ganze Choreo – auf jedem Gerät, das sie öffnet, auch beim Teilen."><input type="checkbox" id="facingToggle" checked> Blickrichtungen anzeigen</label>
+        <div class="insp-sub">
+          <span class="insp-label">Hintergrund-Logo</span>
+          <div class="insp-actions">
+            <button class="btn-ghost" id="logoUploadBtn" type="button">Logo wählen</button>
+            <input type="file" id="logoInput" accept="image/*" hidden>
+            <button class="btn-ghost danger" id="logoRemoveBtn" type="button" hidden>Entfernen</button>
+          </div>
+          <div class="logo-preview-wrap" id="logoPreviewWrap" hidden>
+            <img id="logoPreview" alt="Logo-Vorschau">
+          </div>
+          <div class="insp-row" id="logoOpacityRow" hidden>
+            <span class="insp-label">Deckkraft <span id="logoOpacityReadout">18%</span></span>
+            <input type="range" id="logoOpacitySlider" min="2" max="60" value="18" aria-label="Deckkraft des Logos">
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <footer class="dock playbar" aria-label="Abspielen">
+      <div class="dock-bar">
         <div class="transport">
           <button class="btn-icon" id="prevBtn" aria-label="Vorheriges Bild" title="Vorheriges Bild" type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
@@ -215,101 +287,449 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
           </button>
         </div>
         <div class="playinfo">
+          <span class="play-time" id="playTime" hidden></span>
           <span class="formation-name-live" id="activeName">–</span>
           <span class="playbar-bar" id="playbarBar" hidden></span>
-          <div class="scrub" id="playScrub" role="slider" tabindex="0" aria-label="Position in der Choreo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-            <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-            <div class="scrub-ticks" id="scrubTicks" aria-hidden="true"></div>
-            <span class="scrub-thumb" id="scrubThumb" aria-hidden="true"></span>
-          </div>
         </div>
+        <button class="btn-ghost marker-toggle-btn" id="dockClickBtn" type="button" aria-pressed="false" disabled>Klicks</button>
         <div class="tempo-control">
           <label class="caption tempo-caption"><span class="tempo-word">Tempo </span><input type="text" id="tempoInput" class="tempo-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Tempo als Zahl"><span id="tempoUnit">Bilder/s</span></label>
           <input type="range" id="tempoSlider" min="0" max="100" value="50" aria-label="Abspieltempo">
         </div>
-        <button class="btn-ghost music-only-btn" id="musicOnlyBtn" type="button" aria-pressed="false" title="Nur die Musik abspielen, ohne die Bühne zu bewegen" hidden><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>Nur Musik</span></button>
+        <button class="btn-primary" id="bildBarBtn" type="button" disabled>Bild auf Takt setzen</button>
       </div>
-    </div>
-
-    <!-- Rechts: Tänzer & Paare (breit: feste Spalte, schmal: Schublade, Handy: Blatt von unten) -->
-    <aside class="roster" id="rosterDrawer" aria-label="Tänzer und Paare">
-      <div class="roster-header">
-        <span class="eyebrow">Tänzer &amp; Paare</span>
-        <span class="count" id="dancerCount">0</span>
-        <button class="btn-icon roster-close" id="rosterCloseBtn" type="button" aria-label="Tänzerliste schließen" title="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      <div class="scrub" id="playScrub" role="slider" tabindex="0" aria-label="Position in der Choreo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <canvas class="scrub-wave" id="scrubWave" aria-hidden="true"></canvas>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="scrub-ticks" id="scrubTicks" aria-hidden="true"></div>
+        <span class="scrub-thumb" id="scrubThumb" aria-hidden="true"></span>
       </div>
-      <div class="roster-list" id="rosterList"></div>
-      <div class="roster-foot">
-        <button class="btn-add" id="addDancerBtn" type="button"><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Tänzer hinzufügen</span></button>
-        <p class="hint">Raster 1 m, rastet ein · Shift = frei · <strong>Doppelklick</strong> oder der L/F-Knopf teilt ein Paar nur in diesem Bild.</p>
-      </div>
-    </aside>
+    </footer>
     <div class="drawer-scrim" id="rosterScrim"></div>
+  </main>
+
+  <!-- Musik: das Lied oben, darunter Takte · Marken · Anhören als Unterseiten (früher drei Dialoge) -->
+  <main class="ws ws-musik" id="wsMusik" aria-label="Musik" hidden>
+    <div class="ws-head">
+      <div class="song-line">
+        <svg class="ico song-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <span class="song-name" id="songName">Noch kein Lied</span>
+        <button class="btn-ghost" id="songUploadBtn" type="button">Lied wählen</button>
+        <input type="file" id="songInput" accept="audio/*,video/mp4,.mp4,.m4a" hidden>
+        <button class="btn-ghost danger" id="songRemoveBtn" type="button" hidden>Entfernen</button>
+        <label class="music-preroll" title="Nur auf diesem Gerät, z. B. für Bluetooth-Kopfhörer: Das Bild läuft um so viel später, und „Jetzt“ setzt Marken auf das, was gerade zu hören ist. Der Videoexport bleibt exakt.">Audio-Verzögerung <input type="number" id="audioDelayInput" class="coord-input" min="0" max="1000" step="10" value="0" inputmode="numeric" aria-label="Audio-Verzögerung in Millisekunden"> ms</label>
+      </div>
+      <nav class="sub-tabs" aria-label="Musik">
+        <button class="sub-tab" id="musikOpenBtn" type="button"><b>1</b>Takte &amp; Abschnitte</button>
+        <button class="sub-tab" id="markerBtn" type="button"><b>2</b>Bild-Marken</button>
+        <button class="sub-tab" id="musicOnlyBtn" type="button" aria-pressed="false"><b>3</b>Anhören &amp; üben</button>
+      </nav>
+    </div>
+    <section class="view" id="mtBackdrop" aria-labelledby="mtTitle" hidden>
+      <div class="view-panel vl-modal mt-modal">
+        <div class="modal-header">
+          <h2 id="mtTitle">Musik &amp; Takte</h2>
+          <button class="modal-close" hidden id="mtCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <nav class="mt-steps" aria-label="Schritte">
+          <button class="mt-step" type="button" data-step="1"><b>1</b><span>Grenzen</span></button>
+          <button class="mt-step" type="button" data-step="2"><b>2</b><span>Schläge</span></button>
+          <button class="mt-step" type="button" data-step="3"><b>3</b><span>Takt &amp; 1</span></button>
+          <button class="mt-step" type="button" data-step="4"><b>4</b><span>Korrigieren</span></button>
+          <button class="mt-step" type="button" data-step="5"><b>5</b><span>Phrasierung</span></button>
+        </nav>
+        <div class="modal-body mt-body">
+          <div class="mt-guide">
+            <p class="mt-guide-text" id="mtGuide"></p>
+            <p class="mt-note" id="mtNote" role="status" aria-live="polite"></p>
+            <button class="btn-ghost mt-next" id="mtNextBtn" type="button"></button>
+          </div>
+          <div class="mt-waves">
+            <canvas class="mt-overview" id="mtOverview" aria-label="Das ganze Lied – tippen springt dorthin"></canvas>
+            <canvas class="mt-lupe" id="mtLupe" tabindex="0" aria-label="Lupe: die Sekunden um die Abspielposition" aria-describedby="mtKeys"></canvas>
+          </div>
+          <div class="mt-transport">
+            <button class="btn-play btn-play--sm" id="mtPlayBtn" type="button" aria-label="Abspielen" aria-keyshortcuts="Space">
+              <span class="icon-play" id="mtIconPlay"></span>
+              <span class="icon-pause" id="mtIconPause" hidden><i></i><i></i></span>
+            </button>
+            <span class="marker-time" id="mtTime">0:00 / 0:00</span>
+            <button class="btn-ghost marker-toggle-btn" id="mtClickBtn" type="button" aria-pressed="false">Klicks</button>
+          </div>
+          <div class="mt-panel" data-step="1">
+            <button class="btn-ghost btn-accent mt-big" id="mtCutBtn" type="button" aria-keyshortcuts="G">Grenze hier <kbd>G</kbd></button>
+            <span class="mt-info" id="mtCutInfo"></span>
+            <button class="btn-ghost danger" id="mtCutDelBtn" type="button" aria-keyshortcuts="Delete" hidden>Grenze entfernen</button>
+          </div>
+          <div class="mt-panel" data-step="2">
+            <button class="btn-ghost btn-accent mt-big" id="mtDetectBtn" type="button">Schläge erkennen</button>
+            <progress id="mtProgress" max="1" value="0" hidden></progress>
+          </div>
+          <div class="mt-panel" data-step="3">
+            <button class="btn-ghost btn-accent mt-big" id="mtOneBtn" type="button" aria-keyshortcuts="1">Das ist die 1 <kbd>1</kbd></button>
+            <span class="mt-info" id="mtOneInfo"></span>
+          </div>
+          <div class="mt-panel" data-step="4">
+            <div class="mt-row">
+              <span class="mt-info" id="mtShiftInfo"></span>
+              <span class="mt-shift" role="group" aria-labelledby="mtShiftInfo">
+                <button class="btn-ghost" type="button" data-shift="-0.05" aria-label="50 ms früher">−50 ms</button>
+                <button class="btn-ghost" type="button" data-shift="-0.01" aria-label="10 ms früher" aria-keyshortcuts="Shift+ArrowLeft">−10 ms</button>
+                <button class="btn-ghost" type="button" data-shift="0.01" aria-label="10 ms später" aria-keyshortcuts="Shift+ArrowRight">+10 ms</button>
+                <button class="btn-ghost" type="button" data-shift="0.05" aria-label="50 ms später">+50 ms</button>
+              </span>
+            </div>
+            <div class="mt-row">
+              <span class="mt-info" id="mtBeatInfo"></span>
+              <button class="btn-ghost" id="mtBeatAddBtn" type="button" aria-keyshortcuts="S">Schlag hier setzen <kbd>S</kbd></button>
+              <button class="btn-ghost danger" id="mtBeatDelBtn" type="button" aria-keyshortcuts="Delete" hidden>Schlag löschen <kbd>Entf</kbd></button>
+              <button class="btn-ghost" id="mtBeatOneBtn" type="button" aria-keyshortcuts="1" hidden></button>
+            </div>
+          </div>
+          <div class="mt-panel" data-step="5">
+            <label class="mt-info" for="mtPhrase" id="mtPhraseLabel"></label>
+            <input type="text" class="mt-phrase" id="mtPhrase" maxlength="16" spellcheck="false" autocomplete="off" enterkeyhint="next" placeholder="Phrasierung, z. B. QQS+">
+            <input type="text" class="mt-phrase mt-figure" id="mtFigure" maxlength="80" autocomplete="off" enterkeyhint="next" placeholder="Figur, z. B. Natural Turn" aria-label="Figur in diesem Takt">
+            <button class="btn-ghost" id="mtFillBtn" type="button" aria-keyshortcuts="Control+Enter" title="Für alle folgenden leeren Takte des Abschnitts übernehmen (Strg + Enter)">Auch für die leeren danach</button>
+          </div>
+          <p class="settings-hint mt-keys" id="mtKeys"></p>
+          <div class="mt-secs" id="mtSecs" role="list" aria-label="Abschnitte"></div>
+        </div>
+        <div class="vl-footer mt-footer">
+          <button class="btn-ghost btn-icon-only" id="mtUndoBtn" type="button" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
+          <button class="btn-ghost btn-icon-only" id="mtRedoBtn" type="button" aria-label="Wiederholen (Strg+Umschalt+Z)" title="Wiederholen (Strg+Umschalt+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
+          <button class="btn-ghost danger" id="mtResetBtn" type="button">Alles zurücksetzen</button>
+          <button class="btn-ghost" id="mtDoneBtn" type="button">Weiter zu den Bild-Marken</button>
+        </div>
+      </div>
+    </section>
+    <section class="view" id="markerBackdrop" aria-labelledby="markerTitle" hidden>
+      <div class="view-panel modal-wide">
+        <div class="modal-header">
+          <h2 id="markerTitle">Bild-Marken</h2>
+          <button class="modal-close" hidden id="markerCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <p class="settings-hint" id="markerNoSongHint">Wähl oben ein Lied, dann bekommt hier jedes Bild seinen Zeitpunkt im Lied.</p>
+
+          <div id="markerSongArea" hidden>
+            <section class="settings-section">
+              <div class="settings-row" style="justify-content:space-between;">
+                <h3 style="margin:0;">Vorhören</h3>
+                <span class="sync-badge" id="syncBadge" hidden>Synchronisation aktiv</span>
+              </div>
+              <div class="settings-row">
+                <button class="btn-play btn-play--sm" id="markerPlayBtn" type="button" aria-label="Abspielen">
+                  <span class="icon-play" id="markerIconPlay"></span>
+                  <span class="icon-pause" id="markerIconPause" hidden><i></i><i></i></span>
+                </button>
+                <span class="marker-time" id="markerTimeReadout">0:00 / 0:00</span>
+                <button class="btn-ghost marker-toggle-btn" id="beatClickBtn" type="button" aria-pressed="false" disabled>Klicks</button>
+                <span class="marker-zoom">
+                  <button class="btn-ghost marker-nudge-btn" id="markerZoomOutBtn" type="button" aria-label="Zeitleiste herauszoomen" title="Herauszoomen">−</button>
+                  <button class="btn-ghost marker-nudge-btn" id="markerZoomInBtn" type="button" aria-label="Zeitleiste hineinzoomen" title="Hineinzoomen (auch Mausrad über der Zeitleiste)">+</button>
+                </span>
+              </div>
+              <div class="marker-timeline" id="markerTimeline">
+                <div class="marker-timeline-bar">
+                  <canvas class="marker-timeline-wave" id="markerTimelineWave" aria-hidden="true"></canvas>
+                  <div class="marker-timeline-played" id="markerTimelinePlayed"></div>
+                  <canvas class="marker-timeline-beats" id="markerTimelineBeats" aria-hidden="true"></canvas>
+                  <div class="marker-timeline-head" id="markerTimelineHead"></div>
+                </div>
+                <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
+              </div>
+              <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder das Mausrad über der Zeitleiste) zoomen an die Stelle, seitlich wischen oder Shift + Mausrad verschiebt. Bei jeder Marke rückt − / + sie um 0,01 s, ein Bild in den Takten von Taktgrenze zu Taktgrenze („T. 12|13“: zwischen Takt 12 und 13).</p>
+            </section>
+
+            <section class="settings-section">
+              <h3>Takte</h3>
+              <p class="settings-hint" id="musikStatus"></p>
+              <div class="settings-row">
+                <button class="btn-ghost" id="beatSnapAllBtn" type="button" hidden>Alle Marken auf Schläge rücken</button>
+              </div>
+              <p class="settings-hint" id="beatStatus" aria-live="polite"></p>
+              <label class="toggle-label"><input type="checkbox" id="beatSnapToggle"> „Jetzt“ rastet ein: ein Bild in den Takten auf die nächste Taktgrenze, sonst auf den nächsten Schlag</label>
+            </section>
+
+            <section class="settings-section">
+              <h3>Bilder</h3>
+              <p class="settings-hint">Bild 1 ist die Startaufstellung. Jedes weitere Bild ist das Ende seines Abschnitts und zugleich der Anfang des nächsten: Seine Marke ist der Moment, in dem alle dort ankommen.</p>
+              <p class="settings-hint">Bilder ohne Marke verteilt die Wiedergabe gleichmäßig: zwischen zwei Marken auf die Zeit dazwischen, vor der ersten ab 0:00, nach der letzten bis zum Liedende. Grau steht, wo sie dann landen.</p>
+              <p class="marker-warning" id="markerOrderWarning" hidden></p>
+              <div class="marker-list" id="markerList"></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="view" id="musicBackdrop" aria-labelledby="musicTitle" hidden>
+      <div class="view-panel modal-wide">
+        <div class="modal-header">
+          <h2 id="musicTitle">Anhören &amp; üben</h2>
+          <button class="modal-close" hidden id="musicCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <p class="settings-hint" id="musicNoSongHint">Wähl oben ein Lied.</p>
+
+          <div id="musicSongArea" hidden>
+            <section class="settings-section">
+              <div class="settings-row">
+                <button class="btn-play btn-play--sm" id="musicPlayBtn" type="button" aria-label="Musik abspielen">
+                  <span class="icon-play" id="musicIconPlay"></span>
+                  <span class="icon-pause" id="musicIconPause" hidden><i></i><i></i></span>
+                </button>
+                <span class="marker-time" id="musicTimeReadout">0:00 / 0:00</span>
+                <span class="music-current">Gerade: <strong id="musicCurrentBild">–</strong></span>
+              </div>
+              <div class="marker-timeline" id="musicTimeline">
+                <div class="marker-timeline-bar">
+                  <div class="marker-timeline-played" id="musicTimelinePlayed"></div>
+                  <div class="marker-timeline-head" id="musicTimelineHead"></div>
+                </div>
+                <div class="marker-timeline-flags" id="musicTimelineFlags"></div>
+              </div>
+              <p class="settings-hint">Die Bühne bleibt stehen — nur das Lied läuft. Klick in die Zeitleiste springt an die Stelle.</p>
+            </section>
+
+            <section class="settings-section">
+              <h3>Geschwindigkeit</h3>
+              <div class="settings-row music-rate-row">
+                <input type="range" id="musicRateSlider" min="0" max="100" value="50" aria-label="Geschwindigkeit des Lieds">
+                <label class="music-rate-readout"><input type="text" id="musicRateInput" class="music-rate-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Geschwindigkeit als Zahl" title="Geschwindigkeit eingeben (0,25 bis 2,0)"><span class="marker-time">×</span></label>
+                <button class="btn-ghost marker-now-btn" id="musicRateResetBtn" type="button">1,0×</button>
+              </div>
+              <p class="settings-hint">0,5× bis 2,0× vom Original per Regler, als Zahl ab 0,25× — derselbe Wert wie „Tempo“ in der Abspielleiste.</p>
+            </section>
+
+            <section class="settings-section">
+              <h3>Start bei</h3>
+              <div class="settings-row">
+                <input type="text" class="marker-time-input" id="musicStartInput" inputmode="decimal" placeholder="0:00.0" aria-label="Startzeit (m:ss)">
+                <button class="btn-ghost marker-now-btn" id="musicStartBtn" type="button"><svg class="ico" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 4.5v15l12.5-7.5Z" fill="currentColor"/></svg><span>Abspielen</span></button>
+              </div>
+              <label class="music-stop-toggle"><input type="checkbox" id="musicStopAtNext"> Am nächsten Marker anhalten</label>
+            </section>
+
+            <section class="settings-section">
+              <h3>Ab Marker eines Bildes</h3>
+              <label class="music-preroll">Vorlauf <input type="number" id="musicPrerollInput" class="coord-input" min="0" max="60" step="1" value="0" inputmode="numeric" aria-label="Vorlauf in Sekunden vor dem Marker"> s vor dem Marker</label>
+              <p class="settings-hint" id="musicNoMarkersHint" hidden>Noch keine Bilder mit Marker — Zeitpunkte setzt du unter „Bild-Marken“.</p>
+              <div class="marker-list" id="musicMarkerList"></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Teilen & Export: Links und Dateien nebeneinander; das Video-Layout übernimmt die ganze Seite -->
+  <main class="ws ws-teilen" id="wsTeilen" aria-label="Teilen und Export" hidden>
+    <section class="view" id="shareBackdrop" aria-labelledby="shareTitle" hidden>
+      <div class="view-panel modal-narrow">
+        <div class="modal-header">
+          <h2 id="shareTitle">Per Link teilen</h2>
+          <button class="modal-close" hidden id="shareCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <div class="settings-section" id="shareIntro">
+            <p class="settings-hint">Erstellt einen Link, über den diese Formation (samt Lied und Logo) geöffnet werden kann. Der Link bleibt live: Änderungen, die du oder jemand anders danach vornimmt, sind für alle mit dem Link automatisch sichtbar — niemand muss einen neuen Link erstellen.</p>
+            <button class="btn-primary" id="shareCreateBtn" type="button">Link erstellen</button>
+          </div>
+          <div class="settings-section" id="shareProgress" hidden>
+            <div class="progress-track"><div class="progress-fill" id="shareProgressFill"></div></div>
+            <p class="settings-hint" id="shareProgressText">Wird hochgeladen…</p>
+          </div>
+          <div class="settings-section" id="shareResult" hidden>
+            <div id="shareEditLinkField" hidden>
+              <h3>Zum Bearbeiten</h3>
+              <div class="filename-field">
+                <input type="text" id="shareEditLinkInput" class="filename-input" readonly aria-label="Bearbeiten-Link">
+                <button class="btn-ghost" id="shareEditCopyBtn" type="button">Kopieren</button>
+              </div>
+              <p class="settings-hint">Wer diesen Link öffnet, kann die Formation ändern. Nur an Leute geben, die mitarbeiten sollen.</p>
+            </div>
+            <h3 id="shareMainLinkHeading">Nur zum Ansehen</h3>
+            <div class="filename-field">
+              <input type="text" id="shareLinkInput" class="filename-input" readonly aria-label="Ansehen-Link">
+              <button class="btn-ghost" id="shareCopyBtn" type="button">Kopieren</button>
+            </div>
+            <p class="settings-hint" id="shareCopiedHint" hidden>In die Zwischenablage kopiert.</p>
+            <p class="settings-hint" id="shareViewOnlyNote" hidden>Du hast diese Formation nur zum Ansehen geöffnet — deine Änderungen werden nicht gespeichert.</p>
+            <p class="settings-hint" id="shareLegacyNote" hidden>Dieser Link wurde früher erstellt — jeder, der ihn öffnet, kann die Formation bearbeiten. Für getrennte Ansehen-/Bearbeiten-Links „Verknüpfung aufheben" und einen neuen Link erstellen.</p>
+            <p class="settings-hint" id="shareLiveHint">Beide Links bleiben live: neue Änderungen sind für alle mit dem jeweiligen Link sofort sichtbar.</p>
+            <button class="btn-ghost danger" id="shareUnlinkBtn" type="button">Verknüpfung aufheben</button>
+          </div>
+          <section class="settings-section" id="shareOwnerSection" hidden>
+            <h3>Besitz &amp; Rechte</h3>
+            <p class="settings-hint" id="shareOwnerStatus"></p>
+            <div id="shareAccountForm" hidden>
+              <div class="share-account-fields">
+                <input type="text" id="shareAccountName" placeholder="Nutzername" autocomplete="username" maxlength="40" aria-label="Nutzername">
+                <input type="password" id="shareAccountPw" placeholder="Passwort" autocomplete="current-password" maxlength="200" aria-label="Passwort">
+              </div>
+              <div class="settings-row">
+                <button class="btn-ghost" id="shareLoginBtn" type="button">Anmelden</button>
+                <button class="btn-ghost" id="shareRegisterBtn" type="button">Konto anlegen</button>
+              </div>
+              <p class="settings-hint">Ein Konto brauchst du nur, um Rechte festzulegen. Es gibt kein Zurücksetzen per E-Mail – merk dir dein Passwort.</p>
+            </div>
+            <button class="btn-ghost" id="shareClaimBtn" type="button" hidden>Choreo übernehmen</button>
+            <div id="shareOwnerSettings" hidden>
+              <label class="toggle-label"><input type="checkbox" id="shareViewLinkToggle"> Ansehen-Link aktiv</label>
+              <label class="toggle-label"><input type="checkbox" id="shareEditLinkToggle"> Bearbeiten-Link aktiv</label>
+              <p class="settings-hint">Wer den Bearbeiten-Link hat, darf:</p>
+              <div id="shareRightsList">
+                <label class="toggle-label"><input type="checkbox" value="edit"> Bearbeiten (Aufstellungen, Bilder, Marken …)</label>
+                <label class="toggle-label"><input type="checkbox" value="rename"> Choreo umbenennen</label>
+                <label class="toggle-label"><input type="checkbox" value="delete"> Bilder löschen</label>
+                <label class="toggle-label"><input type="checkbox" value="media"> Lied und Logo ändern</label>
+                <label class="toggle-label"><input type="checkbox" value="videos"> Videos hochladen und löschen</label>
+              </div>
+              <button class="btn-ghost" id="shareRotateBtn" type="button">Neuen Bearbeiten-Link erzeugen</button>
+            </div>
+            <button class="btn-ghost danger" id="shareDeleteBtn" type="button" hidden>Choreo endgültig löschen</button>
+            <p class="settings-hint" id="shareAccountLine" hidden>Angemeldet als <strong id="shareAccountUser"></strong> · <button class="btn-link" id="shareLogoutBtn" type="button">Abmelden</button></p>
+            <p class="settings-hint import-error-inline" id="shareOwnerError" hidden></p>
+          </section>
+          <p class="settings-hint import-error-inline" id="shareErrorText" hidden></p>
+        </div>
+      </div>
+    </section>
+    <section class="view" id="exportBackdrop" aria-labelledby="exportTitle" hidden>
+      <div class="view-panel modal-narrow">
+        <div class="modal-header">
+          <h2 id="exportTitle">Exportieren</h2>
+          <button class="modal-close" hidden id="exportCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <section class="settings-section">
+            <h3 id="exportFormatLabel">Was?</h3>
+            <div class="export-formats" role="radiogroup" aria-labelledby="exportFormatLabel">
+              <label class="export-format"><input type="radio" name="exportFormat" value="stg" checked>
+                <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/></svg><strong>Projekt <code>.stg</code></strong></span>
+                <span>Alles – Lied, Logo, Bilder, Paare</span>
+              </label>
+              <label class="export-format"><input type="radio" name="exportFormat" value="auf">
+                <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg><strong>Aufstellung <code>.auf</code></strong></span>
+                <span>Nur Positionen, Namen, Zeiten, Drehungen</span>
+              </label>
+              <label class="export-format"><input type="radio" name="exportFormat" value="video">
+                <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg><strong>Video</strong></span>
+                <span>Die Choreo als Animation, mit Lied</span>
+              </label>
+              <label class="export-format"><input type="radio" name="exportFormat" value="pdf">
+                <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4v-4H4v4Z"/><path d="M10 20h4v-9h-4v9Z"/><path d="M16 20h4V4h-4v16Z"/></svg><strong>Schritte-PDF</strong></span>
+                <span>Blätter zum Ausdrucken, pro Bild eine Karte</span>
+              </label>
+            </div>
+            <p class="settings-hint" id="exportEmptyHint" hidden>Video und Schritte-PDF gibt es, sobald Tänzer angelegt sind.</p>
+          </section>
+          <section class="settings-section" id="exportWhoSection" hidden>
+            <h3 id="exportWhoTitle">Wer?</h3>
+            <div class="export-who-list" id="exportWhoList" role="group" aria-labelledby="exportWhoTitle"></div>
+            <p class="settings-hint" id="exportWhoHint"></p>
+          </section>
+          <section class="settings-section" id="exportOptionsSection" hidden>
+            <h3>Optionen</h3>
+            <div id="exportQualityOption">
+              <div class="settings-row"><label for="exportQualitySelect">Qualität</label>
+                <select id="exportQualitySelect">
+                  <option value="entwurf">Entwurf – 900 × 480, am schnellsten</option>
+                  <option value="standard" selected>Standard – 1500 × 800</option>
+                  <option value="hoch">Hoch – 1920 × 1024, dauert länger</option>
+                </select>
+              </div>
+              <p class="settings-hint" id="exportRealtimeHint" hidden>Dieser Browser kann das Video nur in Echtzeit aufnehmen – das dauert so lang wie das Lied. Chrome oder Edge rendern es in einem Bruchteil der Zeit.</p>
+            </div>
+            <div id="exportLayoutOption">
+              <button class="btn-ghost" id="exportLayoutBtn" type="button" aria-haspopup="dialog"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>Video-Layout anpassen …</button>
+              <p class="settings-hint" id="exportLayoutHint">Was das Video zeigt und wo: Format, Bühne, Bild-Namen, Logo, eigene Texte und Grafiken.</p>
+            </div>
+            <label class="toggle-label" id="exportContextOption"><input type="checkbox" id="exportContextToggle"> Andere Paare hellgrau einblenden</label>
+            <div id="exportGhostOption">
+              <label class="toggle-label"><input type="checkbox" id="exportGhostToggle"> Herkunfts- und Zielpunkte einblenden</label>
+              <p class="settings-hint">Graue Punkte (Position im vorigen Bild) und blasse farbige Punkte (nächstes Bild) – wie die Geister-Punkte im Editor.</p>
+            </div>
+            <label class="toggle-label" id="exportNotesOption"><input type="checkbox" id="exportNotesToggle" checked> Notizen zu Bildern und Zwischenpositionen</label>
+            <label class="toggle-label" id="exportPathsOption"><input type="checkbox" id="exportPathsToggle"> Weglinien zum nächsten Bild einzeichnen</label>
+          </section>
+          <section class="settings-section">
+            <h3><label for="filenameInput">Dateiname</label></h3>
+            <div class="filename-field">
+              <input type="text" id="filenameInput" class="filename-input" maxlength="120" autocomplete="off" spellcheck="false">
+              <span class="filename-ext" id="filenameExt">.stg</span>
+            </div>
+            <p class="settings-hint" id="exportPdfHint" hidden>Öffnet den Druckdialog – dort als Ziel „Als PDF speichern“ wählen.</p>
+          </section>
+          <div class="filename-actions">
+            <button class="btn-ghost" id="exportCancelBtn" type="button" hidden>Abbrechen</button>
+            <button class="btn-primary" id="exportConfirmBtn" type="button">Speichern</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="view" id="videoLayoutBackdrop" aria-labelledby="videoLayoutTitle" hidden>
+      <div class="view-panel vl-modal">
+        <div class="modal-header">
+          <h2 id="videoLayoutTitle">Video-Layout</h2>
+          <button class="modal-close" hidden id="videoLayoutCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div class="vl-body">
+          <div class="vl-preview">
+            <div class="vl-frame-wrap" id="vlFrameWrap">
+              <div class="vl-frame" id="vlFrame">
+                <canvas id="vlCanvas" aria-hidden="true"></canvas>
+                <div class="vl-boxes" id="vlBoxes" role="group" aria-label="Elemente im Video-Bild"></div>
+              </div>
+            </div>
+            <div class="vl-moment">
+              <label for="vlMoment">Vorschau</label>
+              <input type="range" id="vlMoment" min="0" max="0" step="0.01" value="0">
+              <span class="vl-moment-text" id="vlMomentText"></span>
+            </div>
+          </div>
+          <div class="vl-side">
+            <section class="settings-section">
+              <h3>Video-Bild</h3>
+              <div class="settings-row"><label for="vlFormat">Format</label>
+                <select id="vlFormat">
+                  <option value="quer">Quer wie bisher – 1500 × 800</option>
+                  <option value="breit">Breitbild 16:9 – 1440 × 810</option>
+                  <option value="hoch">Hochformat 9:16 – 810 × 1440</option>
+                  <option value="quadrat">Quadrat 1:1 – 1080 × 1080</option>
+                </select>
+              </div>
+              <label class="vl-color"><input type="color" id="vlBg">Hintergrundfarbe</label>
+              <label class="toggle-label"><input type="checkbox" id="vlSnap" checked> Beim Ziehen an Mitte, Rändern und anderen Elementen einrasten</label>
+            </section>
+            <section class="settings-section">
+              <h3 id="vlListTitle">Elemente</h3>
+              <div class="vl-list" id="vlList" role="list" aria-labelledby="vlListTitle"></div>
+              <div class="vl-actions">
+                <button class="btn-ghost" id="vlAddTextBtn" type="button">Text hinzufügen</button>
+                <button class="btn-ghost" id="vlAddBarBtn" type="button">Takt &amp; Figur hinzufügen</button>
+                <button class="btn-ghost" id="vlAddImageBtn" type="button">Grafik hinzufügen</button>
+                <input type="file" id="vlImageInput" accept="image/*" hidden>
+              </div>
+              <p class="settings-hint import-error-inline" id="vlImageError" role="alert" hidden>Diese Datei kann der Browser nicht als Bild lesen.</p>
+              <p class="settings-hint">Im Bild antippen zum Auswählen, ziehen zum Verschieben, an den Ecken ziehen für die Größe. Liegen Elemente übereinander, wählt ein zweites Antippen das darunter. Ausgewählt verschieben auch die Pfeiltasten.</p>
+            </section>
+            <section class="settings-section" id="vlProps"></section>
+          </div>
+        </div>
+        <div class="vl-footer">
+          <button class="btn-ghost btn-icon-only" id="vlUndoBtn" type="button" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
+          <button class="btn-ghost btn-icon-only" id="vlRedoBtn" type="button" aria-label="Wiederholen (Strg+Umschalt+Z)" title="Wiederholen (Strg+Umschalt+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
+          <button class="btn-ghost" id="vlResetBtn" type="button">Standard wiederherstellen</button>
+          <button class="btn-ghost" id="vlDoneBtn" type="button">Fertig</button>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 <div class="menu-scrim" id="menuScrim"></div>
 
-
-<div class="modal-backdrop" id="settingsBackdrop" hidden>
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-    <div class="modal-header">
-      <h2 id="settingsTitle">Einstellungen</h2>
-      <button class="modal-close" id="settingsCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-    </div>
-    <div class="modal-body">
-      <section class="settings-section">
-        <h3>Ansicht</h3>
-        <div class="settings-row"><label for="themeSelect">Design</label>
-          <select id="themeSelect">
-            <option value="">Wie das Gerät</option>
-            <option value="light">Hell</option>
-            <option value="dark">Dunkel</option>
-          </select>
-        </div>
-        <p class="settings-hint">Nur auf diesem Gerät.</p>
-        <label class="toggle-label"><input type="checkbox" id="facingToggle" checked> Blickrichtungen anzeigen</label>
-        <p class="settings-hint">Die kleinen Pfeile an den Punkten, auf der Bühne und im Video. Gilt für die ganze Choreo – auf jedem Gerät, das sie öffnet, auch beim Teilen.</p>
-        <div class="settings-row stage-size-row">
-          <label>Breite <input type="number" id="stageWidthInput" class="coord-input" min="4" max="40" step="0.5" inputmode="decimal" aria-label="Bühnenbreite in Metern"> m</label>
-          <label>Tiefe <input type="number" id="stageDepthInput" class="coord-input" min="4" max="40" step="0.5" inputmode="decimal" aria-label="Bühnentiefe in Metern"> m</label>
-        </div>
-        <p class="settings-hint">Bühnengröße: Breite von links nach rechts, Tiefe von vorn nach hinten, 4 bis 40 m – das Raster zeigt 1 m. Wer bei einer kleineren Fläche draußen stünde, wird an den Rand geholt. Gilt für die ganze Choreo.</p>
-        <label class="toggle-label"><input type="checkbox" id="pathsToggle"> Weglinien einblenden</label>
-        <label class="toggle-label"><input type="checkbox" id="clashToggle"> Warnen, wenn sich Tänzer unterwegs zu nahe kommen</label>
-        <p class="settings-hint">Die Wege vom gewählten Bild zum nächsten, mit Zwischenpositionen und Drehungen. Die Warnung markiert rot, wo sich zwei Punkte unterwegs näher als etwa 1 Rasterfeld kommen – und näher als in den Bildern, in denen sie gestellt sind. Nur auf diesem Gerät.</p>
-      </section>
-
-      <section class="settings-section">
-        <h3>Hintergrund-Logo</h3>
-        <div class="settings-row">
-          <button class="btn-ghost" id="logoUploadBtn" type="button">Logo wählen</button>
-          <input type="file" id="logoInput" accept="image/*" hidden>
-          <button class="btn-ghost danger" id="logoRemoveBtn" type="button" hidden>Entfernen</button>
-        </div>
-        <div class="logo-preview-wrap" id="logoPreviewWrap" hidden>
-          <img id="logoPreview" alt="Logo-Vorschau">
-        </div>
-        <div class="settings-row" id="logoOpacityRow" hidden>
-          <span class="caption">Deckkraft <span id="logoOpacityReadout">18%</span></span>
-          <input type="range" id="logoOpacitySlider" min="2" max="60" value="18">
-        </div>
-      </section>
-
-      <section class="settings-section">
-        <h3>Musik</h3>
-        <div class="settings-row">
-          <button class="btn-ghost" id="songUploadBtn" type="button">Lied wählen</button>
-          <input type="file" id="songInput" accept="audio/*,video/mp4,.mp4,.m4a" hidden>
-          <button class="btn-ghost danger" id="songRemoveBtn" type="button" hidden>Entfernen</button>
-        </div>
-        <p class="settings-hint" id="songName" hidden></p>
-        <label class="music-preroll">Audio-Verzögerung <input type="number" id="audioDelayInput" class="coord-input" min="0" max="1000" step="10" value="0" inputmode="numeric" aria-label="Audio-Verzögerung in Millisekunden"> ms</label>
-        <p class="settings-hint">Nur auf diesem Gerät, z.&nbsp;B. für Bluetooth-Kopfhörer: Das Bild läuft um so viel später, und „Jetzt“ setzt Marker auf das, was gerade zu hören ist. Der Videoexport bleibt exakt.</p>
-      </section>
-
-    </div>
-  </div>
-</div>
 
 <div class="modal-backdrop" id="helpBackdrop" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
@@ -358,341 +778,6 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
   </div>
 </div>
 
-<div class="modal-backdrop" id="markerBackdrop" hidden>
-  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="markerTitle">
-    <div class="modal-header">
-      <h2 id="markerTitle">Marker</h2>
-      <button class="modal-close" id="markerCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-    </div>
-    <div class="modal-body">
-      <p class="settings-hint" id="markerNoSongHint">Lade zuerst ein Lied (Einstellungen → Musik), um Bilder mit Zeitpunkten im Song zu verknüpfen.</p>
-
-      <div id="markerSongArea" hidden>
-        <section class="settings-section">
-          <div class="settings-row" style="justify-content:space-between;">
-            <h3 style="margin:0;">Vorhören</h3>
-            <span class="sync-badge" id="syncBadge" hidden>Synchronisation aktiv</span>
-          </div>
-          <div class="settings-row">
-            <button class="btn-play btn-play--sm" id="markerPlayBtn" type="button" aria-label="Abspielen">
-              <span class="icon-play" id="markerIconPlay"></span>
-              <span class="icon-pause" id="markerIconPause" hidden><i></i><i></i></span>
-            </button>
-            <span class="marker-time" id="markerTimeReadout">0:00 / 0:00</span>
-            <button class="btn-ghost marker-toggle-btn" id="beatClickBtn" type="button" aria-pressed="false" disabled>Klicks</button>
-            <span class="marker-zoom">
-              <button class="btn-ghost marker-nudge-btn" id="markerZoomOutBtn" type="button" aria-label="Zeitleiste herauszoomen" title="Herauszoomen">−</button>
-              <button class="btn-ghost marker-nudge-btn" id="markerZoomInBtn" type="button" aria-label="Zeitleiste hineinzoomen" title="Hineinzoomen (auch Mausrad über der Zeitleiste)">+</button>
-            </span>
-          </div>
-          <div class="marker-timeline" id="markerTimeline">
-            <div class="marker-timeline-bar">
-              <canvas class="marker-timeline-wave" id="markerTimelineWave" aria-hidden="true"></canvas>
-              <div class="marker-timeline-played" id="markerTimelinePlayed"></div>
-              <canvas class="marker-timeline-beats" id="markerTimelineBeats" aria-hidden="true"></canvas>
-              <div class="marker-timeline-head" id="markerTimelineHead"></div>
-            </div>
-            <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
-          </div>
-          <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder das Mausrad über der Zeitleiste) zoomen an die Stelle, seitlich wischen oder Shift + Mausrad verschiebt. Bei jeder Marke rückt − / + sie um 0,01 s, ein Bild in den Takten von Taktgrenze zu Taktgrenze („T. 12|13“: zwischen Takt 12 und 13).</p>
-        </section>
-
-        <section class="settings-section">
-          <h3>Musik &amp; Takte</h3>
-          <div class="settings-row">
-            <button class="btn-ghost" id="musikOpenBtn" type="button">Musik &amp; Takte …</button>
-            <span class="settings-hint" id="musikStatus"></span>
-          </div>
-          <div class="settings-row">
-            <button class="btn-ghost" id="beatSnapAllBtn" type="button" hidden>Alle Marken auf Schläge rücken</button>
-          </div>
-          <p class="settings-hint" id="beatStatus" aria-live="polite"></p>
-          <label class="toggle-label"><input type="checkbox" id="beatSnapToggle"> „Jetzt“ rastet ein: ein Bild in den Takten auf die nächste Taktgrenze, sonst auf den nächsten Schlag</label>
-        </section>
-
-        <section class="settings-section">
-          <h3>Bilder</h3>
-          <p class="settings-hint">Bild 1 ist die Startaufstellung. Jedes weitere Bild ist das Ende seines Abschnitts und zugleich der Anfang des nächsten: Seine Marke ist der Moment, in dem alle dort ankommen.</p>
-          <p class="settings-hint">Bilder ohne Marke verteilt die Wiedergabe gleichmäßig: zwischen zwei Marken auf die Zeit dazwischen, vor der ersten ab 0:00, nach der letzten bis zum Liedende. Grau steht, wo sie dann landen.</p>
-          <p class="marker-warning" id="markerOrderWarning" hidden></p>
-          <div class="marker-list" id="markerList"></div>
-        </section>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-backdrop" id="musicBackdrop" hidden>
-  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="musicTitle">
-    <div class="modal-header">
-      <h2 id="musicTitle">Nur Musik</h2>
-      <button class="modal-close" id="musicCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-    </div>
-    <div class="modal-body">
-      <p class="settings-hint" id="musicNoSongHint">Lade zuerst ein Lied (Einstellungen → Musik).</p>
-
-      <div id="musicSongArea" hidden>
-        <section class="settings-section">
-          <div class="settings-row">
-            <button class="btn-play btn-play--sm" id="musicPlayBtn" type="button" aria-label="Musik abspielen">
-              <span class="icon-play" id="musicIconPlay"></span>
-              <span class="icon-pause" id="musicIconPause" hidden><i></i><i></i></span>
-            </button>
-            <span class="marker-time" id="musicTimeReadout">0:00 / 0:00</span>
-            <span class="music-current">Gerade: <strong id="musicCurrentBild">–</strong></span>
-          </div>
-          <div class="marker-timeline" id="musicTimeline">
-            <div class="marker-timeline-bar">
-              <div class="marker-timeline-played" id="musicTimelinePlayed"></div>
-              <div class="marker-timeline-head" id="musicTimelineHead"></div>
-            </div>
-            <div class="marker-timeline-flags" id="musicTimelineFlags"></div>
-          </div>
-          <p class="settings-hint">Die Bühne bleibt stehen — nur das Lied läuft. Klick in die Zeitleiste springt an die Stelle.</p>
-        </section>
-
-        <section class="settings-section">
-          <h3>Geschwindigkeit</h3>
-          <div class="settings-row music-rate-row">
-            <input type="range" id="musicRateSlider" min="0" max="100" value="50" aria-label="Geschwindigkeit des Lieds">
-            <label class="music-rate-readout"><input type="text" id="musicRateInput" class="music-rate-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Geschwindigkeit als Zahl" title="Geschwindigkeit eingeben (0,25 bis 2,0)"><span class="marker-time">×</span></label>
-            <button class="btn-ghost marker-now-btn" id="musicRateResetBtn" type="button">1,0×</button>
-          </div>
-          <p class="settings-hint">0,5× bis 2,0× vom Original per Regler, als Zahl ab 0,25× — derselbe Wert wie „Tempo“ in der Abspielleiste.</p>
-        </section>
-
-        <section class="settings-section">
-          <h3>Start bei</h3>
-          <div class="settings-row">
-            <input type="text" class="marker-time-input" id="musicStartInput" inputmode="decimal" placeholder="0:00.0" aria-label="Startzeit (m:ss)">
-            <button class="btn-ghost marker-now-btn" id="musicStartBtn" type="button"><svg class="ico" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 4.5v15l12.5-7.5Z" fill="currentColor"/></svg><span>Abspielen</span></button>
-          </div>
-          <label class="music-stop-toggle"><input type="checkbox" id="musicStopAtNext"> Am nächsten Marker anhalten</label>
-        </section>
-
-        <section class="settings-section">
-          <h3>Ab Marker eines Bildes</h3>
-          <label class="music-preroll">Vorlauf <input type="number" id="musicPrerollInput" class="coord-input" min="0" max="60" step="1" value="0" inputmode="numeric" aria-label="Vorlauf in Sekunden vor dem Marker"> s vor dem Marker</label>
-          <p class="settings-hint" id="musicNoMarkersHint" hidden>Noch keine Bilder mit Marker — Zeitpunkte setzt du unter „Marker“.</p>
-          <div class="marker-list" id="musicMarkerList"></div>
-        </section>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-backdrop" id="exportBackdrop" hidden>
-  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
-    <div class="modal-header">
-      <h2 id="exportTitle">Exportieren</h2>
-      <button class="modal-close" id="exportCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-    </div>
-    <div class="modal-body">
-      <section class="settings-section">
-        <h3 id="exportFormatLabel">Was?</h3>
-        <div class="export-formats" role="radiogroup" aria-labelledby="exportFormatLabel">
-          <label class="export-format"><input type="radio" name="exportFormat" value="stg" checked>
-            <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/></svg><strong>Projekt <code>.stg</code></strong></span>
-            <span>Alles – Lied, Logo, Bilder, Paare</span>
-          </label>
-          <label class="export-format"><input type="radio" name="exportFormat" value="auf">
-            <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg><strong>Aufstellung <code>.auf</code></strong></span>
-            <span>Nur Positionen, Namen, Zeiten, Drehungen</span>
-          </label>
-          <label class="export-format"><input type="radio" name="exportFormat" value="video">
-            <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg><strong>Video</strong></span>
-            <span>Die Choreo als Animation, mit Lied</span>
-          </label>
-          <label class="export-format"><input type="radio" name="exportFormat" value="pdf">
-            <span class="export-format-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4v-4H4v4Z"/><path d="M10 20h4v-9h-4v9Z"/><path d="M16 20h4V4h-4v16Z"/></svg><strong>Schritte-PDF</strong></span>
-            <span>Blätter zum Ausdrucken, pro Bild eine Karte</span>
-          </label>
-        </div>
-        <p class="settings-hint" id="exportEmptyHint" hidden>Video und Schritte-PDF gibt es, sobald Tänzer angelegt sind.</p>
-      </section>
-      <section class="settings-section" id="exportWhoSection" hidden>
-        <h3 id="exportWhoTitle">Wer?</h3>
-        <div class="export-who-list" id="exportWhoList" role="group" aria-labelledby="exportWhoTitle"></div>
-        <p class="settings-hint" id="exportWhoHint"></p>
-      </section>
-      <section class="settings-section" id="exportOptionsSection" hidden>
-        <h3>Optionen</h3>
-        <div id="exportQualityOption">
-          <div class="settings-row"><label for="exportQualitySelect">Qualität</label>
-            <select id="exportQualitySelect">
-              <option value="entwurf">Entwurf – 900 × 480, am schnellsten</option>
-              <option value="standard" selected>Standard – 1500 × 800</option>
-              <option value="hoch">Hoch – 1920 × 1024, dauert länger</option>
-            </select>
-          </div>
-          <p class="settings-hint" id="exportRealtimeHint" hidden>Dieser Browser kann das Video nur in Echtzeit aufnehmen – das dauert so lang wie das Lied. Chrome oder Edge rendern es in einem Bruchteil der Zeit.</p>
-        </div>
-        <div id="exportLayoutOption">
-          <button class="btn-ghost" id="exportLayoutBtn" type="button" aria-haspopup="dialog"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>Video-Layout anpassen …</button>
-          <p class="settings-hint" id="exportLayoutHint">Was das Video zeigt und wo: Format, Bühne, Bild-Namen, Logo, eigene Texte und Grafiken.</p>
-        </div>
-        <label class="toggle-label" id="exportContextOption"><input type="checkbox" id="exportContextToggle"> Andere Paare hellgrau einblenden</label>
-        <div id="exportGhostOption">
-          <label class="toggle-label"><input type="checkbox" id="exportGhostToggle"> Herkunfts- und Zielpunkte einblenden</label>
-          <p class="settings-hint">Graue Punkte (Position im vorigen Bild) und blasse farbige Punkte (nächstes Bild) – wie die Geister-Punkte im Editor.</p>
-        </div>
-        <label class="toggle-label" id="exportNotesOption"><input type="checkbox" id="exportNotesToggle" checked> Notizen zu Bildern und Zwischenpositionen</label>
-        <label class="toggle-label" id="exportPathsOption"><input type="checkbox" id="exportPathsToggle"> Weglinien zum nächsten Bild einzeichnen</label>
-      </section>
-      <section class="settings-section">
-        <h3><label for="filenameInput">Dateiname</label></h3>
-        <div class="filename-field">
-          <input type="text" id="filenameInput" class="filename-input" maxlength="120" autocomplete="off" spellcheck="false">
-          <span class="filename-ext" id="filenameExt">.stg</span>
-        </div>
-        <p class="settings-hint" id="exportPdfHint" hidden>Öffnet den Druckdialog – dort als Ziel „Als PDF speichern“ wählen.</p>
-      </section>
-      <div class="filename-actions">
-        <button class="btn-ghost" id="exportCancelBtn" type="button">Abbrechen</button>
-        <button class="btn-ghost" id="exportConfirmBtn" type="button">Speichern</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Video-Layout (#2095): js/videolayout.js — opened from the Exportieren dialog -->
-<div class="modal-backdrop" id="videoLayoutBackdrop" hidden>
-  <div class="modal vl-modal" role="dialog" aria-modal="true" aria-labelledby="videoLayoutTitle">
-    <div class="modal-header">
-      <h2 id="videoLayoutTitle">Video-Layout</h2>
-      <button class="modal-close" id="videoLayoutCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-    </div>
-    <div class="vl-body">
-      <div class="vl-preview">
-        <div class="vl-frame-wrap" id="vlFrameWrap">
-          <div class="vl-frame" id="vlFrame">
-            <canvas id="vlCanvas" aria-hidden="true"></canvas>
-            <div class="vl-boxes" id="vlBoxes" role="group" aria-label="Elemente im Video-Bild"></div>
-          </div>
-        </div>
-        <div class="vl-moment">
-          <label for="vlMoment">Vorschau</label>
-          <input type="range" id="vlMoment" min="0" max="0" step="0.01" value="0">
-          <span class="vl-moment-text" id="vlMomentText"></span>
-        </div>
-      </div>
-      <div class="vl-side">
-        <section class="settings-section">
-          <h3>Video-Bild</h3>
-          <div class="settings-row"><label for="vlFormat">Format</label>
-            <select id="vlFormat">
-              <option value="quer">Quer wie bisher – 1500 × 800</option>
-              <option value="breit">Breitbild 16:9 – 1440 × 810</option>
-              <option value="hoch">Hochformat 9:16 – 810 × 1440</option>
-              <option value="quadrat">Quadrat 1:1 – 1080 × 1080</option>
-            </select>
-          </div>
-          <label class="vl-color"><input type="color" id="vlBg">Hintergrundfarbe</label>
-          <label class="toggle-label"><input type="checkbox" id="vlSnap" checked> Beim Ziehen an Mitte, Rändern und anderen Elementen einrasten</label>
-        </section>
-        <section class="settings-section">
-          <h3 id="vlListTitle">Elemente</h3>
-          <div class="vl-list" id="vlList" role="list" aria-labelledby="vlListTitle"></div>
-          <div class="vl-actions">
-            <button class="btn-ghost" id="vlAddTextBtn" type="button">Text hinzufügen</button>
-            <button class="btn-ghost" id="vlAddBarBtn" type="button">Takt &amp; Figur hinzufügen</button>
-            <button class="btn-ghost" id="vlAddImageBtn" type="button">Grafik hinzufügen</button>
-            <input type="file" id="vlImageInput" accept="image/*" hidden>
-          </div>
-          <p class="settings-hint import-error-inline" id="vlImageError" role="alert" hidden>Diese Datei kann der Browser nicht als Bild lesen.</p>
-          <p class="settings-hint">Im Bild antippen zum Auswählen, ziehen zum Verschieben, an den Ecken ziehen für die Größe. Liegen Elemente übereinander, wählt ein zweites Antippen das darunter. Ausgewählt verschieben auch die Pfeiltasten.</p>
-        </section>
-        <section class="settings-section" id="vlProps"></section>
-      </div>
-    </div>
-    <div class="vl-footer">
-      <button class="btn-ghost btn-icon-only" id="vlUndoBtn" type="button" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
-      <button class="btn-ghost btn-icon-only" id="vlRedoBtn" type="button" aria-label="Wiederholen (Strg+Umschalt+Z)" title="Wiederholen (Strg+Umschalt+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
-      <button class="btn-ghost" id="vlResetBtn" type="button">Standard wiederherstellen</button>
-      <button class="btn-ghost" id="vlDoneBtn" type="button">Fertig</button>
-    </div>
-  </div>
-</div>
-
-<!-- Musik & Takte (#2096, #2081): js/beats.js — opened from the Marker dialog -->
-<div class="modal-backdrop" id="mtBackdrop" hidden>
-  <div class="modal vl-modal mt-modal" role="dialog" aria-modal="true" aria-labelledby="mtTitle">
-    <div class="modal-header">
-      <h2 id="mtTitle">Musik &amp; Takte</h2>
-      <button class="modal-close" id="mtCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-    </div>
-    <nav class="mt-steps" aria-label="Schritte">
-      <button class="mt-step" type="button" data-step="1"><b>1</b><span>Grenzen</span></button>
-      <button class="mt-step" type="button" data-step="2"><b>2</b><span>Schläge</span></button>
-      <button class="mt-step" type="button" data-step="3"><b>3</b><span>Takt &amp; 1</span></button>
-      <button class="mt-step" type="button" data-step="4"><b>4</b><span>Korrigieren</span></button>
-      <button class="mt-step" type="button" data-step="5"><b>5</b><span>Phrasierung</span></button>
-    </nav>
-    <div class="modal-body mt-body">
-      <div class="mt-guide">
-        <p class="mt-guide-text" id="mtGuide"></p>
-        <p class="mt-note" id="mtNote" role="status" aria-live="polite"></p>
-        <button class="btn-ghost mt-next" id="mtNextBtn" type="button"></button>
-      </div>
-      <div class="mt-waves">
-        <canvas class="mt-overview" id="mtOverview" aria-label="Das ganze Lied – tippen springt dorthin"></canvas>
-        <canvas class="mt-lupe" id="mtLupe" tabindex="0" aria-label="Lupe: die Sekunden um die Abspielposition" aria-describedby="mtKeys"></canvas>
-      </div>
-      <div class="mt-transport">
-        <button class="btn-play btn-play--sm" id="mtPlayBtn" type="button" aria-label="Abspielen" aria-keyshortcuts="Space">
-          <span class="icon-play" id="mtIconPlay"></span>
-          <span class="icon-pause" id="mtIconPause" hidden><i></i><i></i></span>
-        </button>
-        <span class="marker-time" id="mtTime">0:00 / 0:00</span>
-        <button class="btn-ghost marker-toggle-btn" id="mtClickBtn" type="button" aria-pressed="false">Klicks</button>
-      </div>
-      <div class="mt-panel" data-step="1">
-        <button class="btn-ghost btn-accent mt-big" id="mtCutBtn" type="button" aria-keyshortcuts="G">Grenze hier <kbd>G</kbd></button>
-        <span class="mt-info" id="mtCutInfo"></span>
-        <button class="btn-ghost danger" id="mtCutDelBtn" type="button" aria-keyshortcuts="Delete" hidden>Grenze entfernen</button>
-      </div>
-      <div class="mt-panel" data-step="2">
-        <button class="btn-ghost btn-accent mt-big" id="mtDetectBtn" type="button">Schläge erkennen</button>
-        <progress id="mtProgress" max="1" value="0" hidden></progress>
-      </div>
-      <div class="mt-panel" data-step="3">
-        <button class="btn-ghost btn-accent mt-big" id="mtOneBtn" type="button" aria-keyshortcuts="1">Das ist die 1 <kbd>1</kbd></button>
-        <span class="mt-info" id="mtOneInfo"></span>
-      </div>
-      <div class="mt-panel" data-step="4">
-        <div class="mt-row">
-          <span class="mt-info" id="mtShiftInfo"></span>
-          <span class="mt-shift" role="group" aria-labelledby="mtShiftInfo">
-            <button class="btn-ghost" type="button" data-shift="-0.05" aria-label="50 ms früher">−50 ms</button>
-            <button class="btn-ghost" type="button" data-shift="-0.01" aria-label="10 ms früher" aria-keyshortcuts="Shift+ArrowLeft">−10 ms</button>
-            <button class="btn-ghost" type="button" data-shift="0.01" aria-label="10 ms später" aria-keyshortcuts="Shift+ArrowRight">+10 ms</button>
-            <button class="btn-ghost" type="button" data-shift="0.05" aria-label="50 ms später">+50 ms</button>
-          </span>
-        </div>
-        <div class="mt-row">
-          <span class="mt-info" id="mtBeatInfo"></span>
-          <button class="btn-ghost" id="mtBeatAddBtn" type="button" aria-keyshortcuts="S">Schlag hier setzen <kbd>S</kbd></button>
-          <button class="btn-ghost danger" id="mtBeatDelBtn" type="button" aria-keyshortcuts="Delete" hidden>Schlag löschen <kbd>Entf</kbd></button>
-          <button class="btn-ghost" id="mtBeatOneBtn" type="button" aria-keyshortcuts="1" hidden></button>
-        </div>
-      </div>
-      <div class="mt-panel" data-step="5">
-        <label class="mt-info" for="mtPhrase" id="mtPhraseLabel"></label>
-        <input type="text" class="mt-phrase" id="mtPhrase" maxlength="16" spellcheck="false" autocomplete="off" enterkeyhint="next" placeholder="Phrasierung, z. B. QQS+">
-        <input type="text" class="mt-phrase mt-figure" id="mtFigure" maxlength="80" autocomplete="off" enterkeyhint="next" placeholder="Figur, z. B. Natural Turn" aria-label="Figur in diesem Takt">
-        <button class="btn-ghost" id="mtFillBtn" type="button" aria-keyshortcuts="Control+Enter" title="Für alle folgenden leeren Takte des Abschnitts übernehmen (Strg + Enter)">Auch für die leeren danach</button>
-      </div>
-      <p class="settings-hint mt-keys" id="mtKeys"></p>
-      <div class="mt-secs" id="mtSecs" role="list" aria-label="Abschnitte"></div>
-    </div>
-    <div class="vl-footer mt-footer">
-      <button class="btn-ghost btn-icon-only" id="mtUndoBtn" type="button" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
-      <button class="btn-ghost btn-icon-only" id="mtRedoBtn" type="button" aria-label="Wiederholen (Strg+Umschalt+Z)" title="Wiederholen (Strg+Umschalt+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
-      <button class="btn-ghost danger" id="mtResetBtn" type="button">Alles zurücksetzen</button>
-      <button class="btn-ghost" id="mtDoneBtn" type="button">Fertig</button>
-    </div>
-  </div>
-</div>
 
 <div class="modal-backdrop" id="newChoreoBackdrop" hidden>
   <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="newChoreoTitle">
@@ -766,77 +851,6 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
   </div>
 </div>
 
-<div class="modal-backdrop" id="shareBackdrop" hidden>
-  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
-    <div class="modal-header">
-      <h2 id="shareTitle">Per Link teilen</h2>
-      <button class="modal-close" id="shareCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-    </div>
-    <div class="modal-body">
-      <div class="settings-section" id="shareIntro">
-        <p class="settings-hint">Erstellt einen Link, über den diese Formation (samt Lied und Logo) geöffnet werden kann. Der Link bleibt live: Änderungen, die du oder jemand anders danach vornimmt, sind für alle mit dem Link automatisch sichtbar — niemand muss einen neuen Link erstellen.</p>
-        <button class="btn-ghost" id="shareCreateBtn" type="button">Link erstellen</button>
-      </div>
-      <div class="settings-section" id="shareProgress" hidden>
-        <div class="progress-track"><div class="progress-fill" id="shareProgressFill"></div></div>
-        <p class="settings-hint" id="shareProgressText">Wird hochgeladen…</p>
-      </div>
-      <div class="settings-section" id="shareResult" hidden>
-        <div id="shareEditLinkField" hidden>
-          <h3>Zum Bearbeiten</h3>
-          <div class="filename-field">
-            <input type="text" id="shareEditLinkInput" class="filename-input" readonly aria-label="Bearbeiten-Link">
-            <button class="btn-ghost" id="shareEditCopyBtn" type="button">Kopieren</button>
-          </div>
-          <p class="settings-hint">Wer diesen Link öffnet, kann die Formation ändern. Nur an Leute geben, die mitarbeiten sollen.</p>
-        </div>
-        <h3 id="shareMainLinkHeading">Nur zum Ansehen</h3>
-        <div class="filename-field">
-          <input type="text" id="shareLinkInput" class="filename-input" readonly aria-label="Ansehen-Link">
-          <button class="btn-ghost" id="shareCopyBtn" type="button">Kopieren</button>
-        </div>
-        <p class="settings-hint" id="shareCopiedHint" hidden>In die Zwischenablage kopiert.</p>
-        <p class="settings-hint" id="shareViewOnlyNote" hidden>Du hast diese Formation nur zum Ansehen geöffnet — deine Änderungen werden nicht gespeichert.</p>
-        <p class="settings-hint" id="shareLegacyNote" hidden>Dieser Link wurde früher erstellt — jeder, der ihn öffnet, kann die Formation bearbeiten. Für getrennte Ansehen-/Bearbeiten-Links „Verknüpfung aufheben" und einen neuen Link erstellen.</p>
-        <p class="settings-hint" id="shareLiveHint">Beide Links bleiben live: neue Änderungen sind für alle mit dem jeweiligen Link sofort sichtbar.</p>
-        <button class="btn-ghost danger" id="shareUnlinkBtn" type="button">Verknüpfung aufheben</button>
-      </div>
-      <section class="settings-section" id="shareOwnerSection" hidden>
-        <h3>Besitz &amp; Rechte</h3>
-        <p class="settings-hint" id="shareOwnerStatus"></p>
-        <div id="shareAccountForm" hidden>
-          <div class="share-account-fields">
-            <input type="text" id="shareAccountName" placeholder="Nutzername" autocomplete="username" maxlength="40" aria-label="Nutzername">
-            <input type="password" id="shareAccountPw" placeholder="Passwort" autocomplete="current-password" maxlength="200" aria-label="Passwort">
-          </div>
-          <div class="settings-row">
-            <button class="btn-ghost" id="shareLoginBtn" type="button">Anmelden</button>
-            <button class="btn-ghost" id="shareRegisterBtn" type="button">Konto anlegen</button>
-          </div>
-          <p class="settings-hint">Ein Konto brauchst du nur, um Rechte festzulegen. Es gibt kein Zurücksetzen per E-Mail – merk dir dein Passwort.</p>
-        </div>
-        <button class="btn-ghost" id="shareClaimBtn" type="button" hidden>Choreo übernehmen</button>
-        <div id="shareOwnerSettings" hidden>
-          <label class="toggle-label"><input type="checkbox" id="shareViewLinkToggle"> Ansehen-Link aktiv</label>
-          <label class="toggle-label"><input type="checkbox" id="shareEditLinkToggle"> Bearbeiten-Link aktiv</label>
-          <p class="settings-hint">Wer den Bearbeiten-Link hat, darf:</p>
-          <div id="shareRightsList">
-            <label class="toggle-label"><input type="checkbox" value="edit"> Bearbeiten (Aufstellungen, Bilder, Marken …)</label>
-            <label class="toggle-label"><input type="checkbox" value="rename"> Choreo umbenennen</label>
-            <label class="toggle-label"><input type="checkbox" value="delete"> Bilder löschen</label>
-            <label class="toggle-label"><input type="checkbox" value="media"> Lied und Logo ändern</label>
-            <label class="toggle-label"><input type="checkbox" value="videos"> Videos hochladen und löschen</label>
-          </div>
-          <button class="btn-ghost" id="shareRotateBtn" type="button">Neuen Bearbeiten-Link erzeugen</button>
-        </div>
-        <button class="btn-ghost danger" id="shareDeleteBtn" type="button" hidden>Choreo endgültig löschen</button>
-        <p class="settings-hint" id="shareAccountLine" hidden>Angemeldet als <strong id="shareAccountUser"></strong> · <button class="btn-link" id="shareLogoutBtn" type="button">Abmelden</button></p>
-        <p class="settings-hint import-error-inline" id="shareOwnerError" hidden></p>
-      </section>
-      <p class="settings-hint import-error-inline" id="shareErrorText" hidden></p>
-    </div>
-  </div>
-</div>
 
 <!-- Videos zu Abschnitten (#2092): js/videos.js -->
 <div class="modal-backdrop" id="videosBackdrop" hidden>
@@ -1039,21 +1053,22 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
 
 <div id="stepsPrintArea" aria-hidden="true"></div>
 
-<script src="js/state.js?v=65"></script>
-<script src="js/stage.js?v=65"></script>
-<script src="js/roster.js?v=65"></script>
-<script src="js/formations.js?v=65"></script>
-<script src="js/playback.js?v=65"></script>
-<script src="js/marker.js?v=65"></script>
-<script src="js/beats.js?v=65"></script>
-<script src="js/music.js?v=65"></script>
-<script src="js/export.js?v=65"></script>
-<script src="js/videolayout.js?v=65"></script>
-<script src="js/history.js?v=65"></script>
-<script src="js/share.js?v=65"></script>
-<script src="js/videos.js?v=65"></script>
-<script src="js/steps.js?v=65"></script>
-<script src="js/main.js?v=65"></script>
+<script src="js/state.js?v=66"></script>
+<script src="js/stage.js?v=66"></script>
+<script src="js/roster.js?v=66"></script>
+<script src="js/formations.js?v=66"></script>
+<script src="js/playback.js?v=66"></script>
+<script src="js/marker.js?v=66"></script>
+<script src="js/beats.js?v=66"></script>
+<script src="js/music.js?v=66"></script>
+<script src="js/export.js?v=66"></script>
+<script src="js/videolayout.js?v=66"></script>
+<script src="js/history.js?v=66"></script>
+<script src="js/share.js?v=66"></script>
+<script src="js/videos.js?v=66"></script>
+<script src="js/steps.js?v=66"></script>
+<script src="js/dancerview.js?v=66"></script>
+<script src="js/main.js?v=66"></script>
 
 </body>
 </html>

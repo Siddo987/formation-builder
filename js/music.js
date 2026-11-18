@@ -131,7 +131,7 @@
   }
 
   function updateMusicOnlyBtnVisibility(){
-    musicOnlyBtn.hidden = !hasSong();
+    musicOnlyBtn.disabled = document.getElementById('musikOpenBtn').disabled = !hasSong(); // the Musik page's tabs (index.html)
     if(!hasSong()) stopMusicOnly();
   }
 

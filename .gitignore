@@ -10,3 +10,9 @@
 Thumbs.db
 .claude/
 node_modules/
+
+# Impeccable working files (direction brief, mocks, review captures) stay local;
+# only the design system sidecar and the detector config are shared.
+.impeccable/*
+!.impeccable/design.json
+!.impeccable/config.json

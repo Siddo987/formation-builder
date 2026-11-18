@@ -12,7 +12,7 @@
 
   var beatSnapAllBtn = document.getElementById('beatSnapAllBtn');
   var beatSnapToggle = document.getElementById('beatSnapToggle');
-  var beatClickBtn = document.getElementById('beatClickBtn');
+  var beatClickBtn = document.getElementById('beatClickBtn'), dockClickBtn = document.getElementById('dockClickBtn');
   var beatStatusEl = document.getElementById('beatStatus');
   var beatCanvas = document.getElementById('markerTimelineBeats');
   var musikStatusEl = document.getElementById('musikStatus');
@@ -284,7 +284,7 @@
     var has = !!state.beats;
     beatSnapAllBtn.hidden = !has;
     beatSnapAllBtn.textContent = has && music().bars.length ? 'Alle Marken auf Taktgrenzen rücken' : 'Alle Marken auf Schläge rücken';
-    [beatClickBtn, mtClickBtn].forEach(function(btn){
+    [beatClickBtn, mtClickBtn, dockClickBtn].forEach(function(btn){
       btn.disabled = !has;
       btn.setAttribute('aria-pressed', beatClickOn ? 'true' : 'false');
       btn.title = has ? 'Beim Abspielen jeden Schlag mitklicken, die 1 höher' : 'Erst Schläge erkennen (Musik & Takte)';
@@ -293,6 +293,8 @@
     updatePlaybarBar();
     musikStatusEl.textContent = musicStatusLine();
     drawBeatTicks();
+    drawDockTimeline();
+    if(typeof updateBildBar === 'function'){ updateBildBar(); updateFilmMarks(); } // js/marker.js, js/formations.js
     renderMusikView();
   }
   // Beats as thin ticks over the Marker dialog's waveform, bar starts as thick ones.
@@ -398,16 +400,19 @@
     renderBeats();
   }
   beatClickBtn.addEventListener('click', toggleClicks);
+  dockClickBtn.addEventListener('click', toggleClicks);
 
   /* ---------- the bar in the playbar, the Phrasierung on the Schritte sheets ---------- */
 
   /* The bar being heard in the main playbar: its number in the section, Phrasierung and Figur — while
      anything plays the song, paused, and at the selected Bild. playback.js calls this with every
      timeline update; while the song plays a frame loop keeps it current ("Nur Musik" too). */
-  var playbarBarEl = document.getElementById('playbarBar'), playbarBarShown = null;
+  var playbarBarEl = document.getElementById('playbarBar'), playbarBarShown = null, playTimeEl = document.getElementById('playTime');
   function updatePlaybarBar(){
-    var b = null;
-    if(state.music && songDur()) b = barAt(!songAudioEl.paused ? heardSongTime() : pausedAt ? pausedAt.songTime : playbackStartTime()); // js/playback.js
+    var b = null, dur = songDur(), t = dur ? (!songAudioEl.paused ? heardSongTime() : pausedAt ? pausedAt.songTime : playbackStartTime()) : 0; // js/playback.js
+    playTimeEl.hidden = !dur;
+    if(dur) playTimeEl.innerHTML = formatTime(Math.max(0, t), 2) + ' <span>/ ' + formatTime(dur) + '</span>';
+    if(state.music && dur) b = barAt(t);
     var label = b ? 'Takt ' + b.n : '', phrase = b ? b.p : '', fig = b ? b.f : '';
     if(playbarBarShown === label + '|' + phrase + '|' + fig) return;
     playbarBarShown = label + '|' + phrase + '|' + fig;
@@ -857,19 +862,20 @@
     if(!mtRaf) mtRaf = requestAnimationFrame(mtFrame);
     requestAnimationFrame(function(){ mtLupe.focus({preventScroll: true}); });
   }
-  function closeMusikView(){
+  // leave: switching to another page (js/main.js), not back to the Bild-Marken.
+  function closeMusikView(leave){
     if(mtBackdrop.hidden) return;
     mtLupePtr = null;
     songAudioEl.pause();
     saveStateDebounced.flush();
     mtBackdrop.hidden = true;
-    markerBackdrop.hidden = false;
-    openMarkerModal(); // js/marker.js — back where it was opened from
-    document.getElementById('musikOpenBtn').focus();
+    if(leave === true) return;
+    openMarkerModal(); // js/marker.js — on to the Bild-Marken
+    document.getElementById('markerBtn').focus();
   }
   document.getElementById('musikOpenBtn').addEventListener('click', openMusikView);
-  document.getElementById('mtCloseBtn').addEventListener('click', closeMusikView);
-  document.getElementById('mtDoneBtn').addEventListener('click', closeMusikView);
+  document.getElementById('mtCloseBtn').addEventListener('click', function(){ closeMusikView(); });
+  document.getElementById('mtDoneBtn').addEventListener('click', function(){ closeMusikView(); });
   document.getElementById('mtUndoBtn').addEventListener('click', function(){ historyUndo(); });
   document.getElementById('mtRedoBtn').addEventListener('click', function(){ historyRedo(); });
   document.getElementById('mtResetBtn').addEventListener('click', function(){
@@ -1004,6 +1010,39 @@
       if(bar > 0.5) g.fillRect(x, top + (h - bar) / 2, 1, bar);
     }
   }
+  /* The Choreo dock's timeline under the Bild numbers: while it spans the song (sync), the sections as
+     pale tints with their dance, the bar lines with their numbers and the waveform. */
+  var scrubWave = document.getElementById('scrubWave');
+  function drawDockTimeline(){
+    var g = fitCanvas(scrubWave), W = scrubWave.clientWidth, H = scrubWave.clientHeight, dur = songDur();
+    if(!W || !H || !dur || !isSyncActive()) return;
+    var cs = getComputedStyle(scrubWave), X = function(t){ return t / dur * W; }, mm = music(), top = 15;
+    function v(n){ return cs.getPropertyValue(n).trim(); }
+    g.font = '500 10px ' + cs.fontFamily;
+    g.textBaseline = 'middle';
+    if(state.music) mm.secs.forEach(function(sec){
+      var a = X(sec.start), b = X(Math.min(sec.end, dur));
+      g.fillStyle = v(SEC_COLORS[sec.k % 3][1]); g.fillRect(a, 0, b - a, top);
+      if(sec.k){ g.fillStyle = v('--line-strong'); g.fillRect(Math.round(a), 0, 1, H); }
+      var name = (sec.k + 1) + (danceLabel(sec) ? ' · ' + danceLabel(sec) : '') + (sec.bars.length ? ' · ' + sec.bars.length + ' Takte' : '');
+      g.fillStyle = v('--ink-2');
+      if(b - a > 24){ g.save(); g.beginPath(); g.rect(a, 0, b - a - 4, top); g.clip(); g.fillText(name, a + 5, top / 2 + 1); g.restore(); }
+    });
+    g.fillStyle = v('--ink-3'); g.globalAlpha = 0.4;
+    drawWave(g, 0, dur, W, top + 14, H - top - 34);
+    g.globalAlpha = 1;
+    // Bar lines, numbered as densely as they stay readable (every 1st, 2nd, 4th … bar of a section).
+    var bars = mm.bars, px = bars.length ? W / dur * (bars[bars.length - 1].end - bars[0].t) / bars.length : 0, step = 1;
+    while(step < 64 && step * px < 22) step *= 2;
+    bars.forEach(function(b){
+      var x = Math.round(X(b.t)), label = (b.n - 1) % step === 0;
+      if(!label && px < 4) return;
+      g.fillStyle = v('--line-strong'); g.fillRect(x, top, 1, H - top - 18);
+      if(label){ g.fillStyle = v('--ink-3'); g.fillText(String(b.n), x + 3, top + 7); }
+    });
+  }
+  if(window.ResizeObserver) new ResizeObserver(function(){ drawDockTimeline(); }).observe(scrubWave);
+
   // The Lupe: a few seconds around what is heard — 8 on a wide screen, about 4 on a phone, so the
   // beats stay a finger apart.
   function lupeView(){
