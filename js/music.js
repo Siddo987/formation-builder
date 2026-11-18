@@ -5,8 +5,8 @@
   // For rehearsing with the song alone — start at a typed-in time or at any Bild's marker, and
   // optionally stop at the next marker so one section can be practised on its own. Shares
   // songAudioEl with sync playback and the marker modal's preview; musicOnlyActive only marks that
-  // *this* feature started it, so the playbar button can show it's still running after the dialog
-  // is closed. Any pause of the element (ours, the marker modal's, the song ending) clears it.
+  // *this* feature started it. Any pause of the element (ours, the marker modal's, the song ending,
+  // closing the dialog) clears it.
   var musicOnlyBtn = document.getElementById('musicOnlyBtn');
   var musicBackdrop = document.getElementById('musicBackdrop');
   var musicCloseBtn = document.getElementById('musicCloseBtn');
@@ -211,9 +211,8 @@
     }
     musicBackdrop.hidden = false;
   }
-  // Closing keeps the music running — listening while watching the stage is the point. The
-  // playbar button stays highlighted and reopens the dialog to stop it.
-  function closeMusicModal(){ musicBackdrop.hidden = true; }
+  // Closing pauses the song — music that keeps going with the dialog gone was surprising (#2168).
+  function closeMusicModal(){ stopMusicOnly(); musicBackdrop.hidden = true; }
 
   musicPlayBtn.addEventListener('click', function(){
     if(musicOnlyActive){ stopMusicOnly(); return; }
