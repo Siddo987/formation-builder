@@ -223,7 +223,7 @@
     if(!el){ vlDrag = null; return; }
     var dx = (e.clientX - d.x0) * d.kx, dy = (e.clientY - d.y0) * d.ky, s = d.start;
     var b = d.corner ? vlResize(s, d.corner, dx, dy, vlKeepsAspect(el)) : {x: s.x + dx, y: s.y + dy, w: s.w, h: s.h};
-    if(!d.corner) vlSnap(el, b, 8 * d.kx);
+    vlSnap(el, b, 8 * d.kx, d.corner, vlKeepsAspect(el));
     el.x = Math.round(b.x); el.y = Math.round(b.y); el.w = Math.round(b.w); el.h = Math.round(b.h);
     if(d.corner && el.type === 'text'){
       // A text's width sets its line breaks and so its height; with a background it may be taller.
@@ -237,8 +237,9 @@
     vlQueueRender();
   });
   // Snapping while moving: the box's left edge, middle or right edge (and top, middle, bottom) catches
-  // on the frame's and every other shown element's within tol; a guide line shows where.
-  function vlSnap(el, b, tol){
+  // on the frame's and every other shown element's within tol; while resizing, the dragged edges do
+  // (#2166). A guide line shows where.
+  function vlSnap(el, b, tol, corner, keepAspect){
     var F = vlSize(), xs = [0, F.w / 2, F.w], ys = [0, F.h / 2, F.h];
     vlLayout().els.forEach(function(o){
       if(o.id === el.id || o.hidden) return;
@@ -252,9 +253,22 @@
       });
       return r;
     }
-    var on = vlSnapToggle.checked, sx = on && best(b.x, b.w, xs), sy = on && best(b.y, b.h, ys);
-    if(sx) b.x += sx.d;
-    if(sy) b.y += sy.d;
+    var on = vlSnapToggle.checked, sx = null, sy = null;
+    if(on && !corner){
+      sx = best(b.x, b.w, xs); sy = best(b.y, b.h, ys);
+      if(sx) b.x += sx.d;
+      if(sy) b.y += sy.d;
+    }else if(on){
+      var west = corner.indexOf('w') !== -1, north = corner.indexOf('n') !== -1, b0 = {x: b.x, y: b.y, w: b.w, h: b.h};
+      sx = best(west ? b.x : b.x + b.w, 0, xs); sy = best(north ? b.y : b.y + b.h, 0, ys);
+      // Logo and images: the nearer catch drives, the proportion sets the other side.
+      if(keepAspect && sx && sy){ if(Math.abs(sx.d) <= Math.abs(sy.d)) sy = null; else sx = null; }
+      if(sx){ if(west){ b.x += sx.d; b.w -= sx.d; } else b.w += sx.d; }
+      if(sy){ if(north){ b.y += sy.d; b.h -= sy.d; } else b.h += sy.d; }
+      if(keepAspect && sx){ var h = b.w * b0.h / b0.w; if(north) b.y += b.h - h; b.h = h; }
+      if(keepAspect && sy){ var w = b.h * b0.w / b0.h; if(west) b.x += b.w - w; b.w = w; }
+      if(b.w < VL_MIN || b.h < VL_MIN){ b.x = b0.x; b.y = b0.y; b.w = b0.w; b.h = b0.h; sx = sy = null; }
+    }
     vlGuides[0].hidden = !sx;
     vlGuides[1].hidden = !sy;
     if(sx) vlGuides[0].style.left = (sx.at / F.w * 100) + '%';
