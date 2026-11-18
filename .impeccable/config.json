@@ -1,12 +1,24 @@
 {
   "detector": {
     "ignoreRules": [],
-    "ignoreFiles": [],
+    "ignoreFiles": [
+      ".impeccable/mocks/**"
+    ],
     "ignoreValues": [
       {
         "rule": "overused-font",
         "value": "inter",
         "createdAt": "2026-11-18T22:42:20.197Z"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "manrope",
+        "createdAt": "2026-11-18T22:51:21.918Z"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "jetbrains mono",
+        "createdAt": "2026-11-18T22:51:21.926Z"
       }
     ]
   }
