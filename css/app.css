@@ -60,10 +60,6 @@
   --side-w:256px;
   --insp-w:296px;
 
-  /* alte Namen, falls noch etwas sie nutzt */
-  --floor-1:var(--floor); --floor-2:var(--floor);
-  --gold:var(--accent); --ink-soft:var(--ink-2); --ink-faint:var(--ink-3);
-
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
@@ -112,7 +108,6 @@ input,select,textarea{color:var(--ink);}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
 [hidden]{display:none !important;}
 
-.eyebrow{font-size:11px;font-weight:600;color:var(--ink);}
 .count{font-size:11px;font-weight:500;color:var(--ink-3);font-variant-numeric:tabular-nums;}
 .caption{font-size:11px;color:var(--ink-3);font-weight:500;white-space:nowrap;}
 .caption span{color:var(--ink-2);}
@@ -168,10 +163,10 @@ button .ico{display:block;flex:none;pointer-events:none;}
   width:32px;height:32px;flex:none;
   display:inline-flex;align-items:center;justify-content:center;
   border:none;border-radius:50%;
-  background:var(--accent);color:#fff;
+  background:var(--primary);color:#fff;
   transition:background .15s ease-out;
 }
-.btn-play:hover{background:var(--accent-ink);}
+.btn-play:hover{background:var(--primary-hover);}
 .btn-play:disabled{opacity:.4;cursor:not-allowed;}
 .btn-play--sm{width:30px;height:30px;}
 .btn-play--sm .icon-play{border-top-width:5px;border-bottom-width:5px;border-left-width:8px;margin-left:2px;}
