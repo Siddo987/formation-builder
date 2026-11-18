@@ -378,7 +378,7 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
             <button class="btn-ghost marker-toggle-btn" id="beatClickBtn" type="button" aria-pressed="false" disabled>Klicks</button>
             <span class="marker-zoom">
               <button class="btn-ghost marker-nudge-btn" id="markerZoomOutBtn" type="button" aria-label="Zeitleiste herauszoomen" title="Herauszoomen">−</button>
-              <button class="btn-ghost marker-nudge-btn" id="markerZoomInBtn" type="button" aria-label="Zeitleiste hineinzoomen" title="Hineinzoomen (auch Strg + Mausrad)">+</button>
+              <button class="btn-ghost marker-nudge-btn" id="markerZoomInBtn" type="button" aria-label="Zeitleiste hineinzoomen" title="Hineinzoomen (auch Mausrad über der Zeitleiste)">+</button>
             </span>
           </div>
           <div class="marker-timeline" id="markerTimeline">
@@ -390,7 +390,7 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
             </div>
             <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
           </div>
-          <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder Strg + Mausrad) zoomen, seitlich wischen verschiebt. Bei jeder Marke rückt − / + sie um 0,01 s.</p>
+          <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder das Mausrad über der Zeitleiste) zoomen an die Stelle, seitlich wischen oder Shift + Mausrad verschiebt. Bei jeder Marke rückt − / + sie um 0,01 s.</p>
         </section>
 
         <section class="settings-section">

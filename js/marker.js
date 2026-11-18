@@ -397,15 +397,17 @@
     songAudioEl.currentTime = markerTimeAt(e.clientX);
     updateMarkerPlayheadUI();
   });
-  // Strg/Cmd + Mausrad (and a trackpad pinch) zoom around the pointer; sideways scrolling moves along.
+  // Mausrad over the timeline (#2159; also Strg/Cmd + Mausrad and a trackpad pinch) zooms around the
+  // pointer; sideways scrolling or Shift + Mausrad moves along.
   markerTimelineEl.addEventListener('wheel', function(e){
     if(!songDur()) return;
-    if(e.ctrlKey || e.metaKey){
+    var dx = e.deltaX || (e.shiftKey ? e.deltaY : 0);
+    if(e.ctrlKey || e.metaKey || (!e.shiftKey && Math.abs(e.deltaY) > Math.abs(e.deltaX))){
       e.preventDefault();
-      zoomMarkerTimeline(Math.exp(e.deltaY * 0.01), markerTimeAt(e.clientX));
+      // deltaMode 1 (Firefox) counts lines, not pixels
+      zoomMarkerTimeline(Math.exp(e.deltaY * (e.deltaMode === 1 ? 0.3 : 0.01)), markerTimeAt(e.clientX));
       return;
     }
-    var dx = e.deltaX || (e.shiftKey ? e.deltaY : 0);
     if(!markerSpan || !dx) return;
     e.preventDefault();
     markerViewStart += dx / markerTimelineEl.clientWidth * markerSpan;
