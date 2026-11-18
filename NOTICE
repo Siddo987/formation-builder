@@ -1,0 +1,13 @@
+Aufstellung (rwkreator.sidowski.de)
+Copyright (C) 2026 Jakob Lukas Sidowski
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, version 3 (see LICENSE). It is distributed WITHOUT ANY
+WARRANTY; see the license for details. The app links to its source code in
+Hilfe › Lizenz und Quellcode, as section 13 of the license asks.
+
+Third-party parts under their own licenses:
+  - vendor/essentia/          Essentia.js, AGPL-3.0 (vendor/essentia/LICENSE)
+  - models/, js/beatthis.js   Beat This! (CPJKU, JKU Linz), MIT (models/LICENSE-beat-this.txt)
+  - fonts/                    Manrope, JetBrains Mono, Bebas Neue, SIL Open Font License 1.1
