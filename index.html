@@ -14,6 +14,8 @@
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
 }
+/* Design (#2165): Hell or Dunkel chosen in Einstellungen, set before the CSS so nothing flashes. */
+try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; } catch (e) {}
 </script>
 <!-- ?v= cache-busts these behind Cloudflare's edge cache (js/css get a 4h max-age there, keyed
      purely on the URL) — bump this on every deploy that touches css/ or js/ so browsers/CDN
@@ -257,6 +259,14 @@ if ('serviceWorker' in navigator) {
     <div class="modal-body">
       <section class="settings-section">
         <h3>Ansicht</h3>
+        <div class="settings-row"><label for="themeSelect">Design</label>
+          <select id="themeSelect">
+            <option value="">Wie das Gerät</option>
+            <option value="light">Hell</option>
+            <option value="dark">Dunkel</option>
+          </select>
+        </div>
+        <p class="settings-hint">Nur auf diesem Gerät.</p>
         <label class="toggle-label"><input type="checkbox" id="facingToggle" checked> Blickrichtungen anzeigen</label>
         <p class="settings-hint">Die kleinen Pfeile an den Punkten, auf der Bühne und im Video. Gilt für die ganze Choreo – auf jedem Gerät, das sie öffnet, auch beim Teilen.</p>
         <div class="settings-row stage-size-row">

@@ -11,6 +11,15 @@
   }
   function closeSettings(){ settingsBackdrop.hidden = true; }
 
+  // Design (#2165): Hell, Dunkel or like the device — per device; index.html's head applies it on load.
+  var themeSelect = document.getElementById('themeSelect');
+  try{ themeSelect.value = localStorage.getItem('aufstellung-theme') || ''; }catch(e){}
+  themeSelect.addEventListener('change', function(){
+    if(themeSelect.value) document.documentElement.dataset.theme = themeSelect.value;
+    else delete document.documentElement.dataset.theme;
+    try{ localStorage.setItem('aufstellung-theme', themeSelect.value); }catch(e){}
+  });
+
   settingsBtn.addEventListener('click', openSettings);
   settingsCloseBtn.addEventListener('click', closeSettings);
   settingsBackdrop.addEventListener('click', function(e){ if(e.target === settingsBackdrop) closeSettings(); });
