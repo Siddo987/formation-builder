@@ -64,6 +64,7 @@
         showAxes: f.showAxes !== false,
         splitPairs: sanitizeSplitPairs(f.splitPairs),
         speedCurve: sanitizeSpeedCurve(f.speedCurve),
+        move: sanitizeMoveName(f.move),
         coupleTurns: sanitizeCoupleTurns(f.coupleTurns),
         spins: sanitizeSpins(f.spins),
         orbits: sanitizeOrbits(f.orbits),
@@ -166,7 +167,7 @@
       });
       var startPos = {};
       Object.keys(pos).forEach(function(did){ startPos[did] = {x: pos[did].x, y: pos[did].y}; });
-      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, speedCurve: sanitizeSpeedCurve(meta.speedCurve), coupleTurns: sanitizeCoupleTurns(meta.coupleTurns), spins: sanitizeSpins(meta.spins), orbits: sanitizeOrbits(meta.orbits), note: sanitizeNote(meta.note), splitPairs: sanitizeSplitPairs(meta.splitPairs)};
+      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, speedCurve: sanitizeSpeedCurve(meta.speedCurve), move: sanitizeMoveName(meta.move), coupleTurns: sanitizeCoupleTurns(meta.coupleTurns), spins: sanitizeSpins(meta.spins), orbits: sanitizeOrbits(meta.orbits), note: sanitizeNote(meta.note), splitPairs: sanitizeSplitPairs(meta.splitPairs)};
       if(typeof meta.time === 'number' && isFinite(meta.time) && meta.time >= 0) out.time = meta.time;
       return out;
     });
@@ -312,6 +313,7 @@
         if(hStable(before.spins) !== hStable(after.spins)) return where + ': Eigendrehung ' + (after.spins ? 'geändert' : 'entfernt');
         if(hStable(before.orbits) !== hStable(after.orbits)) return where + ': Kreisbahn ' + (after.orbits ? 'geändert' : 'entfernt');
         if((before.note || '') !== (after.note || '')) return where + ': Notiz ' + (after.note ? 'geändert' : 'entfernt');
+        if((before.move || '') !== (after.move || '')) return where + ': Übergang zum nächsten ' + (after.move ? '„' + after.move + '“' : 'ohne Namen');
         return where + ' geändert';
       }
       if(parts[2] === 'pos'){

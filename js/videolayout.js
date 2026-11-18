@@ -437,7 +437,8 @@
   var VL_PLACEHOLDERS = [
     ['{choreo}', 'Name der Choreo'], ['{bild}', 'Name des Bilds'], ['{nr}', 'Nummer des Bilds'], ['{anzahl}', 'Anzahl der Bilder'],
     ['{abschnitt}', 'Abschnitt'], ['{zeit}', 'Zeit im Video'], ['{notiz}', 'Notiz zum Bild'], ['{wer}', 'Wer im Schritte-Video zu sehen ist'],
-    ['{takt}', 'Nummer des Takts'], ['{rhythmus}', 'Phrasierung des Takts'], ['{figur}', 'Figur des Takts']
+    ['{takt}', 'Nummer des Takts'], ['{rhythmus}', 'Phrasierung des Takts'], ['{figur}', 'Figur des Takts'],
+    ['{uebergang}', 'Name des Übergangs, der gerade getanzt wird']
   ];
   var vlMeasureCtx = document.createElement('canvas').getContext('2d');
 

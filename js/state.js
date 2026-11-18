@@ -335,6 +335,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // Notiz (#2055) on a Bild or a Zwischenposition, for the Schritte-PDF. '' = none.
   var NOTE_MAX = 500;
   function sanitizeNote(v){ return typeof v === 'string' && v.trim() ? v.slice(0, NOTE_MAX) : ''; }
+  // The name of the move from a Bild to the next (#2161) — the figure danced there, kept on the Bild
+  // it leaves from like its Zwischenpositionen and Geschwindigkeitsverlauf.
+  function sanitizeMoveName(v){ return typeof v === 'string' && v.trim() ? v.trim().slice(0, 80) : ''; }
   function sanitizeOrbits(v){
     if(!Array.isArray(v)) return null;
     var seen = {}, out = [];
@@ -614,6 +617,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var ICON_PATHS = {
     x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+    pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
     play: '<path d="M7 4.5v15l12.5-7.5Z" fill="currentColor"/>',
     'chevron-right': '<path d="m9 18 6-6-6-6"/>',
     'chevron-down': '<path d="m6 9 6 6 6-6"/>',
@@ -828,6 +832,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         delete f.betweenPath;
         // migration: older saves predate Geschwindigkeitsverläufe — see speedEase()
         f.speedCurve = sanitizeSpeedCurve(f.speedCurve);
+        f.move = sanitizeMoveName(f.move);
         // migration: older saves predate set Drehungen im Paar — see turnCouple()
         f.coupleTurns = sanitizeCoupleTurns(f.coupleTurns);
         // migration: older saves predate Eigendrehungen — see interpolateThroughBetweens()

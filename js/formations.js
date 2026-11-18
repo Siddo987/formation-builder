@@ -364,6 +364,20 @@
     });
     wrap.addEventListener('drop', function(e){ if(betweenDragEl) e.preventDefault(); });
 
+    // The move's own name (#2161): the figure danced from this Bild to the next — what matters most,
+    // the Bild names are more of a note. A line of its own above the icons; on phones just the pen.
+    var moveBtn = document.createElement('button');
+    moveBtn.type = 'button';
+    moveBtn.className = 'film-move-name' + (f.move ? ' named' : '');
+    moveBtn.appendChild(svgIcon('pen', 12));
+    var moveLbl = document.createElement('span');
+    moveLbl.textContent = f.move || 'Übergang benennen';
+    moveBtn.appendChild(moveLbl);
+    moveBtn.title = (f.move ? '„' + f.move + '“ – ' : '') + 'Name des Übergangs zu „' + (next ? next.name : '?') + '“: die Figur, die hier getanzt wird';
+    moveBtn.setAttribute('aria-label', 'Übergang zu „' + (next ? next.name : '?') + '“' + (f.move ? ': ' + f.move : '') + ' – benennen');
+    moveBtn.addEventListener('click', function(){ openMoveRenamePopover(moveBtn, idx); });
+
+    wrap.appendChild(moveBtn);
     wrap.appendChild(chips);
     wrap.appendChild(addBtn);
     wrap.appendChild(buildSpeedCurveButton(f, next));
@@ -1056,22 +1070,42 @@
     if(betweenRenamePopoverEl){ betweenRenamePopoverEl.remove(); betweenRenamePopoverEl = null; }
   }
   function openBetweenRenamePopover(anchorEl, fIdx, bIdx, below){
-    closeBetweenRenamePopover();
     var f = state.formations[fIdx];
     var between = f && f.betweens && f.betweens[bIdx];
     if(!between) return;
-
+    openRenamePopover(anchorEl, below, {
+      value: between.name || '', max: 40, placeholder: 'Zwischenposition ' + (bIdx + 1), label: 'Name der Zwischenposition ' + (bIdx + 1),
+      set: function(v){ between.name = v; },
+      done: function(){
+        if(!editingBetween) return;
+        updateBetweenEditBanner();
+        updatePlaybarInfo(); // the playbar's Bild-name readout also carries a between's own name
+      }
+    });
+  }
+  // The name of the move from Bild fIdx to the next (#2161).
+  function openMoveRenamePopover(anchorEl, fIdx){
+    var f = state.formations[fIdx], next = state.formations[fIdx + 1];
+    if(!f || !next) return;
+    openRenamePopover(anchorEl, false, {
+      value: f.move || '', max: 80, wide: true, placeholder: 'Figur, z. B. Natural Turn', label: 'Name des Übergangs zu „' + next.name + '“',
+      set: function(v){ f.move = sanitizeMoveName(v); }
+    });
+  }
+  // o: {value, max, placeholder, label, set(value) while typing, done() once closed, wide}
+  function openRenamePopover(anchorEl, below, o){
+    closeBetweenRenamePopover();
     var rect = anchorEl.getBoundingClientRect();
     var pop = document.createElement('div');
     pop.className = 'between-rename-popover';
 
     var input = document.createElement('input');
     input.type = 'text';
-    input.className = 'between-rename-input';
-    input.maxLength = 40;
-    input.placeholder = 'Zwischenposition ' + (bIdx + 1);
-    input.value = between.name || '';
-    input.setAttribute('aria-label', 'Name der Zwischenposition ' + (bIdx + 1));
+    input.className = 'between-rename-input' + (o.wide ? ' between-rename-input--wide' : '');
+    input.maxLength = o.max;
+    input.placeholder = o.placeholder;
+    input.value = o.value;
+    input.setAttribute('aria-label', o.label);
 
     pop.appendChild(input);
     document.body.appendChild(pop);
@@ -1096,7 +1130,7 @@
     input.select();
 
     input.addEventListener('input', function(){
-      between.name = input.value;
+      o.set(input.value);
       saveState();
     });
     input.addEventListener('keydown', function(e){
@@ -1104,10 +1138,7 @@
     });
     input.addEventListener('blur', function(){
       renderFilmstrip();
-      if(editingBetween){
-        updateBetweenEditBanner();
-        updatePlaybarInfo(); // the playbar's Bild-name readout also carries a between's own name
-      }
+      if(o.done) o.done();
       closeBetweenRenamePopover();
     });
   }

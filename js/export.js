@@ -135,7 +135,7 @@
           if(sanitizeNote(b.note)) out.note = sanitizeNote(b.note);
           return out;
         });
-        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100, startPos: startPos, betweens: betweens, speedCurve: sanitizeSpeedCurve(f.speedCurve), coupleTurns: sanitizeCoupleTurns(f.coupleTurns), spins: sanitizeSpins(f.spins), orbits: sanitizeOrbits(f.orbits), note: sanitizeNote(f.note), splitPairs: sanitizeSplitPairs(f.splitPairs)};
+        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100, startPos: startPos, betweens: betweens, speedCurve: sanitizeSpeedCurve(f.speedCurve), move: sanitizeMoveName(f.move), coupleTurns: sanitizeCoupleTurns(f.coupleTurns), spins: sanitizeSpins(f.spins), orbits: sanitizeOrbits(f.orbits), note: sanitizeNote(f.note), splitPairs: sanitizeSplitPairs(f.splitPairs)};
       }),
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
@@ -230,7 +230,7 @@
         startPos = {};
         Object.keys(pos).forEach(function(id){ startPos[id] = {x: pos[id].x, y: pos[id].y}; });
       }
-      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, header.dancers), speedCurve: sanitizeSpeedCurve(f.speedCurve), coupleTurns: sanitizeCoupleTurns(f.coupleTurns), spins: sanitizeSpins(f.spins), orbits: sanitizeOrbits(f.orbits), note: sanitizeNote(f.note), splitPairs: sanitizeSplitPairs(f.splitPairs)};
+      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, header.dancers), speedCurve: sanitizeSpeedCurve(f.speedCurve), move: sanitizeMoveName(f.move), coupleTurns: sanitizeCoupleTurns(f.coupleTurns), spins: sanitizeSpins(f.spins), orbits: sanitizeOrbits(f.orbits), note: sanitizeNote(f.note), splitPairs: sanitizeSplitPairs(f.splitPairs)};
       if(typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) out.time = f.time;
       return out;
     });
@@ -924,6 +924,7 @@
     var sec = Math.floor(Math.max(0, (info && info.tMs) || 0) / 1000);
     // With the song, the video's time is the song's (buildSyncSegments): the bar heard then.
     var bar = isSyncActive() ? barAt(Math.max(0, (info && info.tMs) || 0) / 1000) : null;
+    var move = state.formations[Math.max(0, Math.min(total - 2, Math.floor(cursor + 1e-6)))]; // the move under way, or the next one (#2161)
     var vals = {
       choreo: state.projectName || '',
       bild: f.name || ('Bild ' + (idx + 1)),
@@ -935,7 +936,8 @@
       wer: (info && info.who) || '',
       takt: bar ? String(bar.n) : '',
       rhythmus: bar ? bar.p : '',
-      figur: bar ? bar.f : ''
+      figur: bar ? bar.f : '',
+      uebergang: total > 1 && move ? move.move || '' : ''
     };
     var used = 0, filled = 0;
     var text = el.text.replace(/\{(\w+)\}/g, function(m, key){

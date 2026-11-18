@@ -948,8 +948,8 @@ body.roster-open .roster{display:flex;}
   grid-area:name;align-self:start;
   width:calc(100% + .3rem);margin-left:-.3rem;resize:none;overflow:hidden;
   border:1px solid transparent;border-radius:5px;background:transparent;
-  font-family:inherit;font-weight:700;font-size:.76rem;line-height:1.3;text-align:left;hyphens:auto;
-  padding:.1rem .3rem;
+  font-family:inherit;font-weight:500;font-size:.76rem;line-height:1.3;text-align:left;hyphens:auto;
+  padding:.1rem .3rem;color:var(--ink-2); /* the Bild's name is more of a note, the moves carry the figures (#2161) */
 }
 .film-card textarea.fname:hover{border-color:var(--line);background:var(--panel);}
 .film-card textarea.fname:focus{background:var(--panel);outline:2px solid var(--accent);border-color:transparent;}
@@ -969,6 +969,18 @@ body.roster-open .roster{display:flex;}
   padding:6px 0 6px calc(var(--cp) + 1px + var(--pv) / 2 - 10px); /* same for every move, whatever icons it shows (#2089) */
 }
 .film-between-chips{display:contents;} /* chips and the icons flow as one row (#2089) */
+/* Name des Übergangs (#2161): eine eigene Zeile über den Symbolen */
+.film-move-name{
+  order:-2;flex:1 0 100%;display:flex;align-items:center;gap:.3rem;
+  min-height:22px;padding:.1rem .35rem;border:1px solid transparent;border-radius:6px;
+  background:transparent;color:var(--ink-3);font-size:.72rem;line-height:1.25;text-align:left;
+  transition:border-color .12s ease,background .12s ease,color .12s ease;
+}
+.film-move-name .ico{flex:none;opacity:.7;}
+.film-move-name span{min-width:0;overflow-wrap:anywhere;}
+.film-move-name:not(.named) span{opacity:.75;}
+.film-move-name.named{color:var(--ink);font-weight:700;}
+.film-move-name:hover{border-color:var(--line-strong);background:var(--panel);color:var(--ink);}
 .film-between-add,.film-between-speed{order:-1;} /* first, so they sit at the same spot whatever chips follow (#2141) */
 .film-between-chip-wrap{position:relative;}
 .film-between-chip{
@@ -1037,6 +1049,7 @@ body.roster-open .roster{display:flex;}
   padding:0 .45rem;font-size:.78rem;text-align:center;
 }
 .between-rename-input:focus{outline:2px solid var(--accent);border-color:transparent;}
+.between-rename-input--wide{width:min(240px,calc(100vw - 2.5rem));}
 .note-input{display:block;width:min(320px,calc(100vw - 2.5rem));border:1px solid var(--line);border-radius:6px;background:var(--panel-2);padding:.4rem .5rem;font:inherit;font-size:.82rem;resize:vertical;}
 .note-input:focus{outline:2px solid var(--accent);border-color:transparent;}
 .note-toggle.active{border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:var(--accent-wash);color:var(--accent-ink);}
@@ -1289,6 +1302,9 @@ body.roster-open .roster{display:flex;}
     width:26px;min-height:0;margin:0 -.15rem;padding:0; /* icons on top, chips below them (#2141) */
     flex-direction:column;flex-wrap:nowrap;justify-content:flex-start;align-self:stretch;
   }
+  .film-move-name{flex:none;width:20px;height:20px;min-height:0;padding:0;justify-content:center;border:1px dashed var(--line-strong);border-radius:5px;}
+  .film-move-name span{display:none;}
+  .film-move-name.named{border:1.5px solid var(--accent);background:var(--accent-wash);color:var(--accent-ink);}
   .film-add-wrap{width:64px;height:auto;align-self:stretch;margin:0 0 0 .3rem;}
 
   /* Abspielleiste */
