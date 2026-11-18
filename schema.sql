@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS share_videos (
   path       VARCHAR(255) NOT NULL,
   sections   TEXT         NOT NULL,
   created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  sha256     CHAR(64)     NOT NULL DEFAULT '', -- the file's SHA-256, so a video is only added once (#2162)
   INDEX share_videos_by_share (share_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

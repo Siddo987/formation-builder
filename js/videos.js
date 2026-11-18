@@ -85,24 +85,41 @@
     if(!/^video\//.test(file.type) && !/\.(mp4|m4v|mov|webm|ogv|mkv)$/i.test(file.name)){
       showVideoStatus('„' + file.name + '“ ist keine Videodatei.'); return Promise.resolve();
     }
-    // Each video only once per choreo (#2162) — the same byte size counts as the same file, like
-    // api/share/videos.php checks it too.
-    var dup = videos.filter(function(v){ return v.size === file.size; })[0];
-    if(dup){ showVideoStatus('„' + file.name + '“ ist schon da – als „' + dup.name + '“.'); return Promise.resolve(); }
     var name = file.name.replace(/\.[^.]+$/, '') || 'Video';
     var sections = activeSectionId() ? [activeSectionId()] : [];
-    if(state.sharedId){
-      return uploadVideoToShare(file, name, file.type, sections, 'Lädt „' + name + '“ hoch').then(function(list){ videos = list; });
-    }
-    var id = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    showVideoStatus('Speichert „' + name + '“ …');
-    // idbPut swallows errors (full storage): read it back to know it landed.
-    return idbPut('video:' + id, file).then(function(){ return idbGet('video:' + id); }).then(function(saved){
-      if(!saved) throw new Error('Auf diesem Gerät ist nicht genug Platz für das Video.');
-      return changeLocalVideos(function(list){
-        return list.concat([{id: id, name: name, mime: file.type, size: file.size, sections: sections, created_at: new Date().toISOString()}]);
-      });
-    }).then(function(list){ videos = list; });
+    showVideoStatus('Prüft „' + name + '“ …');
+    // Each video only once per choreo (#2162), recognised by its content — before anything is
+    // uploaded; api/share/videos.php checks it again.
+    return Promise.all([fileSha256(file), withHashes(videos)]).then(function(r){
+      var hash = r[0], dup = hash && videos.filter(function(v){ return v.sha256 === hash; })[0];
+      if(dup){ showVideoStatus('„' + file.name + '“ ist schon da – als „' + dup.name + '“.'); return; }
+      if(state.sharedId){
+        return uploadVideoToShare(file, name, file.type, sections, 'Lädt „' + name + '“ hoch').then(function(list){ videos = list; });
+      }
+      var id = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      showVideoStatus('Speichert „' + name + '“ …');
+      // idbPut swallows errors (full storage): read it back to know it landed.
+      return idbPut('video:' + id, file).then(function(){ return idbGet('video:' + id); }).then(function(saved){
+        if(!saved) throw new Error('Auf diesem Gerät ist nicht genug Platz für das Video.');
+        return changeLocalVideos(function(list){
+          return list.concat([{id: id, name: name, mime: file.type, size: file.size, sections: sections, created_at: new Date().toISOString(), sha256: hash}]);
+        });
+      }).then(function(list){ videos = list; });
+    });
+  }
+  // SHA-256 of a file as hex; '' where the browser can't (no secure context) — the server still checks.
+  function fileSha256(blob){
+    if(!window.crypto || !crypto.subtle) return Promise.resolve('');
+    return blob.arrayBuffer().then(function(buf){ return crypto.subtle.digest('SHA-256', buf); }).then(function(h){
+      return Array.prototype.map.call(new Uint8Array(h), function(x){ return ('0' + x.toString(16)).slice(-2); }).join('');
+    });
+  }
+  // Local videos saved before hashes were kept get theirs from the stored file (in memory only).
+  function withHashes(list){
+    return Promise.all(list.map(function(v){
+      if(v.sha256 || v.url) return v;
+      return idbGet('video:' + v.id).then(function(b){ return b && fileSha256(b).then(function(h){ v.sha256 = h; }); });
+    }));
   }
 
   function updateVideo(v, changes){

@@ -91,6 +91,7 @@ const DB_MYSQL_TABLES = [
             'path'       => 'VARCHAR(255) NOT NULL',
             'sections'   => 'TEXT NOT NULL',
             'created_at' => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
+            'sha256'     => "CHAR(64) NOT NULL DEFAULT ''",
         ],
         'extra' => ['INDEX share_videos_by_share (share_id)'],
     ],
@@ -167,6 +168,7 @@ function db_ensure_schema(): void {
     try { $pdo->exec("ALTER TABLE shares ADD COLUMN view_link_enabled INTEGER NOT NULL DEFAULT 1"); } catch (Throwable $e) {}
     try { $pdo->exec("ALTER TABLE shares ADD COLUMN edit_link_enabled INTEGER NOT NULL DEFAULT 1"); } catch (Throwable $e) {}
     try { $pdo->exec("ALTER TABLE shares ADD COLUMN link_rights TEXT"); } catch (Throwable $e) {}
+    try { $pdo->exec("ALTER TABLE share_videos ADD COLUMN sha256 TEXT NOT NULL DEFAULT ''"); } catch (Throwable $e) {}
     $pdo->exec("UPDATE shares SET updated_at = created_at WHERE updated_at = ''");
     $pdo->exec("UPDATE shares SET version = lower(hex(randomblob(12))) WHERE version = ''");
     $pdo->exec("CREATE TABLE IF NOT EXISTS share_commits (
@@ -210,7 +212,8 @@ function db_ensure_schema(): void {
         size INTEGER NOT NULL,
         path TEXT NOT NULL,
         sections TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        sha256 TEXT NOT NULL DEFAULT ''
     )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS figures (
         id TEXT PRIMARY KEY,

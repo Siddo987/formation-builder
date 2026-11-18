@@ -5,9 +5,10 @@
  * ein Video gehört zu einem oder mehreren Abschnitten, gemerkt über die Id des Bilds, mit dem der
  * Abschnitt beginnt.
  *
- * GET  ?id=…&t=…  -> {videos: [{id, name, mime, size, sections, created_at, url}], can_edit}
+ * GET  ?id=…&t=…  -> {videos: [{id, name, mime, size, sections, created_at, url, sha256}], can_edit}
  * POST id, edit_token, action =
- *   add    : upload_id (Stücke über media_chunk.php), name, sections (JSON-Liste) — höchstens 200 MB
+ *   add    : upload_id (Stücke über media_chunk.php), name, sections (JSON-Liste) — höchstens 200 MB,
+ *            dieselbe Datei (SHA-256) nur einmal je Choreo (409)
  *   update : video_id, name, sections
  *   delete : video_id
  * Schreiben braucht das Recht „videos“ (api/lib/account.php).
@@ -34,10 +35,16 @@ function video_list(string $id): array {
     $stmt->execute([':id' => $id]);
     $base = dirname(dirname($_SERVER['SCRIPT_NAME'])) . '/uploads/';
     return array_map(function ($v) use ($base) {
+        $hash = (string) ($v['sha256'] ?? '');
+        $file = __DIR__ . '/../uploads/' . $v['path'];
+        if ($hash === '' && is_file($file)) { // added before hashes were kept: hashed once, here
+            $hash = hash_file('sha256', $file);
+            db()->prepare('UPDATE share_videos SET sha256 = :h WHERE id = :v')->execute([':h' => $hash, ':v' => $v['id']]);
+        }
         return [
             'id' => $v['id'], 'name' => $v['name'], 'mime' => $v['mime'], 'size' => (int) $v['size'],
             'sections' => json_decode((string) $v['sections'], true) ?: [], 'created_at' => $v['created_at'],
-            'url' => $base . $v['path'],
+            'url' => $base . $v['path'], 'sha256' => $hash,
         ];
     }, $stmt->fetchAll());
 }
@@ -67,19 +74,9 @@ share_assert_right($access, 'videos');
 $action = (string) ($_POST['action'] ?? '');
 if ($action === 'add') {
     $uploadId = share_post_upload_id('upload_id');
-    $size = share_incoming_size(null, $uploadId);
-    if ($size > VIDEO_MAX_BYTES) {
+    if (share_incoming_size(null, $uploadId) > VIDEO_MAX_BYTES) {
         share_discard_incoming_upload($uploadId);
         json_error('Das Video ist größer als 200 MB.', 413);
-    }
-    // Each video only once per choreo (#2162).
-    // shortcut: the same byte size counts as the same file — safe for camera videos; hash the file if that ever misfires.
-    $dup = db()->prepare('SELECT name FROM share_videos WHERE share_id = :s AND size = :z');
-    $dup->execute([':s' => $id, ':z' => $size]);
-    $dupName = $dup->fetchColumn();
-    if ($dupName !== false) {
-        share_discard_incoming_upload($uploadId);
-        json_error('Dieses Video ist schon da: „' . $dupName . '“.', 409);
     }
     $name = video_name();
     $sections = video_sections();
@@ -90,14 +87,21 @@ if ($action === 'add') {
         @unlink($file['tmp_name']);
         json_error('Das ist keine Videodatei (erlaubt: ' . implode(', ', VIDEO_EXTS) . ').', 415);
     }
+    // Each video only once per choreo (#2162), recognised by its content.
+    $hash = hash_file('sha256', $file['tmp_name']);
+    foreach (video_list($id) as $v) {
+        if ($v['sha256'] !== $hash) continue;
+        @unlink($file['tmp_name']);
+        json_error('Dieses Video ist schon da: „' . $v['name'] . '“.', 409);
+    }
     $videoId = random_id(22);
     $dir = __DIR__ . '/../uploads/shares/' . $id . '/videos';
     if (!is_dir($dir) && !mkdir($dir, 0770, true) && !is_dir($dir)) json_error('Konnte Upload-Verzeichnis nicht anlegen', 500);
     if (!share_consume_ingested($file, $dir . '/' . $videoId . '.' . $ext)) json_error('Video-Upload fehlgeschlagen', 500);
-    db()->prepare('INSERT INTO share_videos (id, share_id, name, mime, size, path, sections, created_at) VALUES (:v, :s, :n, :m, :z, :p, :c, :t)')->execute([
+    db()->prepare('INSERT INTO share_videos (id, share_id, name, mime, size, path, sections, created_at, sha256) VALUES (:v, :s, :n, :m, :z, :p, :c, :t, :h)')->execute([
         ':v' => $videoId, ':s' => $id, ':n' => $name, ':m' => mb_substr((string) ($_POST['mime'] ?? ''), 0, 100),
         ':z' => $file['size'], ':p' => 'shares/' . $id . '/videos/' . $videoId . '.' . $ext,
-        ':c' => $sections, ':t' => gmdate('Y-m-d H:i:s'),
+        ':c' => $sections, ':t' => gmdate('Y-m-d H:i:s'), ':h' => $hash,
     ]);
 } elseif ($action === 'update' || $action === 'delete') {
     $stmt = db()->prepare('SELECT path FROM share_videos WHERE id = :v AND share_id = :s');
