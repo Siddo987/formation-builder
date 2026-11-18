@@ -891,20 +891,20 @@
       var y = centerY - s * slotH;
       var size = Math.round((15 + emphasis * 17) * k); // 15px far away up to 32px dead center, at 100 %
       var f = state.formations[i];
-      var font = (emphasis > 0.6 ? '700 ' : '600 ') + size + 'px "Manrope",sans-serif';
-      ctx.font = font;
+      var weight = emphasis > 0.6 ? '700 ' : '600 ';
       ctx.globalAlpha = fade * (0.4 + 0.6 * emphasis);
       ctx.fillStyle = emphasis > 0.6 ? el.color : dim;
-      // Just the Bild's own name — no "Bild N — " prefix — wrapped onto up to 2 lines rather than
-      // truncated with an ellipsis (a name always falls back to "Bild N" itself if left blank, see
-      // formations.js's fname blur handler, so this is never actually empty).
-      var lines = wrapCanvasText(ctx, f.name || ('Bild ' + (i + 1)), maxTextW, font);
-      if(lines.length > 2){
-        var second = lines.slice(1).join(' ');
-        while(second.length > 1 && ctx.measureText(second + '…').width > maxTextW) second = second.slice(0, -1);
-        lines = [lines[0], second + '…'];
+      // Just the Bild's own name — no "Bild N — " prefix — wrapped and never cut off (#2167): a name
+      // too tall for its slot (or with a word too wide) gets a smaller font instead, so it never runs
+      // into its neighbours (a blank name already falls back to "Bild N", see formations.js).
+      var name = f.name || ('Bild ' + (i + 1)), lines, lineH;
+      for(;;){
+        lines = wrapCanvasText(ctx, name, maxTextW, weight + size + 'px "Manrope",sans-serif');
+        lineH = size * 1.22;
+        var widest = Math.max.apply(null, lines.map(function(l){ return ctx.measureText(l).width; }));
+        if(size <= 6 || (lines.length * lineH <= slotH && widest <= maxTextW)) break;
+        size--;
       }
-      var lineH = size * 1.22;
       var baseY = y - (lines.length - 1) * lineH / 2;
       lines.forEach(function(line, li){ ctx.fillText(line, cx, baseY + li * lineH); });
     }
