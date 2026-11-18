@@ -807,7 +807,8 @@
   // (the scrolling Bild names), 'text' (with placeholders, see videoTextFor) and 'image'. The stage
   // floors are painted first, over the frame background, so the logo and anything else placed under
   // the stage sits on the floor and under the grid — as the logo always did. state.videoLayout null
-  // means this standard layout, which draws exactly the frame the export drew before the builder.
+  // means this standard layout: the frame the export drew before the builder, plus the metre numbers
+  // along the grid (#2154).
   function defaultVideoLayout(format){
     format = VIDEO_FORMATS[format] ? format : 'quer';
     var W = VIDEO_FORMATS[format].w, H = VIDEO_FORMATS[format].h, stage, names, section, size = 100;
@@ -826,7 +827,7 @@
     var lw = stage.w * 0.8, lh = stage.h * 0.8;
     return {format: format, bg: '#150f1c', els: [
       {id: 'logo', type: 'logo', x: stage.x + (stage.w - lw) / 2, y: stage.y + (stage.h - lh) / 2, w: lw, h: lh},
-      {id: 'stage', type: 'stage', x: stage.x, y: stage.y, w: stage.w, h: stage.h, grid: true, nums: false, line: 1, dot: 100, initials: true, names: true, room: true, floor: ''},
+      {id: 'stage', type: 'stage', x: stage.x, y: stage.y, w: stage.w, h: stage.h, grid: true, nums: true, line: 1, dot: 100, initials: true, names: true, room: true, floor: ''},
       {id: 'abschnitt', type: 'text', x: section.x, y: section.y, w: section.w, h: section.h, text: '{abschnitt}', font: 'mono', size: format === 'hoch' ? 22 : 15, bold: true, upper: true, color: 'rgba(217,154,52,.95)', align: 'left', bg: ''},
       {id: 'bilder', type: 'bilder', x: names.x, y: names.y, w: names.w, h: names.h, size: size, color: '#ffffff', divider: format !== 'hoch'}
     ]};
