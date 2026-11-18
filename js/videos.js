@@ -41,7 +41,7 @@
   function localVideosKey(){ return 'videos:' + state.localId; }
   function videoResponse(res){
     return res.json().catch(function(){ return {}; }).then(function(data){
-      if(!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      if(!res.ok) throw Object.assign(new Error(data.error || 'HTTP ' + res.status), {status: res.status});
       videosCanEdit = data.can_edit;
       return data.videos;
     });
@@ -78,6 +78,10 @@
     if(!/^video\//.test(file.type) && !/\.(mp4|m4v|mov|webm|ogv|mkv)$/i.test(file.name)){
       showVideoStatus('„' + file.name + '“ ist keine Videodatei.'); return Promise.resolve();
     }
+    // Each video only once per choreo (#2162) — the same byte size counts as the same file, like
+    // api/share/videos.php checks it too.
+    var dup = videos.filter(function(v){ return v.size === file.size; })[0];
+    if(dup){ showVideoStatus('„' + file.name + '“ ist schon da – als „' + dup.name + '“.'); return Promise.resolve(); }
     var name = file.name.replace(/\.[^.]+$/, '') || 'Video';
     var sections = activeSectionId() ? [activeSectionId()] : [];
     if(state.sharedId){
@@ -266,7 +270,8 @@
     movingVideos = idbGet(key).then(function(list){
       return (list || []).reduce(function(p, v){
         return p.then(function(){ return idbGet('video:' + v.id); }).then(function(blob){
-          return blob && uploadVideoToShare(blob, v.name, v.mime, v.sections, 'Lädt „' + v.name + '“ in die geteilte Choreo');
+          return blob && uploadVideoToShare(blob, v.name, v.mime, v.sections, 'Lädt „' + v.name + '“ in die geteilte Choreo')
+            .catch(function(err){ if(err.status !== 409) throw err; }); // already in the shared choreo: drop the local copy all the same
         }).then(function(){
           return idbDelete('video:' + v.id).then(function(){
             return changeLocalVideos(function(l){ return l.filter(function(x){ return x.id !== v.id; }); });

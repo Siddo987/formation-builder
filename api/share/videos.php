@@ -67,9 +67,19 @@ share_assert_right($access, 'videos');
 $action = (string) ($_POST['action'] ?? '');
 if ($action === 'add') {
     $uploadId = share_post_upload_id('upload_id');
-    if (share_incoming_size(null, $uploadId) > VIDEO_MAX_BYTES) {
+    $size = share_incoming_size(null, $uploadId);
+    if ($size > VIDEO_MAX_BYTES) {
         share_discard_incoming_upload($uploadId);
         json_error('Das Video ist größer als 200 MB.', 413);
+    }
+    // Each video only once per choreo (#2162).
+    // shortcut: the same byte size counts as the same file — safe for camera videos; hash the file if that ever misfires.
+    $dup = db()->prepare('SELECT name FROM share_videos WHERE share_id = :s AND size = :z');
+    $dup->execute([':s' => $id, ':z' => $size]);
+    $dupName = $dup->fetchColumn();
+    if ($dupName !== false) {
+        share_discard_incoming_upload($uploadId);
+        json_error('Dieses Video ist schon da: „' . $dupName . '“.', 409);
     }
     $name = video_name();
     $sections = video_sections();
