@@ -80,7 +80,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
      instead and are converted (musicFromBars). */
   var BAR_PHRASE_MAX = 16;
   // The texts a bar can have, by their key in state.music, with their longest length.
-  var BAR_TEXTS = {phrases: BAR_PHRASE_MAX, figures: 40};
+  var BAR_TEXTS = {phrases: BAR_PHRASE_MAX, figures: 80};
   // The beats with every cut as one: stored beats closer than CUT_BEAT_GAP to a cut give way to it
   // (they come back when the cut moves away). A section without beats of its own gets none.
   var CUT_BEAT_GAP = 0.12;
