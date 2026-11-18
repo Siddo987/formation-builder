@@ -720,9 +720,9 @@ body.roster-open .roster{display:flex;}
 .dancer-row-coords > :nth-child(3){order:5;}
 .dancer-row-coords > :nth-child(6){order:6;}
 .dancer-row-coords .coord-label,.pair-group-midpoint .coord-label{min-width:.7rem;}
-/* Kompakt: X/Y/° nur beim ausgewählten Tänzer (oder solange man darin tippt) */
-.dancer-row:not(.roster-row-selected):not(:focus-within) .dancer-row-coords,
-.dancer-row:not(.roster-row-selected):not(:focus-within) .dancer-row-follow{display:none;}
+/* Kompakt: X/Y/° nur bei ausgewählten Tänzern, auch allen einer Mehrfachauswahl (oder solange man darin tippt) */
+.dancer-row:not(.roster-row-selected):not(.roster-row-pair-selected):not(:focus-within) .dancer-row-coords,
+.dancer-row:not(.roster-row-selected):not(.roster-row-pair-selected):not(:focus-within) .dancer-row-follow{display:none;}
 .remove-btn{
   flex:none;width:22px;height:22px;
   display:flex;align-items:center;justify-content:center;
