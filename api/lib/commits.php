@@ -33,9 +33,9 @@ function commit_fetch(string $shareId, string $commitId): ?array {
     return $row ?: null;
 }
 
-/** All commits for a share, oldest first. */
+/** All commits for a share, oldest first, without their payloads (a busy share has thousands, ~60 MB). */
 function commits_all(string $shareId): array {
-    $st = db()->prepare('SELECT * FROM share_commits WHERE share_id = :s ORDER BY created_at ASC');
+    $st = db()->prepare('SELECT commit_id, share_id, parent_ids, branch_id, author, note, created_at FROM share_commits WHERE share_id = :s ORDER BY created_at ASC');
     $st->execute([':s' => $shareId]);
     return $st->fetchAll();
 }
