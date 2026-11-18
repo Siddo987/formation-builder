@@ -414,12 +414,25 @@ var shareBaseCommit = null;   // the commit our current state descends from (las
 var shareBranchId = null;     // null on the mainline, else our own branch id
 var shareHeadCommit = null;   // last-seen mainline tip
 var shareGraph = null;        // last history.php result {head_commit, commits:[], branches:[]}
-var shareNeedsInitialPull = false; // a returning tab (localStorage binding, no ?share=) may hold a
+var shareNeedsInitialPull = false; // a returning tab (localStorage binding, no ?share=, no sync record) may hold a
                                    // stale project — its first poll pulls the current head instead
                                    // of adopting whatever it had as "current". Stays set until that
                                    // pull has landed, so a failed one is retried on the next tick.
 var pushWaitingForBase = false;    // an edit before the first poll knows the graph: committing it
                                    // without a base fast-forwarded a stale copy over the head.
+
+// Per share in localStorage: the commit this browser's copy descends from, its branch, and whether
+// it holds edits not committed yet. A reload carries on from there (loadSharedProjectFromUrl)
+// instead of pulling the head over unsaved work — which lost a day of edits while history.php failed.
+var SHARE_SYNC_KEY = 'aufstellung-share-sync:';
+function rememberShareSync(){
+  if(!state.sharedId) return;
+  try{ localStorage.setItem(SHARE_SYNC_KEY + state.sharedId, JSON.stringify({base: shareBaseCommit, branch: shareBranchId, dirty: haveLocalPendingEdits()})); }catch(e){}
+}
+function readShareSync(id){
+  try{ var s = JSON.parse(localStorage.getItem(SHARE_SYNC_KEY + id)); if(s && typeof s.base === 'string' && s.base) return s; }catch(e){}
+  return null;
+}
 
 // A failed commit used to vanish silently: the edit stayed only in this tab, and the next poll or a
 // reopen (shareNeedsInitialPull) could replace it with the server head. Now the failure shows in
@@ -438,6 +451,7 @@ function schedulePushSharedUpdate(){
   if(suppressSharePush) return;
   clearTimeout(pushDebounceTimer);
   pushDebounceTimer = setTimeout(pushSharedUpdateNow, PUSH_DEBOUNCE_MS);
+  rememberShareSync();
 }
 
 function clearPushFailure(){
@@ -567,6 +581,7 @@ function pushSharedUpdateNow(){
     .then(function(){
       pushInFlight = false;
       if(pushQueuedAgain){ pushQueuedAgain = false; schedulePushSharedUpdate(); }
+      rememberShareSync();
     });
 }
 
@@ -803,11 +818,13 @@ function pollSharedUpdate(){
                 shareBaseCommit = newHead;
                 shareNeedsInitialPull = false;
                 pushWaitingForBase = false; // made on the stale copy — it stays in this device's Verlauf
+                rememberShareSync();
                 refreshShareBranchUI();
               });
             });
         }
         shareBaseCommit = newHead; // freshly created/loaded — local state already equals head
+        rememberShareSync();
         refreshShareBranchUI();
         if(pushWaitingForBase){ pushWaitingForBase = false; pushSharedUpdateNow(); }
         return;
@@ -838,6 +855,7 @@ function pollSharedUpdate(){
               shareBaseCommit = newHead;
               shareBranchId = null;
               suppressSharePush = false;
+              rememberShareSync();
               refreshShareBranchUI();
             });
           });
@@ -1019,6 +1037,7 @@ function finishMerge(){
         shareHeadCommit = r.data.head_commit || r.data.commit_id;
         shareBranchId = null;
         if(r.data.rev) lastKnownRev = r.data.rev;
+        rememberShareSync();
         pendingMerge = null;
         closeMergeModal();
         pollSharedUpdate(); // refresh the graph
@@ -1201,7 +1220,19 @@ function loadSharedProjectFromUrl(){
     // No ?share= this time — a returning tab that's already bound to a link still needs its
     // binding honored: pick up right where the last visit left off (poll the graph once, then
     // keep polling) without needing the id in the URL again.
-    if(state.sharedId){ lastKnownRev = null; shareNeedsInitialPull = true; applyShareReadonlyUi(); startSharePolling(); if(typeof initHistory === 'function') initHistory(); }
+    if(state.sharedId){
+      lastKnownRev = null;
+      var sync = readShareSync(state.sharedId);
+      if(sync){
+        // The poll fast-forwards a clean copy; unsaved edits go out on their base (a branch that
+        // merges itself if the head moved on). Pending until then, so no poll pulls over them, and
+        // only once logo/song are back from IndexedDB — the commit would drop them otherwise.
+        shareBaseCommit = sync.base;
+        shareBranchId = sync.branch || null;
+        if(sync.dirty){ pushUnsaved = true; blobsHydrated.then(retryPushNow, retryPushNow); }
+      }else shareNeedsInitialPull = true;
+      applyShareReadonlyUi(); startSharePolling(); if(typeof initHistory === 'function') initHistory();
+    }
     return;
   }
   // ?t=<edit_token> im Link => Bearbeiten erlaubt; ohne t => reiner Nur-Ansehen-Link.

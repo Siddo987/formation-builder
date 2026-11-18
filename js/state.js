@@ -1042,18 +1042,17 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       migrate = !localStorage.getItem(BLOBS_PER_PROJECT_KEY);
       if(migrate) localStorage.setItem(BLOBS_PER_PROJECT_KEY, '1');
     }catch(e){}
-    idbGetProjectBlob('logo', migrate, myGen).then(function(rec){
+    return Promise.all([idbGetProjectBlob('logo', migrate, myGen).then(function(rec){
       if(!rec || !rec.blob || idbHydrationGen !== myGen) return;
       state.logo = { name:rec.name, mime:rec.mime, blob:rec.blob, url:URL.createObjectURL(rec.blob), opacity:rec.opacity||18 };
       updateStageLogo();
       updateLogoSettingsUI();
-    });
-    idbGetProjectBlob('song', migrate, myGen).then(function(rec){
+    }), idbGetProjectBlob('song', migrate, myGen).then(function(rec){
       if(!rec || !rec.blob || idbHydrationGen !== myGen) return;
       state.song = { name:rec.name, mime:rec.mime, blob:rec.blob, url:URL.createObjectURL(rec.blob) };
       applySongSource();
       updateSongSettingsUI();
-    });
+    })]);
   }
 
   // Overwrites the IndexedDB logo/song records to match the current in-memory state — used
@@ -1153,8 +1152,11 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   try{ sessionStorage.setItem(TAB_PROJECT_KEY, state.localId); }catch(e){}
   // Once every script is in: a fast IndexedDB answer could otherwise land before main.js defines
   // applySongSource (or stage.js updateStageLogo).
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hydrateBlobsFromIdb);
-  else hydrateBlobsFromIdb();
+  // js/share.js waits on it before committing a reloaded copy with unsaved edits.
+  var blobsHydrated = new Promise(function(resolve){
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ resolve(hydrateBlobsFromIdb()); });
+    else resolve(hydrateBlobsFromIdb());
+  });
   var selectedDancerId = null;
   // dancerIds chosen via Strg/Cmd-Klick (or auto-populated with a saved pair's members on a plain
   // click) — rotated together around their centroid.
