@@ -12,7 +12,7 @@
 
   var beatSnapAllBtn = document.getElementById('beatSnapAllBtn');
   var beatSnapToggle = document.getElementById('beatSnapToggle');
-  var beatClickBtn = document.getElementById('beatClickBtn');
+  var beatClickBtn = document.getElementById('beatClickBtn'), dockClickBtn = document.getElementById('dockClickBtn');
   var beatStatusEl = document.getElementById('beatStatus');
   var beatCanvas = document.getElementById('markerTimelineBeats');
   var musikStatusEl = document.getElementById('musikStatus');
@@ -284,7 +284,7 @@
     var has = !!state.beats;
     beatSnapAllBtn.hidden = !has;
     beatSnapAllBtn.textContent = has && music().bars.length ? 'Alle Marken auf Taktgrenzen rücken' : 'Alle Marken auf Schläge rücken';
-    [beatClickBtn, mtClickBtn].forEach(function(btn){
+    [beatClickBtn, mtClickBtn, dockClickBtn].forEach(function(btn){
       btn.disabled = !has;
       btn.setAttribute('aria-pressed', beatClickOn ? 'true' : 'false');
       btn.title = has ? 'Beim Abspielen jeden Schlag mitklicken, die 1 höher' : 'Erst Schläge erkennen (Musik & Takte)';
@@ -400,16 +400,19 @@
     renderBeats();
   }
   beatClickBtn.addEventListener('click', toggleClicks);
+  dockClickBtn.addEventListener('click', toggleClicks);
 
   /* ---------- the bar in the playbar, the Phrasierung on the Schritte sheets ---------- */
 
   /* The bar being heard in the main playbar: its number in the section, Phrasierung and Figur — while
      anything plays the song, paused, and at the selected Bild. playback.js calls this with every
      timeline update; while the song plays a frame loop keeps it current ("Nur Musik" too). */
-  var playbarBarEl = document.getElementById('playbarBar'), playbarBarShown = null;
+  var playbarBarEl = document.getElementById('playbarBar'), playbarBarShown = null, playTimeEl = document.getElementById('playTime');
   function updatePlaybarBar(){
-    var b = null;
-    if(state.music && songDur()) b = barAt(!songAudioEl.paused ? heardSongTime() : pausedAt ? pausedAt.songTime : playbackStartTime()); // js/playback.js
+    var b = null, dur = songDur(), t = dur ? (!songAudioEl.paused ? heardSongTime() : pausedAt ? pausedAt.songTime : playbackStartTime()) : 0; // js/playback.js
+    playTimeEl.hidden = !dur;
+    if(dur) playTimeEl.innerHTML = formatTime(Math.max(0, t), 2) + ' <span>/ ' + formatTime(dur) + '</span>';
+    if(state.music && dur) b = barAt(t);
     var label = b ? 'Takt ' + b.n : '', phrase = b ? b.p : '', fig = b ? b.f : '';
     if(playbarBarShown === label + '|' + phrase + '|' + fig) return;
     playbarBarShown = label + '|' + phrase + '|' + fig;
@@ -1019,7 +1022,7 @@
     g.textBaseline = 'middle';
     if(state.music) mm.secs.forEach(function(sec){
       var a = X(sec.start), b = X(Math.min(sec.end, dur));
-      g.fillStyle = v(SEC_COLORS[sec.k % 3][1]); g.fillRect(a, 0, b - a, H);
+      g.fillStyle = v(SEC_COLORS[sec.k % 3][1]); g.fillRect(a, 0, b - a, top);
       if(sec.k){ g.fillStyle = v('--line-strong'); g.fillRect(Math.round(a), 0, 1, H); }
       var name = (sec.k + 1) + (danceLabel(sec) ? ' · ' + danceLabel(sec) : '') + (sec.bars.length ? ' · ' + sec.bars.length + ' Takte' : '');
       g.fillStyle = v('--ink-2');

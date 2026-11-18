@@ -59,6 +59,7 @@
       tick.dataset.idx = i;
       if(times && formationTime(f) === null) tick.className = 'spread';
       tick.style.left = Math.min(100, pct) + '%';
+      if(pct < 1 || pct > 99) tick.style.transform = pct < 1 ? 'none' : 'translateX(-100%)'; // keep the end marks inside the dock
       scrubTicksEl.appendChild(tick);
     });
     if(sync) loadWavePeaks();

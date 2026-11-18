@@ -17,7 +17,7 @@
 :root{
   --font-body:'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display:var(--font-body);
-  --font-mono:var(--font-body); /* Zahlen stehen über tabular-nums untereinander */
+  --font-mono:var(--font-body); /* Zahlen: tabular-nums nur dort, wo sie untereinander stehen */
 
   --bg:#f5f5f5;          /* Arbeitsfläche hinter Bühne und Seiten */
   --panel:#ffffff;
@@ -104,7 +104,6 @@ body{
   margin:0;
   background:var(--bg);color:var(--ink);
   font-family:var(--font-body);font-size:13px;line-height:1.4;
-  font-variant-numeric:tabular-nums;
   -webkit-font-smoothing:antialiased;
 }
 button,input,select,textarea{font:inherit;color:inherit;}
@@ -151,7 +150,7 @@ button .ico{display:block;flex:none;pointer-events:none;}
   transition:background .15s ease-out,opacity .15s ease-out;
 }
 .btn-ghost.btn-accent:hover,.btn-primary:hover{background:var(--primary-hover);border-color:var(--primary-hover);}
-.btn-primary:disabled{opacity:.45;cursor:not-allowed;background:var(--primary);}
+.btn-primary:disabled{cursor:not-allowed;background:var(--panel-2);border-color:transparent;color:var(--ink-3);} /* Blau heißt: hier geht was */
 .btn-icon-only{width:var(--ctl-h);padding:0;}
 .btn-icon-only .lbl{display:none;}
 
@@ -642,6 +641,10 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 .transport{display:flex;align-items:center;gap:4px;flex:none;}
 .transport .btn-icon svg{display:block;}
 .playinfo{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1 1 auto;}
+.play-time{flex:none;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
+.play-time span{font-size:12px;font-weight:500;color:var(--ink-3);}
+#dockClickBtn{flex:none;}
+#dockClickBtn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-wash);color:var(--accent-ink);}
 .formation-name-live{min-width:0;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .playbar-bar{flex:none;max-width:18rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--ink-2);}
 .playbar-bar b{margin-left:3px;color:var(--ink);font-weight:600;}
@@ -1019,6 +1022,9 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
 .ws-teilen #videoLayoutBackdrop{grid-column:1 / -1;width:100%;max-width:1240px;justify-self:center;}
 .ws-teilen:has(#videoLayoutBackdrop:not([hidden])) #shareBackdrop{display:none;}
 
+/* Ziffern gleich breit, wo Zahlen laufen oder untereinander stehen */
+.film-mark,.film-index,.playbar-bar,.tempo-input,.scrub-ticks span,.insp-value,.insp-field .coord-input,.dv-num,.dv-bar,.dv-pos,.song-line .coord-input{font-variant-numeric:tabular-nums;}
+
 /* Video-Export läuft */
 .exporting .stage,.exporting .roster,.exporting .dock,.exporting .filmstrip-area{opacity:.5;pointer-events:none;}
 
@@ -1071,7 +1077,7 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
   /* Dock in einer Zeile: Knöpfe, Zeitleiste, Tempo, Bild auf Takt */
   .dock{flex-direction:row;align-items:center;gap:8px;padding:4px 8px 6px;}
   .dock-bar{display:contents;}
-  .playinfo{display:none;}
+  .playinfo,#dockClickBtn{display:none;}
   .scrub,.scrub.synced{order:1;flex:1;min-width:0;height:40px;}
   .scrub-wave{display:none;}
   .tempo-control{order:2;}
@@ -1212,7 +1218,7 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
   .scrub.synced{height:58px;}
   .scrub-ticks span{min-width:16px;height:14px;font-size:9px;line-height:12px;}
   .dock-bar{gap:8px;}
-  .formation-name-live{display:none;}
+  .formation-name-live,#dockClickBtn,.play-time{display:none;}
   .playinfo{flex:1;}
   .tempo-word{display:none;}
   .tempo-control input[type="range"]{display:none;}

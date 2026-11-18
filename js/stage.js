@@ -916,7 +916,7 @@
         var label = document.createElement('span');
         label.className = 'grid-label ' + labelCls + (isZero ? ' zero' : '');
         label.style[prop] = pct + '%';
-        label.textContent = v;
+        label.textContent = String(v).replace('-', '−');
         overlay.appendChild(label);
       }
     }

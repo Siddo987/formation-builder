@@ -229,7 +229,7 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
           <span class="pair-rotate-hint">Die ganze Auswahl wird gemeinsam gegriffen, verschoben und gedreht. Strg/Cmd-Klick wählt einzelne Tänzer ab oder dazu, Esc hebt die Auswahl auf.</span>
           <button class="btn-icon" id="pairRotateClearBtn" type="button" aria-label="Auswahl aufheben" title="Auswahl aufheben (Esc)"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
         </div>
-        <p class="context-idle"><span>Klick auf einen Punkt wählt aus</span><span class="hint-mouse">Rechtsklick zeigt alle Funktionen</span><span class="hint-touch">Lange drücken zeigt alle Funktionen</span></p>
+        <p class="context-idle"><span>Klicken oder Tippen wählt einen Punkt aus</span><span class="hint-mouse">Rechtsklick zeigt alle Funktionen</span><span class="hint-touch">Lange drücken zeigt alle Funktionen</span></p>
       </section>
 
       <section class="insp-sec insp-bild" aria-labelledby="inspBildTitle">
@@ -287,9 +287,11 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
           </button>
         </div>
         <div class="playinfo">
+          <span class="play-time" id="playTime" hidden></span>
           <span class="formation-name-live" id="activeName">–</span>
           <span class="playbar-bar" id="playbarBar" hidden></span>
         </div>
+        <button class="btn-ghost marker-toggle-btn" id="dockClickBtn" type="button" aria-pressed="false" disabled>Klicks</button>
         <div class="tempo-control">
           <label class="caption tempo-caption"><span class="tempo-word">Tempo </span><input type="text" id="tempoInput" class="tempo-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Tempo als Zahl"><span id="tempoUnit">Bilder/s</span></label>
           <input type="range" id="tempoSlider" min="0" max="100" value="50" aria-label="Abspieltempo">
