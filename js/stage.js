@@ -75,6 +75,7 @@
   function createMarkerEl(id, isFollow){
     var el = document.createElement('div');
     el.className = isFollow ? 'dancer follow' : 'dancer';
+    el.dataset.id = id; // the Tänzer-Ansicht fades everyone else (js/dancerview.js)
     var label = document.createElement('span');
     label.className = 'label';
     el.appendChild(label);
@@ -1598,6 +1599,7 @@
   }, true);
   function selectionKeysFree(){
     if(document.querySelector('.modal-backdrop:not([hidden])')) return false;
+    if(document.body.dataset.ws && document.body.dataset.ws !== 'choreo') return false; // Musik, Teilen & Export (js/main.js)
     if(document.body.classList.contains('menu-open')) return false;
     if(document.querySelector('.speed-curve-popover')) return false;
     var ae = document.activeElement;

@@ -1046,13 +1046,13 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(!rec || !rec.blob || idbHydrationGen !== myGen) return;
       state.logo = { name:rec.name, mime:rec.mime, blob:rec.blob, url:URL.createObjectURL(rec.blob), opacity:rec.opacity||18 };
       updateStageLogo();
-      if(!settingsBackdrop.hidden) updateLogoSettingsUI();
+      updateLogoSettingsUI();
     });
     idbGetProjectBlob('song', migrate, myGen).then(function(rec){
       if(!rec || !rec.blob || idbHydrationGen !== myGen) return;
       state.song = { name:rec.name, mime:rec.mime, blob:rec.blob, url:URL.createObjectURL(rec.blob) };
       applySongSource();
-      if(!settingsBackdrop.hidden) updateSongSettingsUI();
+      updateSongSettingsUI();
     });
   }
 
@@ -1227,9 +1227,6 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var newChoreoBtn = document.getElementById('newChoreoBtn');
   var deleteChoreoBtn = document.getElementById('deleteChoreoBtn');
   var projectNameInput = document.getElementById('projectNameInput');
-  var settingsBtn = document.getElementById('settingsBtn');
-  var settingsBackdrop = document.getElementById('settingsBackdrop');
-  var settingsCloseBtn = document.getElementById('settingsCloseBtn');
   var videoBackdrop = document.getElementById('videoBackdrop');
   var videoProgressFill = document.getElementById('videoProgressFill');
   var videoStatusText = document.getElementById('videoStatusText');

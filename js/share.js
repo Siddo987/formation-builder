@@ -766,7 +766,7 @@ function pollApplyBlocked(){
   if(haveLocalPendingEdits() || playing) return true; // swapping state reloads the song mid-playback (#2038)
   var ae = document.activeElement;
   if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return true;
-  var m = [shareBackdrop, settingsBackdrop, markerBackdrop, exportBackdrop, videoBackdrop, addBildBackdrop, mergeBackdrop, historyBackdrop, document.getElementById('resetBackdrop')];
+  var m = [shareBackdrop, markerBackdrop, exportBackdrop, videoBackdrop, addBildBackdrop, mergeBackdrop, historyBackdrop, document.getElementById('resetBackdrop')];
   for(var i=0;i<m.length;i++){ if(m[i] && !m[i].hidden) return true; }
   return false;
 }

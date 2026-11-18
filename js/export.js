@@ -460,21 +460,20 @@
 
   // Shows a saving state on the button while the (possibly song-sized) file is built.
   function saveProjectFile(filename, buildBlobFn){
-    var originalHtml = exportBtn.innerHTML;
-    exportBtn.disabled = true;
-    exportBtn.textContent = 'Wird gespeichert…';
+    var originalHtml = exportConfirmBtn.innerHTML;
+    exportConfirmBtn.disabled = true;
+    exportConfirmBtn.textContent = 'Wird gespeichert…';
     Promise.resolve(buildBlobFn(state)).then(function(blob){
       downloadBlob(blob, filename);
     }).catch(function(err){
       console.error(err);
-    }).then(function(){ exportBtn.disabled = false; exportBtn.innerHTML = originalHtml; });
+    }).then(function(){ exportConfirmBtn.disabled = false; exportConfirmBtn.innerHTML = originalHtml; });
   }
 
   function confirmExport(){
     if(exportBackdrop.hidden) return;
     var base = sanitizeFilename(filenameInput.value);
     if(exportFormat === 'stg' || exportFormat === 'auf'){
-      closeExportDialog();
       if(exportFormat === 'stg') saveProjectFile(base + '.stg', function(s){ return buildStgBlob(s).then(appendStgVideoImages); });
       else saveProjectFile(base + '.auf', function(s){ return new Blob([buildAufText(s)], {type:'text/plain'}); });
       return;
@@ -483,7 +482,6 @@
     var sheets = exportWho.length ? getStepsSheetsFor(exportWho) : null;
     if(sheets && !sheets.length) return;
     var showContext = !exportContextOption.hidden && exportContextToggle.checked;
-    closeExportDialog();
     if(exportFormat === 'video'){
       startVideoExport(base + videoExportExt(), sheets ? stepsFocusIds(sheets) : null, exportGhostToggle.checked, showContext, exportPathsToggle.checked);
     } else {
@@ -762,7 +760,6 @@
     importBtn.disabled = active;
     newChoreoBtn.disabled = active;
     deleteChoreoBtn.disabled = active;
-    settingsBtn.disabled = active;
     playBtn.disabled = active || state.formations.length < 2;
   }
 
@@ -1764,10 +1761,7 @@
     document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
     applySongSource();
     if(typeof applyFacingVisibility === 'function') applyFacingVisibility();
-    if(!settingsBackdrop.hidden){
-      updateLogoSettingsUI();
-      updateSongSettingsUI();
-    }
+    updateSettingsUI(); // js/main.js
     if(!markerBackdrop.hidden) openMarkerModal();
     if(typeof refreshVideoLayoutBuilder === 'function') refreshVideoLayoutBuilder();
   }

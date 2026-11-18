@@ -16,6 +16,8 @@
 # defense in depth (e.g. in case PHP handling is ever misconfigured for that path).
 <IfModule mod_alias.c>
     RedirectMatch 404 ^/api/lib/.*\.php$
+    # The repo lives in the webroot: its history and the design working files stay private.
+    RedirectMatch 404 ^/\.(git|impeccable)(/|$)
 </IfModule>
 
 # The local-dev sqlite fallback database (see api/lib/db.php) must never be web-accessible.

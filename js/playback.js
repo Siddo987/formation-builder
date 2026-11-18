@@ -10,13 +10,16 @@
     // The Vorlage is for placing — greyed out while the Bilder move (#2080).
     document.body.classList.toggle('playing', playing);
     Array.prototype.forEach.call(document.querySelectorAll('#layoutSelectWrap select, #layoutSelectWrap input'), function(el){ el.disabled = playing; });
+    if(typeof updateBildBar === 'function') updateBildBar(); // js/marker.js — it waits while playing
   }
 
   function updatePlaybarInfo(){
     var f = currentFormation();
     activeNameEl.textContent = f.name;
     activeReadoutEl.textContent = String(state.activeIndex+1).padStart(2,'0') + ' / ' + String(state.formations.length).padStart(2,'0');
-    updateNoteBtn(); // the toolbar's Notiz button follows what is shown (js/formations.js)
+    updateNoteBtn(); // the inspector's Notiz button follows what is shown (js/formations.js)
+    if(typeof updateBildBar === 'function') updateBildBar(); // js/marker.js
+    if(typeof renderDancerView === 'function') renderDancerView(); // js/dancerview.js
     if(typeof updateBildLocks === 'function') updateBildLocks(); // someone else may hold this Bild (js/share.js)
     if(!playing && !pausedAt) updateProgress(idleTimelinePct());
   }
@@ -35,6 +38,7 @@
       ? formatTime(pct/100*dur) + ' von ' + formatTime(dur)
       : 'Bild ' + (state.activeIndex+1) + ' von ' + state.formations.length);
     if(typeof updatePlaybarBar === 'function') updatePlaybarBar(); // the bar being heard (js/beats.js)
+    if(typeof updateBildBar === 'function') updateBildBar(); // the dock's „Bild auf Takt setzen“ (js/marker.js)
   }
   function songDurationSec(){
     var d = songAudioEl.duration;
