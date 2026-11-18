@@ -169,10 +169,11 @@
   // (half or double time), the old Essentia search in the dance's tempo takes over (js/beats-worker.js).
   var ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/';
   var JS_BASE = document.currentScript.src.replace(/beats\.js.*$/, '');
+  var BEATTHIS_URL = document.currentScript.src.replace('beats.js', 'beatthis.js'); // same ?v=
   var beatThis = null, aiMemo = null;
   function loadBeatThis(){
     if(!beatThis){
-      beatThis = Promise.all([import(ORT_URL + 'ort.wasm.bundle.min.mjs'), import(JS_BASE + 'beatthis.js')]).then(function(mods){
+      beatThis = Promise.all([import(ORT_URL + 'ort.wasm.bundle.min.mjs'), import(BEATTHIS_URL)]).then(function(mods){
         var ort = mods[0];
         ort.env.wasm.wasmPaths = ORT_URL;
         ort.env.wasm.numThreads = 1; // threads would need cross-origin isolation
