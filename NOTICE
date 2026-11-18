@@ -9,5 +9,10 @@ Hilfe › Lizenz und Quellcode, as section 13 of the license asks.
 
 Third-party parts under their own licenses:
   - vendor/essentia/          Essentia.js, AGPL-3.0 (vendor/essentia/LICENSE)
-  - models/, js/beatthis.js   Beat This! (CPJKU, JKU Linz), MIT (models/LICENSE-beat-this.txt)
+  - models/beat_this_small0.onnx, js/beatthis.js
+                              Beat This! (CPJKU, JKU Linz), MIT (models/LICENSE-beat-this.txt)
+
+models/beatnet.onnx is the app's own beat model, under the app's license. It was
+trained on the Ballroom dataset (Gouyon et al., ISMIR 2004) with the beat and bar
+annotations of Krebs et al. (github.com/CPJKU/BallroomAnnotations).
   - fonts/                    Manrope, JetBrains Mono, Bebas Neue, SIL Open Font License 1.1
