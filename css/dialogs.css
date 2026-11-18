@@ -106,6 +106,8 @@
 .marker-row--between{margin-left:1.4rem;background:transparent;}
 .marker-row--between .marker-badge{background:transparent;color:var(--ink-2);border:1px solid var(--line);}
 .marker-row--between .marker-name{font-weight:500;}
+.marker-bar{flex:none;font-size:.72rem;}
+.marker-bar:empty{display:none;}
 .modal .marker-time-input{width:78px;font-family:var(--font-mono);font-size:.76rem;text-align:center;}
 .modal .marker-now-btn,.modal .marker-clear-btn{height:28px;font-size:.72rem;padding:0 .5rem;}
 .modal .marker-clear-btn{width:28px;padding:0;}
@@ -410,6 +412,7 @@ button.video-chip{cursor:pointer;}
   .modal input[type="text"],.modal input[type="password"],.modal input[type="number"],.modal input[type="search"],.modal select{height:38px;font-size:16px;}
   .modal .btn-ghost{height:38px;}
   .marker-row{flex-wrap:wrap;}
+  .marker-bar{order:1;flex-basis:100%;padding-left:calc(20px + .45rem);} /* own line under the name, which keeps its room */
 }
 
 /* ---- Schritte-PDF (Druckansicht) — unverändert übernommen ---- */

@@ -283,6 +283,7 @@
   function renderBeats(){
     var has = !!state.beats;
     beatSnapAllBtn.hidden = !has;
+    beatSnapAllBtn.textContent = has && music().bars.length ? 'Alle Marken auf Taktgrenzen rücken' : 'Alle Marken auf Schläge rücken';
     [beatClickBtn, mtClickBtn].forEach(function(btn){
       btn.disabled = !has;
       btn.setAttribute('aria-pressed', beatClickOn ? 'true' : 'false');
@@ -322,15 +323,44 @@
     var b = nearestBeat(t, BEAT_SNAP_MAX);
     return b === null ? t : b;
   }
-  // Moves every Bild mark onto its nearest beat (marks in a pause of the music stay).
+  // Inside the bars a Bild sits on the line between two of them (#2180): the nearer end of the bar
+  // playing at t, or null where no bar plays.
+  function nearestBarLine(t){
+    var b = barAt(t);
+    return !b ? null : t - b.t <= b.end - t ? b.t : b.end;
+  }
+  // Where "Jetzt" or a Bild added while paused puts a Bild: on a bar line, outside the bars on a beat.
+  function bildSnap(t){
+    var b = beatSnapToggle.checked ? nearestBarLine(t) : null;
+    return b === null ? beatSnap(t) : b;
+  }
+  // The bar line after (dir 1) or before (dir -1) a Bild's mark t, for − / +; null outside the bars.
+  // The 0.02 / 0.03 s step past t: a mark keeps 0.01 s (snapTime), so it may sit just off its line.
+  function stepBarLine(t, dir){
+    var b = beatSnapToggle.checked ? barAt(dir > 0 ? t + 0.02 : t - 0.03) : null;
+    return !b ? null : dir > 0 ? b.end : b.t;
+  }
+  // "T. 12|13" for a mark on the line between bars 12 and 13, '' off the bar lines.
+  function barLineLabel(t){
+    if(t === null || !state.music) return '';
+    var before = null, after = null;
+    music().bars.forEach(function(b){
+      if(Math.abs(b.end - t) < 0.006) before = b;
+      if(Math.abs(b.t - t) < 0.006) after = b;
+    });
+    return before || after ? 'T. ' + (before ? before.n : '') + '|' + (after ? after.n : '') : '';
+  }
+  // Moves every Bild mark onto its nearest bar line, outside the bars onto its nearest beat (marks
+  // in a pause of the music stay).
   function snapAllMarks(){
     var moved = 0;
     state.formations.forEach(function(f){
-      var t = formationTime(f), b = t === null ? null : nearestBeat(t, BEAT_SNAP_MAX);
+      var t = formationTime(f), b = t === null ? null : nearestBarLine(t);
+      if(b === null && t !== null) b = nearestBeat(t, BEAT_SNAP_MAX);
       if(b !== null && Math.abs(b - t) > 0.006){ f.time = snapTime(b); moved++; } // snapTime() keeps 0.01 s
     });
     if(moved){ saveState(); renderMarkerList(); renderMarkerTimeline(); }
-    beatStatusEl.textContent = moved ? moved + (moved === 1 ? ' Marke' : ' Marken') + ' auf den Schlag gerückt.' : 'Alle Marken liegen schon auf Schlägen.';
+    beatStatusEl.textContent = moved ? moved + (moved === 1 ? ' Marke' : ' Marken') + ' auf Taktgrenze oder Schlag gerückt.' : 'Alle Marken liegen schon auf Taktgrenzen oder Schlägen.';
   }
   beatSnapAllBtn.addEventListener('click', snapAllMarks);
 

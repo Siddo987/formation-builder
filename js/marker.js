@@ -71,6 +71,9 @@
       Array.prototype.forEach.call(markerListEl.querySelectorAll('.marker-row:not(.marker-row--between)'), function(row, i){
         row.classList.toggle('marker-row--warn', !!bad[i]);
         row.querySelector('.marker-time-input').placeholder = times[i] != null ? formatTime(times[i], 2) : 'mm:ss';
+        var bar = row.querySelector('.marker-bar'), label = barLineLabel(formationTime(state.formations[i])); // js/beats.js (#2180)
+        bar.textContent = label;
+        bar.title = label ? 'Taktgrenze: Takt davor | Takt danach' : '';
       });
       // A Zwischenposition's time is a share of its move (sanitizeBetweenAt), so it follows its Bilder.
       Array.prototype.forEach.call(markerListEl.querySelectorAll('.marker-row--between'), function(row){
@@ -168,16 +171,20 @@
       nowBtn.textContent = 'Jetzt';
       nowBtn.title = 'Auf aktuelle Abspielposition setzen';
       nowBtn.addEventListener('click', function(){
-        setTime(beatSnap(heardSongTime())); // js/playback.js — minus the Bluetooth delay (#2059)
+        setTime(bildSnap(heardSongTime())); // js/playback.js — minus the Bluetooth delay (#2059); js/beats.js — on a bar line (#2180)
       });
+
+      var bar = document.createElement('span');
+      bar.className = 'marker-time marker-bar';
 
       row.appendChild(badge);
       row.appendChild(name);
+      row.appendChild(bar);
       row.appendChild(timeInput);
       appendNudgeButtons(row, function(){
         var t = formationTime(f);
         return t !== null ? t : isSyncActive() ? syncTimes()[state.formations.indexOf(f)] : null;
-      }, setTime);
+      }, setTime, true);
       row.appendChild(nowBtn);
       row.appendChild(clearBtn);
       markerListEl.appendChild(row);
@@ -244,20 +251,22 @@
     return row;
   }
 
-  // ±0,01 s next to a mark's field (#2091), from its time or where playback spreads it to. The play
-  // position follows, so the zoomed timeline shows the mark and play starts right there.
-  function appendNudgeButtons(row, getTime, setTime){
+  // ±0,01 s next to a mark's field (#2091), from its time or where playback spreads it to; a Bild
+  // (bild) inside the bars a whole bar, from bar line to bar line (#2180). The play position
+  // follows, so the zoomed timeline shows the mark and play starts right there.
+  function appendNudgeButtons(row, getTime, setTime, bild){
     [[-0.01, '−', 'früher'], [0.01, '+', 'später']].forEach(function(n){
       var btn = document.createElement('button');
       btn.className = 'btn-ghost marker-nudge-btn';
       btn.type = 'button';
       btn.textContent = n[1];
-      btn.title = '0,01 s ' + n[2];
+      btn.title = (bild ? 'Einen Takt (ohne Takte 0,01 s) ' : '0,01 s ') + n[2];
       btn.setAttribute('aria-label', btn.title);
       btn.addEventListener('click', function(){
         var t = getTime();
         if(t === null || t === undefined) return;
-        t = Math.max(0, snapTime(t + n[0]));
+        var line = bild ? stepBarLine(t, n[0] > 0 ? 1 : -1) : null;
+        t = Math.max(0, snapTime(line !== null ? line : t + n[0]));
         setTime(t);
         if(songAudioEl.paused){ songAudioEl.currentTime = t; showInMarkerView(t); }
       });
