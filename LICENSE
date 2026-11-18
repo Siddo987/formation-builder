@@ -1,0 +1,27 @@
+Aufstellung (rwkreator.sidowski.de)
+Copyright © 2026 Jakob Lukas Sidowski. Alle Rechte vorbehalten.
+
+Der Quellcode in diesem Repository ist öffentlich einsehbar, aber nicht frei.
+Ohne vorherige schriftliche Erlaubnis des Urhebers ist es nicht gestattet, ihn
+ganz oder in Teilen
+
+  - kommerziell zu nutzen,
+  - zu kopieren, zu verändern, weiterzugeben oder zu veröffentlichen,
+  - in anderen Projekten oder Diensten weiterzuverwenden oder selbst zu betreiben.
+
+Erlaubt ist allein, den Code anzusehen.
+
+Ausgenommen sind Bestandteile Dritter; sie stehen unter ihren eigenen Lizenzen:
+
+  - vendor/essentia/ – Essentia.js, AGPL-3.0 (vendor/essentia/LICENSE)
+  - models/beat_this_small0.onnx und das in js/beatthis.js nachgebaute
+    Verfahren – Beat This! (CPJKU, JKU Linz), MIT (models/LICENSE-beat-this.txt)
+  - fonts/ – Manrope, JetBrains Mono, Bebas Neue, SIL Open Font License 1.1
+
+----------------------------------------------------------------------------
+
+English summary: Copyright © 2026 Jakob Lukas Sidowski. All rights reserved.
+The source code is published for viewing only. Without prior written
+permission you may not use it commercially, copy, modify, distribute or
+publish it, or reuse or host it, in whole or in part. The third-party parts
+listed above remain under their own licenses.
