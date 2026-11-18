@@ -843,7 +843,28 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
     </div>
     <div class="modal-body">
       <p class="settings-hint">Schritte zum Nachtanzen: Ein Video gehört zu einem oder mehreren Abschnitten. In einer geteilten Choreo sehen es alle mit dem Link. Höchstens 200 MB je Video.</p>
-      <video id="videoPlayer" class="video-player" controls playsinline hidden></video>
+      <!-- Own controls (#2163) instead of the browser's: same look as the app's other players -->
+      <div id="videoPlayer" class="video-player" hidden>
+        <video id="videoEl" playsinline></video>
+        <div class="vp-bar">
+          <button class="btn-play btn-play--sm" id="vpPlayBtn" type="button" aria-label="Abspielen">
+            <span class="icon-play" id="vpIconPlay"></span>
+            <span class="icon-pause" id="vpIconPause" hidden><i></i><i></i></span>
+          </button>
+          <span class="marker-time" id="vpTime">0:00 / 0:00</span>
+          <input type="range" id="vpSeek" min="0" max="0" step="any" value="0" aria-label="Stelle im Video">
+          <select id="vpRate" aria-label="Geschwindigkeit">
+            <option value="0.25">0,25×</option>
+            <option value="0.5">0,5×</option>
+            <option value="0.75">0,75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1,25×</option>
+            <option value="1.5">1,5×</option>
+          </select>
+          <button class="btn-ghost btn-icon-only" id="vpMuteBtn" type="button" aria-label="Ton aus" aria-pressed="false" title="Ton aus"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 5 6 9H2v6h4l5 4z"/><path class="vp-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="vp-cross" d="m22 9-6 6M16 9l6 6"/></svg></button>
+          <button class="btn-ghost btn-icon-only" id="vpFullBtn" type="button" aria-label="Vollbild" title="Vollbild"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+        </div>
+      </div>
       <div id="videoList" class="video-list"></div>
       <div class="settings-row">
         <button class="btn-ghost" id="videoAddBtn" type="button">Video hinzufügen</button>

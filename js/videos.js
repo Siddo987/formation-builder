@@ -13,7 +13,14 @@
   var videoAddBtn = document.getElementById('videoAddBtn');
   var videoFileInput = document.getElementById('videoFileInput');
   var videoStatus = document.getElementById('videoStatus');
-  var videoPlayer = document.getElementById('videoPlayer');
+  var videoPlayer = document.getElementById('videoPlayer'); // the player box, moved into the card that plays
+  var videoEl = document.getElementById('videoEl');
+  var vpPlayBtn = document.getElementById('vpPlayBtn');
+  var vpSeek = document.getElementById('vpSeek');
+  var vpTime = document.getElementById('vpTime');
+  var vpRate = document.getElementById('vpRate');
+  var vpMuteBtn = document.getElementById('vpMuteBtn');
+  var vpFullBtn = document.getElementById('vpFullBtn');
   var videos = [], videosCanEdit = true, playingId = null;
   var blobUrls = {}; // local videos: id -> object URL, released when the dialog closes
 
@@ -126,9 +133,9 @@
     });
   }
   function stopVideo(){
-    videoPlayer.pause();
-    videoPlayer.removeAttribute('src');
-    videoPlayer.load();
+    videoEl.pause();
+    videoEl.removeAttribute('src');
+    videoEl.load();
     videoPlayer.hidden = true;
     playingId = null;
   }
@@ -139,10 +146,11 @@
     if(wasPlaying){ renderVideos(); return; }
     videoUrl(v).then(function(url){
       playingId = v.id;
-      videoPlayer.src = url;
+      videoEl.src = url;
+      videoEl.playbackRate = +vpRate.value; // a new src resets it
       videoPlayer.hidden = false;
       renderVideos();
-      videoPlayer.play().catch(function(){});
+      videoEl.play().catch(function(){});
     }, function(err){ showVideoStatus(err.message); });
   }
 
@@ -283,6 +291,40 @@
     }).then(function(){ movingVideos = null; });
     return movingVideos;
   }
+
+  /* Player controls (#2163): play, position, speed, sound, full screen — in the app's own look. */
+  function vpUpdate(){
+    var dur = isFinite(videoEl.duration) ? videoEl.duration : 0;
+    vpSeek.max = String(dur);
+    if(!vpSeek.matches(':active')) vpSeek.value = String(videoEl.currentTime); // not under a dragging finger
+    vpTime.textContent = vpFmt(videoEl.currentTime) + ' / ' + vpFmt(dur);
+  }
+  function vpFmt(t){ t = Math.floor(t || 0); return Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2); }
+  function vpUpdatePlaying(){
+    var on = !videoEl.paused;
+    document.getElementById('vpIconPlay').hidden = on;
+    document.getElementById('vpIconPause').hidden = !on;
+    vpPlayBtn.setAttribute('aria-label', on ? 'Pausieren' : 'Abspielen');
+  }
+  function vpToggle(){ if(videoEl.paused) videoEl.play().catch(function(){}); else videoEl.pause(); }
+  vpPlayBtn.addEventListener('click', vpToggle);
+  videoEl.addEventListener('click', vpToggle);
+  ['play', 'pause', 'ended', 'emptied'].forEach(function(t){ videoEl.addEventListener(t, vpUpdatePlaying); });
+  ['timeupdate', 'durationchange', 'loadedmetadata', 'seeked', 'emptied'].forEach(function(t){ videoEl.addEventListener(t, vpUpdate); });
+  vpSeek.addEventListener('input', function(){ videoEl.currentTime = +vpSeek.value; vpUpdate(); });
+  vpRate.addEventListener('change', function(){ videoEl.playbackRate = +vpRate.value; });
+  vpMuteBtn.addEventListener('click', function(){
+    videoEl.muted = !videoEl.muted;
+    vpMuteBtn.setAttribute('aria-pressed', videoEl.muted ? 'true' : 'false');
+    vpMuteBtn.setAttribute('aria-label', videoEl.muted ? 'Ton an' : 'Ton aus');
+    vpMuteBtn.title = vpMuteBtn.getAttribute('aria-label');
+  });
+  // The whole box goes full screen so the controls come along; iPhone Safari only has the video's own.
+  vpFullBtn.addEventListener('click', function(){
+    if(document.fullscreenElement) document.exitFullscreen();
+    else if(videoPlayer.requestFullscreen) videoPlayer.requestFullscreen().catch(function(){});
+    else if(videoEl.webkitEnterFullscreen) videoEl.webkitEnterFullscreen();
+  });
 
   document.getElementById('videosBtn').addEventListener('click', openVideos);
   document.getElementById('videosCloseBtn').addEventListener('click', closeVideos);
