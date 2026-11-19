@@ -253,7 +253,7 @@
     if(!el){ vlDrag = null; return; }
     var dx = (e.clientX - d.x0) * d.kx, dy = (e.clientY - d.y0) * d.ky, s = d.start;
     var b = d.corner ? vlResize(s, d.corner, dx, dy, vlKeepsAspect(el)) : {x: s.x + dx, y: s.y + dy, w: s.w, h: s.h};
-    vlSnap(el, b, 8 * d.kx, d.corner, vlKeepsAspect(el));
+    vlSnap(el, b, 8 * d.kx, d.corner, vlKeepsAspect(el), e.shiftKey);
     el.x = Math.round(b.x); el.y = Math.round(b.y); el.w = Math.round(b.w); el.h = Math.round(b.h);
     if(d.corner && el.type === 'text'){
       // A text's width sets its line breaks and so its height; with a background it may be taller.
@@ -268,8 +268,8 @@
   });
   // Snapping while moving: the box's left edge, middle or right edge (and top, middle, bottom) catches
   // on the frame's and every other shown element's within tol; while resizing, the dragged edges do
-  // (#2166). A guide line shows where.
-  function vlSnap(el, b, tol, corner, keepAspect){
+  // (#2166). A guide line shows where. Holding Shift drags freely.
+  function vlSnap(el, b, tol, corner, keepAspect, free){
     var F = vlSize(), xs = [0, F.w / 2, F.w], ys = [0, F.h / 2, F.h];
     vlLayout().els.forEach(function(o){
       if(o.id === el.id || o.hidden) return;
@@ -283,7 +283,7 @@
       });
       return r;
     }
-    var on = vlSnapToggle.checked, sx = null, sy = null;
+    var on = vlSnapToggle.checked && !free, sx = null, sy = null;
     if(on && !corner){
       sx = best(b.x, b.w, xs); sy = best(b.y, b.h, ys);
       if(sx) b.x += sx.d;
