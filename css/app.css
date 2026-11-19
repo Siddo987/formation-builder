@@ -235,7 +235,12 @@ body.share-readonly #musikOpenBtn,
 body.share-readonly #historyUndoBtn,
 body.share-readonly #historyRedoBtn,
 body.share-readonly .tool-toggle:has(#pathDrawToggle),
-body.share-readonly #pathDrawMode{display:none;}
+body.share-readonly #pathDrawMode,
+body.share-readonly #dancerViewBtn,
+body.share-readonly #songUploadBtn,
+body.share-readonly #songRemoveBtn,
+body.share-readonly #exportLayoutOption,
+body.share-readonly #shareUnlinkBtn{display:none;}
 body.shared #deleteChoreoBtn{display:none;}
 body.share-no-delete .film-remove{display:none;}
 body.share-no-media #songUploadBtn,body.share-no-media #songRemoveBtn,

@@ -1137,7 +1137,7 @@
     });
     el.addEventListener('keydown', function(e){
       if((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey){
-        if(canCoupleSplit(dancerId) && !(typeof isBildLocked === 'function' && isBildLocked())){ e.preventDefault(); toggleCoupleSplit(dancerId); }
+        if(canCoupleSplit(dancerId) && !isShareReadOnly() && !(typeof isBildLocked === 'function' && isBildLocked())){ e.preventDefault(); toggleCoupleSplit(dancerId); }
         return;
       }
     });
@@ -1682,6 +1682,7 @@
     clearSelection();
   }, true);
   function selectionKeysFree(){
+    if(isShareReadOnly()) return false; // js/share.js — nothing to select or move on a view-only link
     if(document.querySelector('.modal-backdrop:not([hidden])')) return false;
     if(document.body.dataset.ws && document.body.dataset.ws !== 'choreo') return false; // Musik, Teilen & Export (js/main.js)
     if(document.body.classList.contains('menu-open')) return false;

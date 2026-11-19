@@ -45,7 +45,7 @@
 
   // Rückgängig / Wiederholen (js/history.js) — not while typing in a field.
   document.addEventListener('keydown', function(e){
-    if(!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    if(!(e.ctrlKey || e.metaKey) || e.altKey || isShareReadOnly()) return; // js/share.js — no undo on a view-only link
     var ae = document.activeElement;
     if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
     var k = (e.key || '').toLowerCase();

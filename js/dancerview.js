@@ -21,6 +21,7 @@
   }
 
   function setDancerView(on){
+    if(!on && isShareReadOnly()) return; // js/share.js — a view-only link stays in this view: nothing there edits
     if(on) showWorkspace('choreo'); // js/main.js
     document.body.classList.toggle('dancer-view', on);
     dancerViewBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -94,10 +95,7 @@
     if(!d) return;
     printStepsSheets(getStepsSheetsFor(['d:' + me]), sanitizeFilename((state.projectName || 'Choreo') + ' – ' + d.name), false, true, false); // js/steps.js
   });
-  // A view-only link opens in this view, once; leaving it again is up to whoever looks.
-  var dvAutoDone = false;
+  // A view-only link opens in this view and can't leave it.
   new MutationObserver(function(){
-    if(dvAutoDone || !document.body.classList.contains('share-readonly')) return;
-    dvAutoDone = true;
-    setDancerView(true);
+    if(document.body.classList.contains('share-readonly') && !dvOn()) setDancerView(true);
   }).observe(document.body, {attributes: true, attributeFilter: ['class']});
