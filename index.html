@@ -435,7 +435,7 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
                 </div>
                 <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
               </div>
-              <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder das Mausrad über der Zeitleiste) zoomen an die Stelle, seitlich wischen oder Shift + Mausrad verschiebt. Bei jeder Marke rückt − / + sie um 0,01 s, ein Bild in den Takten von Taktgrenze zu Taktgrenze („T. 12|13“: zwischen Takt 12 und 13).</p>
+              <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder das Mausrad über der Zeitleiste) zoomen an die Stelle, seitlich wischen oder Shift + Mausrad verschiebt. Ein Bild sitzt immer auf einer Taktgrenze („T. 12|13“: zwischen Takt 12 und 13), außerhalb der Takte auf einem Schlag – auch „Jetzt“ und eine getippte Zeit rasten dort ein, − / + rücken von Taktgrenze zu Taktgrenze. Bei einer Zwischenposition rückt − / + um 0,01 s.</p>
             </section>
 
             <section class="settings-section">
@@ -445,7 +445,6 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
                 <button class="btn-ghost" id="beatSnapAllBtn" type="button" hidden>Alle Marken auf Schläge rücken</button>
               </div>
               <p class="settings-hint" id="beatStatus" aria-live="polite"></p>
-              <label class="toggle-label"><input type="checkbox" id="beatSnapToggle"> „Jetzt“ rastet ein: ein Bild in den Takten auf die nächste Taktgrenze, sonst auf den nächsten Schlag</label>
             </section>
 
             <section class="settings-section">

@@ -11,22 +11,19 @@
    leads through it step by step. Everything runs in this browser; the song never leaves it. */
 
   var beatSnapAllBtn = document.getElementById('beatSnapAllBtn');
-  var beatSnapToggle = document.getElementById('beatSnapToggle');
   var beatClickBtn = document.getElementById('beatClickBtn'), dockClickBtn = document.getElementById('dockClickBtn');
   var beatStatusEl = document.getElementById('beatStatus');
   var beatCanvas = document.getElementById('markerTimelineBeats');
   var musikStatusEl = document.getElementById('musikStatus');
   var BEATS_WORKER_URL = document.currentScript.src.replace('beats.js', 'beats-worker.js'); // same ?v=
-  var BEAT_SNAP_KEY = 'aufstellung-beat-snap', BEAT_CLICK_KEY = 'aufstellung-beat-click';
+  var BEAT_CLICK_KEY = 'aufstellung-beat-click';
   var BEAT_SNAP_MAX = 0.3; // s — further from any beat (a pause in the music) a time stays as it is
   var BAR_SLACK = 0.05; // s — a bar this close before a Bild's mark already counts to the next Bild
 
   var beatClickOn = false; // "Klicks" (#2146) in the Marker dialog and the view, kept under BEAT_CLICK_KEY
   try{
-    beatSnapToggle.checked = localStorage.getItem(BEAT_SNAP_KEY) !== '0';
     beatClickOn = localStorage.getItem(BEAT_CLICK_KEY) === '1';
   }catch(e){}
-  beatSnapToggle.addEventListener('change', function(){ try{ localStorage.setItem(BEAT_SNAP_KEY, beatSnapToggle.checked ? '1' : '0'); }catch(e){} });
 
   function roundMs(t){ return Math.round(t * 1000) / 1000; }
   function byNum(a, b){ return a - b; }
@@ -366,7 +363,6 @@
     return b !== null && Math.abs(b - t) <= maxDist ? b : null;
   }
   function beatSnap(t){
-    if(!beatSnapToggle.checked) return t;
     var b = nearestBeat(t, BEAT_SNAP_MAX);
     return b === null ? t : b;
   }
@@ -376,16 +372,20 @@
     var b = barAt(t);
     return !b ? null : t - b.t <= b.end - t ? b.t : b.end;
   }
-  // Where "Jetzt" or a Bild added while paused puts a Bild: on a bar line, outside the bars on a beat.
+  // Where a Bild goes — "Jetzt", a typed time, a Bild added while paused: on a bar line, outside the
+  // bars on a beat; a free time only where there is neither (#2187).
   function bildSnap(t){
-    var b = beatSnapToggle.checked ? nearestBarLine(t) : null;
+    var b = nearestBarLine(t);
     return b === null ? beatSnap(t) : b;
   }
-  // The bar line after (dir 1) or before (dir -1) a Bild's mark t, for − / +; null outside the bars.
-  // The 0.02 / 0.03 s step past t: a mark keeps 0.01 s (snapTime), so it may sit just off its line.
-  function stepBarLine(t, dir){
-    var b = beatSnapToggle.checked ? barAt(dir > 0 ? t + 0.02 : t - 0.03) : null;
-    return !b ? null : dir > 0 ? b.end : b.t;
+  // The bar line after (dir 1) or before (dir -1) a Bild's mark t, for − / +; outside the bars the
+  // next beat (#2187), null without beats. The 0.02 / 0.03 s step past t: a mark keeps 0.01 s
+  // (snapTime), so it may sit just off its line.
+  function stepBildMark(t, dir){
+    var b = barAt(dir > 0 ? t + 0.02 : t - 0.03);
+    if(b) return dir > 0 ? b.end : b.t;
+    var beats = allBeats() || [], i = lowerBound(beats, dir > 0 ? t + 0.02 : t - 0.02), beat = beats[dir > 0 ? i : i - 1];
+    return beat === undefined ? null : beat;
   }
   // "T. 12|13" for a mark on the line between bars 12 and 13, '' off the bar lines.
   function barLineLabel(t){

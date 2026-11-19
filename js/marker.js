@@ -217,7 +217,10 @@
         renderMarkerTimeline();
         updateMarkerWarnings();
       }
-      timeInput.addEventListener('change', function(){ setTime(parseTimeInput(timeInput.value)); });
+      timeInput.addEventListener('change', function(){
+        var sec = parseTimeInput(timeInput.value);
+        setTime(sec === null ? null : bildSnap(sec)); // js/beats.js — on a bar line or beat, as far as there are any (#2187)
+      });
 
       var nowBtn = document.createElement('button');
       nowBtn.className = 'btn-ghost marker-now-btn';
@@ -314,12 +317,12 @@
       btn.className = 'btn-ghost marker-nudge-btn';
       btn.type = 'button';
       btn.textContent = n[1];
-      btn.title = (bild ? 'Einen Takt (ohne Takte 0,01 s) ' : '0,01 s ') + n[2];
+      btn.title = (bild ? 'Einen Takt (ohne Takte einen Schlag, ohne Schläge 0,01 s) ' : '0,01 s ') + n[2];
       btn.setAttribute('aria-label', btn.title);
       btn.addEventListener('click', function(){
         var t = getTime();
         if(t === null || t === undefined) return;
-        var line = bild ? stepBarLine(t, n[0] > 0 ? 1 : -1) : null;
+        var line = bild ? stepBildMark(t, n[0] > 0 ? 1 : -1) : null;
         t = Math.max(0, snapTime(line !== null ? line : t + n[0]));
         setTime(t);
         if(songAudioEl.paused){ songAudioEl.currentTime = t; showInMarkerView(t); }
