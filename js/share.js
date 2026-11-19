@@ -11,7 +11,6 @@
    sync without touching the project itself (it keeps editing locally, just unbound).
 */
 
-var shareBtn = document.getElementById('shareBtn');
 var shareBackdrop = document.getElementById('shareBackdrop');
 var shareCloseBtn = document.getElementById('shareCloseBtn');
 var shareIntroEl = document.getElementById('shareIntro');
@@ -175,7 +174,6 @@ function resetShareModal(){
 function openShareModal(){ resetShareModal(); shareBackdrop.hidden = false; refreshShareAccount(); }
 function closeShareModal(){ shareBackdrop.hidden = true; }
 
-shareBtn.addEventListener('click', openShareModal);
 shareCloseBtn.addEventListener('click', closeShareModal);
 shareBackdrop.addEventListener('click', function(e){ if(e.target === shareBackdrop) closeShareModal(); });
 

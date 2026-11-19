@@ -411,7 +411,7 @@
     document.getElementById('wsChoreoTab').addEventListener('click', function(){ show('choreo'); });
     document.getElementById('wsMusikTab').addEventListener('click', function(){ show('musik'); });
     document.getElementById('bildMarksBtn').addEventListener('click', function(){ markerBtn.click(); });
-    // exportBtn (the Teilen & Export tab) and shareBtn open their view themselves — the observer follows.
+    // exportBtn (the Teilen & Export tab) opens its view itself — the observer follows.
     document.body.dataset.ws = 'choreo';
     window.showWorkspace = show;
   })();

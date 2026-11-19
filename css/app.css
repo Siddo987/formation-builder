@@ -1113,8 +1113,6 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
   .tb-history{margin-left:0;padding-right:4px;}
   .btn-icon{width:36px;height:36px;}
   .menu-btn{width:28px;}
-  #shareBtn{width:var(--ctl-h);padding:0;}
-  #shareBtn .lbl{display:none;}
   .project-menu{position:fixed;top:calc(48px + env(safe-area-inset-top));left:8px;right:8px;min-width:0;}
   .menu-item{height:44px;font-size:15px;}
   .menu-row{height:48px;font-size:15px;}
