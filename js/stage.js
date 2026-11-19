@@ -461,7 +461,7 @@
   }
   // Capture phase: with the tool on, the stage draws instead of moving or selecting points.
   stageEl.addEventListener('pointerdown', function(e){
-    if(!pathDrawToggle.checked || e.button !== 0) return;
+    if(!pathDrawToggle.checked || e.button !== 0 || isShareReadOnly()) return; // js/share.js — only who may edit draws
     e.stopPropagation();
     e.preventDefault();
     if(playing) pausePlayback();
