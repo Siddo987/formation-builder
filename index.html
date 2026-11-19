@@ -16,7 +16,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
 }
 /* Design (#2165): Hell or Dunkel chosen in the project menu, set before the CSS so nothing flashes. */
-try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; } catch (e) {}
+try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th; var gl = localStorage.getItem('aufstellung-grid-line'); if (gl === '2' || gl === '3') document.documentElement.style.setProperty('--grid-w', gl + 'px'); } catch (e) {}
 </script>
 <!-- ?v= cache-busts these behind Cloudflare's edge cache (js/css get a 4h max-age there, keyed
      purely on the URL) — bump this on every deploy that touches css/ or js/ so browsers/CDN
@@ -70,6 +70,14 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
             <option value="">Wie das Gerät</option>
             <option value="light">Hell</option>
             <option value="dark">Dunkel</option>
+          </select>
+        </label>
+        <label class="menu-row" for="gridLineSelect">
+          <span>Rasterlinien</span>
+          <select id="gridLineSelect">
+            <option value="1">Dünn</option>
+            <option value="2">Mittel</option>
+            <option value="3">Dick</option>
           </select>
         </label>
         <button class="menu-item" id="helpMenuBtn" type="button" aria-haspopup="dialog">

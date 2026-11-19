@@ -481,8 +481,9 @@ button.float-pill:hover{border-color:var(--line-strong);background:var(--panel-2
 }
 .stage-grid{position:absolute;inset:0;pointer-events:none;}
 .grid-line{position:absolute;background:var(--grid);}
-.grid-line.vertical{top:0;bottom:0;width:1px;}
-.grid-line.horizontal{left:0;right:0;height:1px;}
+/* --grid-w: Rasterlinien in the menu (#2196); thicker lines grow to both sides, 1 px stays where it was */
+.grid-line.vertical{top:0;bottom:0;width:var(--grid-w,1px);margin-left:calc((1px - var(--grid-w,1px)) / 2);}
+.grid-line.horizontal{left:0;right:0;height:var(--grid-w,1px);margin-top:calc((1px - var(--grid-w,1px)) / 2);}
 .grid-line.zero{background:var(--grid-zero);}
 .grid-label{position:absolute;font-size:9px;color:var(--grid-label);font-variant-numeric:tabular-nums;}
 .grid-label.zero{color:var(--grid-label-zero);}

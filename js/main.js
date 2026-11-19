@@ -20,6 +20,13 @@
     drawDockTimeline(); // js/beats.js — the canvas takes its colours from the theme
   });
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawDockTimeline);
+  // Rasterlinien (#2196): how thick the stage's metre lines are drawn — per device, like the Design.
+  var gridLineSelect = document.getElementById('gridLineSelect');
+  try{ gridLineSelect.value = localStorage.getItem('aufstellung-grid-line') || '1'; }catch(e){}
+  gridLineSelect.addEventListener('change', function(){
+    document.documentElement.style.setProperty('--grid-w', gridLineSelect.value + 'px');
+    try{ localStorage.setItem('aufstellung-grid-line', gridLineSelect.value); }catch(e){}
+  });
   // The UI is Inter; the video export still draws with these two, which no element uses any more.
   if(document.fonts) ['500 12px "Manrope"', '700 12px "Manrope"', '600 12px "JetBrains Mono"', '700 12px "JetBrains Mono"'].forEach(function(f){ document.fonts.load(f); });
 
