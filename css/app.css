@@ -864,6 +864,20 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 .film-move-name:not(.named) span{opacity:.75;}
 .film-move-name.named{color:var(--ink-2);font-weight:500;}
 .film-move-name:hover{border-color:var(--line-strong);background:var(--panel);color:var(--ink);}
+/* Die Takte zwischen zwei Bildern mit ihren Figuren (#2183) */
+.film-bars{order:-2;flex:1 0 100%;display:flex;flex-direction:column;padding:2px 0;}
+.film-bars-edge{flex:none;padding:2px 0 2px calc(var(--cp) + 1px + var(--pv) / 2 - 10px);}
+.film-bars-sec{padding:4px 0 2px 26px;font-size:11px;font-weight:600;color:var(--ink-2);}
+.film-bar{display:flex;align-items:center;gap:6px;min-height:24px;}
+.film-bar-n{flex:none;width:20px;text-align:right;font-size:11px;font-variant-numeric:tabular-nums;color:var(--ink-3);}
+.film-bar-fig{
+  flex:1;min-width:0;height:22px;padding:1px 6px;border:1px solid transparent;border-radius:4px;
+  background:transparent;font:inherit;font-size:12px;color:var(--ink);
+}
+.film-bar-fig:hover{border-color:var(--line-strong);background:var(--panel);}
+.film-bar-fig:focus{background:var(--panel);outline:2px solid var(--accent);outline-offset:-2px;border-color:transparent;}
+.film-bar-fig::placeholder{color:var(--ink-3);opacity:.7;}
+.film-bar:not(:hover) .film-bar-fig:not(:focus)::placeholder{color:transparent;}
 .film-between-add,.film-between-speed{order:-1;} /* zuerst, damit sie immer an derselben Stelle sitzen (#2141) */
 .film-between-chip-wrap{position:relative;}
 .film-between-chip{
@@ -1191,6 +1205,7 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
   .film-move-name{flex:none;width:20px;height:20px;min-height:0;padding:0;justify-content:center;border:1px dashed var(--line-strong);border-radius:4px;}
   .film-move-name span{display:none;}
   .film-move-name.named{border:1.5px solid var(--accent);background:var(--accent-wash);color:var(--accent-ink);}
+  .film-bars,.film-bars-edge{display:none;} /* zu schmal: Figuren je Takt dort unter Musik › Phrasierung */
   .film-add-wrap{width:56px;height:auto;align-self:stretch;margin:0 0 0 4px;}
 
   /* Tänzerliste: Blatt von unten */

@@ -291,7 +291,8 @@
      stage/roster editing code a real Bild uses, via currentFormation()'s editingBetween override
      (state.js) — see interpolateThroughBetweens() there for how they play back. */
 
-  function buildBetweenConnector(f, idx){
+  // span: the song time from this Bild to the next ([t0, t1], filmBarSpans) — its bars are listed here.
+  function buildBetweenConnector(f, idx, span){
     var wrap = document.createElement('div');
     var next = state.formations[idx + 1];
     var turns = next ? moveTurnSummary(f) : null;
@@ -364,24 +365,92 @@
     });
     wrap.addEventListener('drop', function(e){ if(betweenDragEl) e.preventDefault(); });
 
-    // The move's own name (#2161): the figure danced from this Bild to the next — what matters most,
-    // the Bild names are more of a note. A line of its own above the icons; on phones just the pen.
-    var moveBtn = document.createElement('button');
-    moveBtn.type = 'button';
-    moveBtn.className = 'film-move-name' + (f.move ? ' named' : '');
-    moveBtn.appendChild(svgIcon('pen', 12));
-    var moveLbl = document.createElement('span');
-    moveLbl.textContent = f.move || 'Übergang benennen';
-    moveBtn.appendChild(moveLbl);
-    moveBtn.title = (f.move ? '„' + f.move + '“ – ' : '') + 'Name des Übergangs zu „' + (next ? next.name : '?') + '“: die Figur, die hier getanzt wird';
-    moveBtn.setAttribute('aria-label', 'Übergang zu „' + (next ? next.name : '?') + '“' + (f.move ? ': ' + f.move : '') + ' – benennen');
-    moveBtn.addEventListener('click', function(){ openMoveRenamePopover(moveBtn, idx); });
-
-    wrap.appendChild(moveBtn);
+    // With bars, they are the move (#2183): one line per bar with its Figur. Without, the move's own
+    // name (#2161) — kept too where one was given before. A line of its own above the icons; on phones
+    // just the pen.
+    var bars = buildFilmBars(span);
+    if(bars) wrap.appendChild(bars);
+    if(!bars || f.move){
+      var moveBtn = document.createElement('button');
+      moveBtn.type = 'button';
+      moveBtn.className = 'film-move-name' + (f.move ? ' named' : '');
+      moveBtn.appendChild(svgIcon('pen', 12));
+      var moveLbl = document.createElement('span');
+      moveLbl.textContent = f.move || 'Übergang benennen';
+      moveBtn.appendChild(moveLbl);
+      moveBtn.title = (f.move ? '„' + f.move + '“ – ' : '') + 'Name des Übergangs zu „' + (next ? next.name : '?') + '“: die Figur, die hier getanzt wird';
+      moveBtn.setAttribute('aria-label', 'Übergang zu „' + (next ? next.name : '?') + '“' + (f.move ? ': ' + f.move : '') + ' – benennen');
+      moveBtn.addEventListener('click', function(){ openMoveRenamePopover(moveBtn, idx); });
+      wrap.appendChild(moveBtn);
+    }
     wrap.appendChild(chips);
     wrap.appendChild(addBtn);
     wrap.appendChild(buildSpeedCurveButton(f, next));
     if(turns) wrap.appendChild(buildCoupleTurnBadge(turns, idx));
+    return wrap;
+  }
+
+  /* ---------- Takte zwischen den Bildern (#2183) ----------
+     Once the song has bars and the Bilder sit in it, the list shows after each Bild the bars up to the
+     next one, each with its Figur to type (state.music.figures, the same as Musik › Phrasierung): the
+     figures are what is danced from one Bild to the next. Bars before the first Bild and after the
+     last get a block of their own. */
+  var filmBarsShown = '';
+  // [t0, t1] per stretch of song: 0 before Bild 1, i + 1 after Bild i (the last to the song's end);
+  // null without bars or without the Bilder in the song.
+  function filmBarSpans(){
+    if(typeof music !== 'function' || !isSyncActive() || !music().bars.length) return null; // js/beats.js
+    var times = syncTimes(), dur = songDurationSec(); // js/stage.js, js/playback.js
+    return [0].concat(times).map(function(t, i, all){ return [t, i + 1 < all.length ? all[i + 1] : dur]; });
+  }
+  function filmBarsKey(spans){
+    return spans ? JSON.stringify([spans, music().bars.map(function(b){ return [b.t, b.n]; })]) : '';
+  }
+  // The bars of span with their Figur fields, or null without bars there. Enter goes to the next
+  // bar's field (Shift: back).
+  function buildFilmBars(span){
+    var bars = span ? barsBetween(span[0], span[1]) : []; // js/beats.js
+    if(!bars.length) return null;
+    var list = document.createElement('div');
+    list.className = 'film-bars';
+    bars.forEach(function(b){
+      if(b.n === 1 && b.sec.dance){ // a section starts counting again
+        var head = list.appendChild(document.createElement('div'));
+        head.className = 'film-bars-sec';
+        head.textContent = b.sec.dance.name;
+      }
+      var row = list.appendChild(document.createElement('label'));
+      row.className = 'film-bar';
+      var num = row.appendChild(document.createElement('span'));
+      num.className = 'film-bar-n';
+      num.textContent = b.n;
+      var inp = row.appendChild(document.createElement('input'));
+      inp.type = 'text';
+      inp.className = 'film-bar-fig';
+      inp.maxLength = BAR_TEXTS.figures;
+      inp.spellcheck = false;
+      inp.autocomplete = 'off';
+      inp.enterKeyHint = 'next';
+      inp.placeholder = 'Figur';
+      inp.value = b.f;
+      inp.dataset.t = b.t;
+      inp.setAttribute('aria-label', 'Figur in Takt ' + b.n + ' von ' + secTitle(b.sec)); // js/beats.js
+      inp.addEventListener('input', function(){ setBarText('figures', inp.value, b.t); });
+      inp.addEventListener('keydown', function(e){
+        if(e.key !== 'Enter' || e.altKey || e.ctrlKey || e.metaKey) return;
+        e.preventDefault();
+        var all = filmTrackEl.querySelectorAll('.film-bar-fig'), to = all[Array.prototype.indexOf.call(all, inp) + (e.shiftKey ? -1 : 1)];
+        if(to) to.focus();
+      });
+    });
+    return list;
+  }
+  function buildFilmBarsEdge(span){
+    var bars = buildFilmBars(span);
+    if(!bars) return null;
+    var wrap = document.createElement('div');
+    wrap.className = 'film-bars-edge';
+    wrap.appendChild(bars);
     return wrap;
   }
 
@@ -1146,7 +1215,10 @@
   function renderFilmstrip(){
     // Keep the list where it was: clearing the track would otherwise jump it back to Bild 1.
     var keepTop = filmTrackEl.scrollTop, keepLeft = filmTrackEl.scrollLeft;
+    var spans = filmBarSpans(), intro = spans && buildFilmBarsEdge(spans[0]);
+    filmBarsShown = filmBarsKey(spans);
     filmTrackEl.innerHTML = '';
+    if(intro) filmTrackEl.appendChild(intro);
     state.formations.forEach(function(f, idx){
       var card = document.createElement('div');
       card.className = 'film-card' + (idx === state.activeIndex && !editingBetween ? ' active' : ''); // while posing a Zwischenposition only its chip is marked (#2078)
@@ -1263,7 +1335,8 @@
       autosizeFnameInput(nameInput);
       // Zwischenpositionen (see enterBetweenEdit() below) live in the gap after this Bild, so the
       // connector only makes sense while there's a next Bild to move to — never after the last one.
-      if(idx < state.formations.length - 1) filmTrackEl.appendChild(buildBetweenConnector(f, idx));
+      if(idx < state.formations.length - 1) filmTrackEl.appendChild(buildBetweenConnector(f, idx, spans && spans[idx + 1]));
+      else{ var outro = spans && buildFilmBarsEdge(spans[idx + 1]); if(outro) filmTrackEl.appendChild(outro); }
     });
 
     var addWrap = document.createElement('div');
@@ -1289,7 +1362,14 @@
   }
 
   // Each Bild's mark beside its name: the bar line („T. 8|9“) or else the time; nothing without a mark.
+  // The bars between the Bilder (#2183): the list is built again when they moved, else only their
+  // Figuren are refreshed (not the one being typed in).
   function updateFilmMarks(){
+    if(filmBarsKey(filmBarSpans()) !== filmBarsShown) renderFilmstrip();
+    else Array.prototype.forEach.call(filmTrackEl.querySelectorAll('.film-bar-fig'), function(inp){
+      var b = inp === document.activeElement ? null : barOf(+inp.dataset.t);
+      if(b && inp.value !== b.f) inp.value = b.f;
+    });
     Array.prototype.forEach.call(filmTrackEl.querySelectorAll('.film-card'), function(card, i){
       var f = state.formations[i], t = f ? formationTime(f) : null, el = card.querySelector('.film-mark');
       if(el) el.textContent = t === null ? '' : barLineLabel(t) || formatTime(t); // js/beats.js, js/marker.js

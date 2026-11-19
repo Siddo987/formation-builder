@@ -474,12 +474,16 @@
   songAudioEl.addEventListener('play', function(){ requestAnimationFrame(barPlayFrame); });
   ['pause', 'seeked', 'durationchange'].forEach(function(t){ songAudioEl.addEventListener(t, barPlayFrame); });
 
+  // The bars that start from song time t0 up to t1 (a Bild's mark to the next one's); [] without.
+  function barsBetween(t0, t1){
+    if(!state.music || !songDur() || t0 === null || t1 === null || !(t1 > t0)) return [];
+    return music().bars.filter(function(b){ return b.t + BAR_SLACK >= t0 && b.t + BAR_SLACK < t1; });
+  }
   // For the Schritte sheets (js/steps.js): the bars from song time t0 to t1 with their Phrasierung
   // and Figur, runs of the same folded ("Takt 5–12: 4× QQS+ Basic · SQQ · 3× QQS+"); the bar numbers
   // alone without either, a new range where a section starts counting again; '' without bars.
   function barPhrasingLine(t0, t1){
-    if(!state.music || !songDur() || t0 === null || t1 === null || !(t1 > t0)) return '';
-    var bars = music().bars.filter(function(b){ return b.t + BAR_SLACK >= t0 && b.t + BAR_SLACK < t1; });
+    var bars = barsBetween(t0, t1);
     if(!bars.length) return '';
     var ranges = [], runs = [];
     bars.forEach(function(b, i){
@@ -493,9 +497,9 @@
   }
 
   /* ---------- the view "Musik & Takte" ----------
-     Five steps, each a button on top (any can be chosen any time): 1 Grenzen, 2 Schläge, 3 Korrigieren,
-     4 Takt & 1 (#2171: the beats are set right before the bars are counted from them), 5 Phrasierung. Above the song a box says what to do now and which step comes
-     next. The overview shows the whole song (a press goes there), the Lupe a few seconds around what
+     Five steps, each a button on top (any can be chosen any time): 1 Grenzen, 2 Schläge,
+     3 Korrigieren, 4 Takt & 1 (#2171: the beats are set right before the bars are counted from them),
+     5 Phrasierung. Above the song a box says what to do now and which step comes next. The overview shows the whole song (a press goes there), the Lupe a few seconds around what
      is heard, scrolling along while it plays. In the Lupe a tap goes there; a tap on a beat (step 1: a
      cut, step 5: a bar) also selects it, and the step's buttons below act on that. Setting a beat
      happens where the play position is ("Schlag hier setzen"), so a tap never has two meanings.
@@ -842,8 +846,9 @@
     field.select();
   }
   // key: 'phrases' or 'figures' (BAR_TEXTS in js/state.js).
-  function setBarText(key, text){
-    var b = mtBar !== null ? barOf(mtBar) : null;
+  // at: the bar's time (the Bilder list, #2183), else the selected bar.
+  function setBarText(key, text, at){
+    var t = at === undefined ? mtBar : at, b = t !== null ? barOf(t) : null;
     if(!b) return;
     var m = musicCopy();
     text = text.trim().slice(0, BAR_TEXTS[key]);
