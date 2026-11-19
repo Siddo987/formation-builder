@@ -369,12 +369,24 @@
 
     // The bars of the move with their Figuren (#2183), the Zwischenpositionen between them. The chips
     // with their + stay for phones, where the list doesn't fit (css/app.css).
-    var bars = buildFilmBars(span, idx);
-    if(bars){ wrap.classList.add('has-bars'); wrap.appendChild(bars); }
+    var bars = buildFilmBars(span, idx), head = wrap;
+    if(bars){
+      // Tempo and Drehungen hold for the whole move, across all its Figuren: they head its bars, and a
+      // bracket beside them spans the move from Bild to Bild (#2186).
+      wrap.classList.add('has-bars');
+      head = wrap.appendChild(document.createElement('div'));
+      head.className = 'film-move-head';
+      wrap.appendChild(bars);
+    }
     wrap.appendChild(chips);
     wrap.appendChild(addBtn);
-    wrap.appendChild(buildSpeedCurveButton(f, next));
-    if(turns) wrap.appendChild(buildCoupleTurnBadge(turns, idx));
+    head.appendChild(buildSpeedCurveButton(f, next));
+    if(turns) head.appendChild(buildCoupleTurnBadge(turns, idx));
+    if(bars){
+      var cap = head.appendChild(document.createElement('span'));
+      cap.className = 'film-move-cap';
+      cap.textContent = 'ganzer Weg bis Bild ' + (idx + 2);
+    }
     return wrap;
   }
 

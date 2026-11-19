@@ -880,6 +880,14 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 .film-bar-between{display:flex;align-items:center;gap:6px;min-height:26px;padding-left:26px;font-size:12px;color:var(--pair);}
 .film-bar-between > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .film-connector.has-bars > .film-between-chips,.film-connector.has-bars > .film-between-add{display:none;}
+/* Tempo und Drehungen gelten für den ganzen Weg: oben am Weg, eine Klammer über alle seine Takte (#2186) */
+.film-move-head{order:-3;flex:1 0 100%;display:flex;align-items:center;gap:4px;min-height:24px;}
+.film-move-cap{margin-left:2px;font-size:11px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.film-connector.has-bars::before{
+  content:"";position:absolute;top:4px;bottom:4px;left:calc(var(--cp) + var(--pv) / 2 - 18px);width:5px;
+  border:2px solid var(--line-strong);border-right:0;border-radius:4px 0 0 4px;pointer-events:none;
+}
+.film-connector.has-bars.speed-set::before,.film-connector.has-bars.turn-set::before{border-color:var(--pair);}
 .film-between-add,.film-between-speed{order:-1;} /* zuerst, damit sie immer an derselben Stelle sitzen (#2141) */
 .film-between-chip-wrap{position:relative;}
 .film-between-chip{
@@ -1204,6 +1212,8 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
   .film-bars,.film-bars-edge{display:none;} /* zu schmal: Figuren je Takt dort unter Musik › Phrasierung */
   .film-connector.has-bars > .film-between-chips{display:contents;}
   .film-connector.has-bars > .film-between-add{display:flex;}
+  .film-move-head{display:contents;}
+  .film-move-cap,.film-connector.has-bars::before{display:none;}
   .film-add-wrap{width:56px;height:auto;align-self:stretch;margin:0 0 0 4px;}
 
   /* Tänzerliste: Blatt von unten */
