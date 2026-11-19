@@ -58,6 +58,10 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
           <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
           <span>Öffnen …</span>
         </button>
+        <button class="menu-item" id="accountBtn" type="button" aria-haspopup="dialog">
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <span>Konto &amp; Choreos …</span>
+        </button>
         <input type="file" id="importInput" accept=".stg,.auf" hidden>
         <div class="menu-sep" role="separator"></div>
         <label class="menu-row" for="themeSelect">
@@ -811,6 +815,52 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
           <button class="btn-ghost" id="openFileBtn" type="button">Datei wählen (.stg/.auf)</button>
         </div>
       </section>
+    </div>
+  </div>
+</div>
+
+<!-- Konto & Choreos (#2184): anmelden, die eigenen geteilten Choreos, Passwort und Konto -->
+<div class="modal-backdrop" id="accountBackdrop" hidden>
+  <div class="modal modal-narrow" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+    <div class="modal-header">
+      <h2 id="accountTitle">Konto &amp; Choreos</h2>
+      <button class="modal-close" id="accountCloseBtn" type="button" aria-label="Schließen"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <section class="settings-section" id="accountLoginSection" hidden>
+        <p class="settings-hint">Mit einem Konto kannst du geteilte Choreos übernehmen, festlegen was ihre Links dürfen, und findest sie hier auf jedem Gerät wieder.</p>
+        <div class="share-account-fields">
+          <input type="text" id="accountNameInput" placeholder="Nutzername" autocomplete="username" maxlength="40" aria-label="Nutzername">
+          <input type="password" id="accountPwInput" placeholder="Passwort" autocomplete="current-password" maxlength="200" aria-label="Passwort">
+        </div>
+        <div class="settings-row">
+          <button class="btn-ghost" id="accountLoginBtn" type="button">Anmelden</button>
+          <button class="btn-ghost" id="accountRegisterBtn" type="button">Konto anlegen</button>
+        </div>
+        <p class="settings-hint">Es gibt kein Zurücksetzen per E-Mail – merk dir dein Passwort.</p>
+      </section>
+      <div id="accountSignedIn" hidden>
+        <section class="settings-section">
+          <h3>Meine Choreos</h3>
+          <div class="figures-list" id="accountChoreoList"></div>
+          <p class="settings-hint" id="accountChoreoHint">Geteilte Choreos, die dir gehören. Übernehmen kannst du eine unter Teilen &amp; Export › Besitz &amp; Rechte.</p>
+        </section>
+        <section class="settings-section">
+          <h3>Konto</h3>
+          <p class="settings-hint">Angemeldet als <strong id="accountUserName"></strong> · <button class="btn-link" id="accountLogoutBtn" type="button">Abmelden</button></p>
+          <div class="share-account-fields">
+            <input type="password" id="accountCurPwInput" placeholder="Passwort" autocomplete="current-password" maxlength="200" aria-label="Aktuelles Passwort">
+            <input type="password" id="accountNewPwInput" placeholder="Neues Passwort" autocomplete="new-password" maxlength="200" aria-label="Neues Passwort">
+          </div>
+          <div class="settings-row">
+            <button class="btn-ghost" id="accountPwBtn" type="button">Passwort ändern</button>
+            <button class="btn-ghost danger" id="accountDeleteBtn" type="button">Konto löschen …</button>
+          </div>
+          <p class="settings-hint">Beides braucht dein aktuelles Passwort. Nach dem Ändern sind alle anderen Geräte abgemeldet.</p>
+        </section>
+      </div>
+      <p class="settings-hint" id="accountNote" aria-live="polite" hidden></p>
+      <p class="settings-hint import-error-inline" id="accountError" role="alert" hidden></p>
     </div>
   </div>
 </div>

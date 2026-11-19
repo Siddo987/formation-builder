@@ -391,6 +391,108 @@ shareDeleteBtn.addEventListener('click', function(){
   }, shareDeleteBtn, 'Endgültig löschen');
 });
 
+/* ---------- Konto & Choreos (#2184) ----------
+   From the project menu: sign in, and once signed in the account's own shared choreos (open, delete
+   for good), a new password and deleting the account. The rights per choreo stay in the share view. */
+var accountBackdrop = document.getElementById('accountBackdrop');
+var accountChoreoList = document.getElementById('accountChoreoList');
+var accountNameInput = document.getElementById('accountNameInput'), accountPwInput = document.getElementById('accountPwInput');
+var accountCurPwInput = document.getElementById('accountCurPwInput'), accountNewPwInput = document.getElementById('accountNewPwInput');
+function accountMsg(err, note){
+  var e = document.getElementById('accountError'), n = document.getElementById('accountNote');
+  e.hidden = !err; e.textContent = err || '';
+  n.hidden = !note; n.textContent = note || '';
+}
+function renderAccount(){
+  document.getElementById('accountLoginSection').hidden = !!accountName;
+  document.getElementById('accountSignedIn').hidden = !accountName;
+  document.getElementById('accountUserName').textContent = accountName || '';
+  accountChoreoList.innerHTML = '';
+  if(!accountName) return;
+  fetch('api/account/choreos.php').then(function(r){ return r.ok ? r.json() : {choreos: []}; }).then(function(data){
+    accountChoreoList.innerHTML = '';
+    if(!data.choreos.length) accountChoreoList.appendChild(document.createElement('p')).textContent = 'Noch keine.';
+    data.choreos.forEach(function(c){
+      var here = c.id === state.sharedId, name = c.name || 'Ohne Namen';
+      var row = accountChoreoList.appendChild(document.createElement('div'));
+      row.className = 'figure-row';
+      var item = row.appendChild(document.createElement('button'));
+      item.type = 'button';
+      item.className = 'export-menu-item' + (here ? ' is-current' : '');
+      item.disabled = here;
+      item.innerHTML = '<strong></strong><span></span>';
+      item.querySelector('strong').textContent = name;
+      item.querySelector('span').textContent = (here ? 'Hier geöffnet · ' : '') + 'geändert ' + relTimeStr(c.updated_at);
+      item.addEventListener('click', function(){
+        saveStateDebounced.flush(); writeLocalProject(); // js/state.js — keep the open one before leaving it
+        location.assign(shareEditUrlFor(c.id, c.edit_token));
+      });
+      var del = row.appendChild(document.createElement('button'));
+      del.type = 'button';
+      del.className = 'figure-delete';
+      del.appendChild(svgIcon('x', 16));
+      del.setAttribute('aria-label', '„' + name + '“ endgültig löschen');
+      del.title = 'Endgültig löschen';
+      del.addEventListener('click', function(){
+        confirmDelete('„' + name + '“ endgültig löschen?', function(){
+          postForm('api/share/owner.php', {id: c.id, edit_token: '', action: 'delete'}).then(function(){
+            if(here){ detachShare(); resetShareModal(); }
+            renderAccount();
+          }, function(err){ accountMsg(err.message); });
+        }, del, 'Endgültig löschen', 'Alle Links hören auf zu funktionieren, der Verlauf ist weg. Kopien auf den Geräten bleiben.');
+      });
+    });
+  }).catch(function(){ accountMsg('Die Choreos ließen sich nicht laden.'); });
+}
+function openAccount(){
+  accountMsg('');
+  accountBackdrop.hidden = false;
+  fetch('api/account/me.php').then(function(r){ return r.json(); }).then(function(me){
+    accountName = me.username || null;
+    renderAccount();
+  }).catch(function(){ accountMsg('Keine Verbindung zum Server.'); });
+}
+function closeAccount(){ accountBackdrop.hidden = true; }
+// After signing in or out here, the share view's Besitz & Rechte follows.
+function accountChanged(name, note){
+  accountName = name;
+  accountMsg('', note);
+  renderAccount();
+  refreshShareAccount();
+}
+function accountLogin(register){
+  accountMsg('');
+  postForm('api/account/login.php', {username: accountNameInput.value, password: accountPwInput.value, register: register ? '1' : '0'})
+    .then(function(me){ accountPwInput.value = ''; accountChanged(me.username); }, function(err){ accountMsg(err.message); });
+}
+document.getElementById('accountBtn').addEventListener('click', openAccount);
+document.getElementById('accountCloseBtn').addEventListener('click', closeAccount);
+accountBackdrop.addEventListener('click', function(e){ if(e.target === accountBackdrop) closeAccount(); });
+document.getElementById('accountLoginBtn').addEventListener('click', function(){ accountLogin(false); });
+document.getElementById('accountRegisterBtn').addEventListener('click', function(){ accountLogin(true); });
+accountPwInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') accountLogin(false); });
+document.getElementById('accountLogoutBtn').addEventListener('click', function(){
+  postForm('api/account/logout.php', {}).then(function(){ accountChanged(null); }, function(err){ accountMsg(err.message); });
+});
+document.getElementById('accountPwBtn').addEventListener('click', function(){
+  accountMsg('');
+  postForm('api/account/manage.php', {action: 'password', password: accountCurPwInput.value, new_password: accountNewPwInput.value}).then(function(){
+    accountCurPwInput.value = accountNewPwInput.value = '';
+    accountMsg('', 'Passwort geändert. Alle anderen Geräte sind abgemeldet.');
+  }, function(err){ accountMsg(err.message); });
+});
+var accountDeleteBtn = document.getElementById('accountDeleteBtn');
+accountDeleteBtn.addEventListener('click', function(){
+  if(!accountCurPwInput.value){ accountMsg('Zum Löschen oben dein aktuelles Passwort eingeben.'); accountCurPwInput.focus(); return; }
+  accountMsg('');
+  confirmDelete('Konto „' + accountName + '“ löschen?', function(){
+    postForm('api/account/manage.php', {action: 'delete', password: accountCurPwInput.value}).then(function(){
+      accountCurPwInput.value = accountNewPwInput.value = '';
+      accountChanged(null, 'Konto gelöscht.');
+    }, function(err){ accountMsg(err.message); });
+  }, accountDeleteBtn, 'Konto löschen', 'Deine Choreos bleiben über ihre Links erreichbar, gehören dann aber niemandem mehr: wer den Bearbeiten-Link hat, darf wieder alles. Sollen sie weg, lösch sie vorher oben unter „Meine Choreos“.');
+});
+
 /* ---------- syncing a bound share as a commit graph -------------------------------------------
    Every edit that reaches the server is a commit (api/share/commit.php). While this client sits on
    the mainline tip its commits fast-forward it; once it has diverged (someone else committed

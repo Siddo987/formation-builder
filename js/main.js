@@ -32,6 +32,7 @@
     if(!confirmBackdrop.hidden){ closeConfirm(); return; } // only the popup, not the dialog behind it
     if(!helpBackdrop.hidden) helpBackdrop.hidden = true;
     if(!openBackdrop.hidden) closeOpenProjectsModal();
+    if(!accountBackdrop.hidden) closeAccount(); // js/share.js
     if(!newChoreoBackdrop.hidden) closeNewChoreoModal();
     if(!videoBackdrop.hidden && exportState) exportState.cancelled = true;
     if(!addBildBackdrop.hidden) closeAddBildModal();

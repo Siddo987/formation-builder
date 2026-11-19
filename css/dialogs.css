@@ -54,6 +54,7 @@
 /* Abschnitte innerhalb einer Ansicht */
 .settings-section{display:flex;flex-direction:column;gap:8px;}
 .settings-section h3{margin:0;font-size:11px;font-weight:600;color:var(--ink);}
+#accountSignedIn:not([hidden]){display:flex;flex-direction:column;gap:18px;} /* zwei Abschnitte im Abstand der modal-body (#2184) */
 .settings-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
 .settings-hint{margin:0;font-size:12px;line-height:1.45;color:var(--ink-3);}
 
