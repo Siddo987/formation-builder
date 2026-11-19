@@ -430,6 +430,7 @@
       while(k < reached.length && reached[k] <= b.t + 0.01) betweenRow();
       var row = list.appendChild(document.createElement('div'));
       row.className = 'film-bar';
+      row.dataset.t = b.t; row.dataset.end = b.end; // the bar lines a dragged Bild card can land on
       if(f && n && !reached.some(function(t){ return Math.abs(t - b.t) < 0.05; })){
         var add = row.appendChild(document.createElement('button'));
         add.type = 'button';
@@ -1342,7 +1343,11 @@
       card.addEventListener('dragend', function(){
         card.classList.remove('dragging');
         dragSourceId = null;
-        commitFilmstripOrder();
+        showFilmBarDrop(null);
+        var d = filmBarDropped;
+        filmBarDropped = null;
+        if(d) setBildMark(d.idx, d.t); // js/marker.js — re-renders, so the order stays as it was
+        else commitFilmstripOrder();
       });
       // Live-previews the reorder as you hover: moves the actual dragged card in the DOM right
       // away (rather than waiting for drop), so the filmstrip visibly shifts around it while
@@ -1539,6 +1544,32 @@
     updatePlaybarInfo();
     resetLayoutGhost();
   }
+
+  // A Bild card dragged onto the bars in the list moves its mark onto that bar line: the upper half
+  // of a bar means its start, the lower half its end — wherever it stays between the marked Bilder
+  // around it (js/marker.js). Over the other cards it still reorders.
+  var filmBarDropped = null;
+  function filmBarDropAt(e){
+    var row = dragSourceId && e.target.closest && e.target.closest('.film-bar');
+    if(!row) return null;
+    var idx = state.formations.findIndex(function(f){ return f.id === dragSourceId; }), r = row.getBoundingClientRect();
+    var after = e.clientY - r.top > r.height / 2, t = +(after ? row.dataset.end : row.dataset.t);
+    return idx >= 0 && isFinite(t) && bildMarkMovable(idx) && bildMarkFits(idx, t) ? {row: row, after: after, idx: idx, t: t} : null;
+  }
+  function showFilmBarDrop(d){
+    var old = filmTrackEl.querySelector('.film-bar.drop-before, .film-bar.drop-after');
+    if(old) old.classList.remove('drop-before', 'drop-after');
+    if(d) d.row.classList.add(d.after ? 'drop-after' : 'drop-before');
+  }
+  filmTrackEl.addEventListener('dragover', function(e){
+    var d = filmBarDropAt(e);
+    showFilmBarDrop(d);
+    if(d) e.preventDefault();
+  });
+  filmTrackEl.addEventListener('drop', function(e){
+    var d = filmBarDropAt(e);
+    if(d){ e.preventDefault(); filmBarDropped = d; }
+  });
 
   // Reconciles state.formations to match whatever order the drag-hover live-preview (see the
   // dragover handler in renderFilmstrip) already put the DOM cards in, then does one clean

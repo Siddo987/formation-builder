@@ -71,45 +71,71 @@
   }
   songAudioEl.addEventListener('durationchange', updateSyncBadge);
 
-  /* „Bild hier ankommen lassen“ in the dock (#2191): tapped while the song plays, or held in the middle
-     of a move, the Bild arriving next lands on the bar line nearest the playhead; standing on a Bild
-     whose mark is still off its bar line (from before #2187), the mark moves onto the nearest one. */
-  var bildBarBtn = document.getElementById('bildBarBtn'), bildMarkLabel = document.getElementById('bildMarkLabel'), bildBarShown = '';
-  function bildBarTarget(){
-    if(!state.song || !state.song.url || !state.music || !music().bars.length) return null; // js/beats.js
-    var mid = pausedMidMove(), idx = mid ? mid.fromIdx + 1 : state.activeIndex, f = state.formations[idx];
-    var t = mid ? mid.songTime : formationTime(f);
-    if(t === null && isSyncActive()) t = syncTimes()[idx];
-    var line = t === null || t === undefined ? null : nearestBarLine(t);
-    var holder = typeof bildLockHolder === 'function' ? bildLockHolder(f.id) : null; // js/share.js (#2076)
-    return line === null || holder ? null : {idx: idx, f: f, t: line};
-  }
+  var bildMarkLabel = document.getElementById('bildMarkLabel');
   function updateBildBar(){
     Array.prototype.forEach.call(scrubTicksEl.children, function(el){ el.classList.toggle('active', +el.dataset.idx === state.activeIndex); });
     var own = formationTime(currentFormation()), ownBar = barLineLabel(own); // js/beats.js
     var mark = own === null ? 'ohne Marke' : (ownBar ? ownBar + ' · ' : '') + formatTime(own, 2);
-    var tg = playing ? null : bildBarTarget(), on = tg && formationTime(tg.f) !== null && Math.abs(formationTime(tg.f) - tg.t) < 0.006;
-    var text = playing || !tg ? 'Nächstes Bild hier ankommen lassen' : on ? 'Bild ' + (tg.idx + 1) + ' kommt bei ' + barLineLabel(tg.t) + ' an' : 'Bild ' + (tg.idx + 1) + ' bei ' + barLineLabel(tg.t) + ' ankommen lassen';
-    var bars = !!(state.music && music().bars.length);
-    var title = !state.song || !state.song.url ? 'Erst unter Musik ein Lied wählen'
-      : !bars ? 'Erst unter Musik → Takte & Abschnitte die Takte festlegen'
-      : 'Setzt die Marke des nächsten Bildes auf die Taktgrenze, die gerade zu hören ist: im richtigen Moment antippen, während das Lied läuft, oder die Zeitleiste zwischen zwei Bilder ziehen und dann tippen.';
-    var disabled = playing ? !bars : !tg || on;
-    var key = [mark, text, title, disabled].join('|');
-    if(key === bildBarShown) return;
-    bildBarShown = key;
-    bildMarkLabel.textContent = mark;
-    bildBarBtn.textContent = text;
-    bildBarBtn.disabled = disabled;
-    bildBarBtn.title = title;
+    if(bildMarkLabel.textContent !== mark) bildMarkLabel.textContent = mark;
   }
-  bildBarBtn.addEventListener('click', function(){
-    if(playing) playPause(); // hold where it is heard: the Bild arriving next lands there
-    var tg = bildBarTarget();
-    if(!tg) return;
-    tg.f.time = snapTime(tg.t);
-    selectFormation(tg.idx); // js/formations.js — saves, and list, timeline and stage show it there
-  });
+
+  /* Moving a Bild's mark by dragging: its number on the dock's timeline, its flag over the Bild-Marken
+     waveform, or its card onto a bar line in the Bilder list (js/formations.js). It stays strictly
+     between the marks of the marked Bilder around it, so the order never scrambles. */
+  function bildMarkMovable(idx){
+    var f = state.formations[idx];
+    return !!f && !(typeof isShareReadOnly === 'function' && isShareReadOnly()) && !(typeof bildLockHolder === 'function' && bildLockHolder(f.id)); // js/share.js (#2076)
+  }
+  function bildMarkFits(idx, t){
+    var lo = -1, hi = songDur() || Infinity, i, u;
+    for(i = idx - 1; i >= 0; i--) if((u = formationTime(state.formations[i])) !== null){ lo = u; break; }
+    for(i = idx + 1; i < state.formations.length; i++) if((u = formationTime(state.formations[i])) !== null){ hi = u; break; }
+    return t > lo && t < hi;
+  }
+  function setBildMark(idx, t){
+    state.formations[idx].time = snapTime(t);
+    selectFormation(idx); // js/formations.js — saves, and list and stage show it there
+    updateSyncBadge();
+    if(!markerBackdrop.hidden){ renderMarkerList(); renderMarkerTimeline(); updateMarkerWarnings(); }
+  }
+  // Pointer drag of el (a number at pctOf(time) % across) — onto the bar line or beat nearest the
+  // pointer (bildSnap, js/beats.js). A press that doesn't move 4 px stays a click.
+  function dragBildMark(e, el, idx, timeAt, pctOf, click){
+    if(!bildMarkMovable(idx)){ click(); return; }
+    var x0 = e.clientX, t = null, label = el.textContent;
+    el.setPointerCapture(e.pointerId);
+    function move(ev){
+      if(t === null && Math.abs(ev.clientX - x0) < 4) return;
+      var at = bildSnap(timeAt(ev.clientX));
+      if(!bildMarkFits(idx, at)) return;
+      t = at;
+      el.classList.add('dragging');
+      el.style.left = pctOf(t) + '%';
+      el.textContent = label + ' · ' + (barLineLabel(t) || formatTime(t, 2));
+    }
+    function end(ev){
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', end);
+      el.removeEventListener('pointercancel', end);
+      if(t === null){ if(ev.type === 'pointerup') click(); }
+      else if(ev.type === 'pointerup') setBildMark(idx, t);
+      else{ updateSyncBadge(); if(!markerBackdrop.hidden) renderMarkerTimeline(); }
+    }
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  }
+  // A Bild's number on the dock's timeline (js/playback.js): a click jumps onto the Bild; with the
+  // song in sync, dragging moves its mark.
+  function pressScrubTick(e, tick){
+    var idx = +tick.dataset.idx, dur = songDur();
+    function select(){ selectFormation(idx); }
+    if(!isSyncActive() || !dur){ select(); return; }
+    dragBildMark(e, tick, idx, function(x){
+      var r = scrubTicksEl.getBoundingClientRect();
+      return Math.min(1, Math.max(0, (x - r.left) / r.width)) * dur;
+    }, function(t){ return t / dur * 100; }, select);
+  }
 
   // Time markers should climb in Bild order. When they don't — hand-entered out of sequence, or a
   // filmstrip reorder scrambled them — sync playback jumps around between Bilder (syncWaypoints()
@@ -416,7 +442,12 @@
       flag.className = 'timeline-flag';
       flag.style.left = pct + '%';
       flag.textContent = String(idx+1);
-      flag.title = f.name + ' — ' + formatTime(t, 2);
+      flag.title = f.name + ' — ' + formatTime(t, 2) + ' · ziehen verschiebt die Marke';
+      flag.addEventListener('pointerdown', function(e){
+        if(e.button !== 0) return;
+        e.preventDefault();
+        dragBildMark(e, flag, idx, markerTimeAt, markerPct, function(){});
+      });
       markerTimelineFlags.appendChild(flag);
     });
   }

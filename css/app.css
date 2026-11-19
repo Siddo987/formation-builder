@@ -232,7 +232,6 @@ body.share-readonly .insp-stage{pointer-events:none;}
 body.share-readonly #addDancerBtn,
 body.share-readonly #markerBtn,
 body.share-readonly #musikOpenBtn,
-body.share-readonly #bildBarBtn,
 body.share-readonly #historyUndoBtn,
 body.share-readonly #historyRedoBtn{display:none;}
 body.shared #deleteChoreoBtn{display:none;}
@@ -654,7 +653,6 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 }
 .tempo-input:hover{border-color:var(--line-strong);}
 .tempo-input:focus{outline:2px solid var(--accent);outline-offset:-2px;border-color:transparent;background:var(--panel);}
-#bildBarBtn{flex:none;display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;line-height:calc(var(--ctl-h) - 2px);}
 
 .progress-track{width:100%;min-width:60px;height:4px;border-radius:4px;background:var(--panel-3);overflow:hidden;position:relative;}
 .progress-fill{height:100%;width:0;border-radius:4px;background:var(--accent);}
@@ -685,6 +683,8 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 .scrub-ticks span.spread{border-style:dashed;color:var(--ink-3);}
 .scrub-ticks span.active{z-index:1;border-color:var(--primary);background:var(--primary);color:#fff;}
 .scrub-ticks span.active::before{background:var(--primary);}
+.scrub.synced .scrub-ticks span{cursor:grab;touch-action:none;} /* ziehen verschiebt die Marke */
+.scrub-ticks span.dragging{z-index:2;cursor:grabbing;white-space:nowrap;border-color:var(--primary);}
 .scrub-thumb{
   position:absolute;top:0;bottom:0;left:0;width:2px;margin-left:-1px;
   background:var(--accent);pointer-events:none;z-index:2;
@@ -858,6 +858,8 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 .film-between-chips{display:contents;}
 /* Die Takte zwischen zwei Bildern mit ihren Figuren (#2183) */
 .film-bars{order:-2;flex:1 0 100%;display:flex;flex-direction:column;padding:2px 0;}
+.film-bar.drop-before{box-shadow:inset 0 2px 0 var(--primary);}
+.film-bar.drop-after{box-shadow:inset 0 -2px 0 var(--primary);}
 .film-bars-edge{flex:none;padding:2px 0 2px calc(var(--cp) + 1px + var(--pv) / 2 - 10px);}
 .film-bars-edge > summary{padding:4px 0 4px 6px;font-size:11px;color:var(--ink-3);cursor:pointer;}
 .film-bars-edge > summary:hover{color:var(--ink-2);}
@@ -976,7 +978,6 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 body.dancer-view .ws-choreo{grid-template-columns:var(--side-w) minmax(0,1fr);grid-template-areas:"side center" "dock dock";}
 body.dancer-view .side > :not(.dancer-panel),
 body.dancer-view .inspector,
-body.dancer-view #bildBarBtn,
 body.dancer-view .layout-select-wrap,
 body.dancer-view .tool-toggle:has(#clashToggle),
 body.dancer-view #rosterToggleBtn,
@@ -1078,7 +1079,6 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
 @media (max-width:1023.98px){
   .ws-tabs{margin-left:4px;}
   .ws-tab{padding:0 8px;}
-  #bildBarBtn{max-width:13rem;}
 }
 @media (max-height:760px){
   .film-track{--pv:34px;}
@@ -1102,7 +1102,6 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
   .scrub-wave{display:none;}
   .tempo-control{order:2;}
   .tempo-control input[type="range"]{display:none;}
-  #bildBarBtn{order:3;max-width:10rem;}
   .film-track{--pv:30px;}
 }
 
@@ -1242,7 +1241,6 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
   .playinfo{flex:1;}
   .tempo-word{display:none;}
   .tempo-control input[type="range"]{display:none;}
-  #bildBarBtn{flex:0 1 auto;font-size:12px;padding:0 10px;}
 
   /* Tänzer-Ansicht: Bühne oben, der eigene Ablauf darunter */
   body.dancer-view .side{flex:0 0 38dvh;}

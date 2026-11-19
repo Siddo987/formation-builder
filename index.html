@@ -302,7 +302,6 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
           <label class="caption tempo-caption"><span class="tempo-word">Tempo </span><input type="text" id="tempoInput" class="tempo-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Tempo als Zahl"><span id="tempoUnit">Bilder/s</span></label>
           <input type="range" id="tempoSlider" min="0" max="100" value="50" aria-label="Abspieltempo">
         </div>
-        <button class="btn-primary" id="bildBarBtn" type="button" disabled>Nächstes Bild hier ankommen lassen</button>
       </div>
       <div class="scrub" id="playScrub" role="slider" tabindex="0" aria-label="Position in der Choreo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <canvas class="scrub-wave" id="scrubWave" aria-hidden="true"></canvas>
@@ -446,7 +445,7 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
                 </div>
                 <div class="marker-timeline-flags" id="markerTimelineFlags"></div>
               </div>
-              <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken. − und + (oder das Mausrad über der Zeitleiste) zoomen an die Stelle, seitlich wischen oder Shift + Mausrad verschiebt. Ein Bild sitzt immer auf einer Taktgrenze („T. 12|13“: zwischen Takt 12 und 13), außerhalb der Takte auf einem Schlag – auch „Jetzt“ und eine getippte Zeit rasten dort ein, − / + rücken von Taktgrenze zu Taktgrenze. Bei einer Zwischenposition rückt − / + um 0,01 s.</p>
+              <p class="settings-hint">Klick in die Zeitleiste springt an die Stelle. Nummerierte Fähnchen sind gesetzte Marken – zum Verschieben ziehen. − und + (oder das Mausrad über der Zeitleiste) zoomen an die Stelle, seitlich wischen oder Shift + Mausrad verschiebt. Ein Bild sitzt immer auf einer Taktgrenze („T. 12|13“: zwischen Takt 12 und 13), außerhalb der Takte auf einem Schlag – auch „Jetzt“ und eine getippte Zeit rasten dort ein, − / + rücken von Taktgrenze zu Taktgrenze. Bei einer Zwischenposition rückt − / + um 0,01 s.</p>
             </section>
 
             <section class="settings-section">
