@@ -147,6 +147,12 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
         </label>
         <label class="tool-toggle" title="Die Wege vom gewählten Bild zum nächsten, mit Zwischenpositionen und Drehungen. Nur auf diesem Gerät."><input type="checkbox" id="pathsToggle"><span>Wege</span></label>
         <label class="tool-toggle" title="Markiert rot, wo sich zwei Punkte unterwegs näher als etwa 1 Rasterfeld kommen – und näher als in den Bildern, in denen sie gestellt sind. Nur auf diesem Gerät."><input type="checkbox" id="clashToggle"><span>Abstände prüfen</span></label>
+        <label class="tool-toggle" title="Den Weg eines Punkts zum nächsten Bild oder zur nächsten Zwischenposition zeichnen: vom Punkt aus ziehen. Das Ende läuft immer in seinen Platz dort."><input type="checkbox" id="pathDrawToggle"><span>Weg zeichnen</span></label>
+        <select class="tool-select" id="pathDrawMode" aria-label="Werkzeug zum Wege zeichnen" hidden>
+          <option value="hand">von Hand</option>
+          <option value="bogen">Bogen</option>
+          <option value="gerade">gerade (Punkt antippen)</option>
+        </select>
         <span class="stage-toolbar-spacer"></span>
         <div class="between-edit-banner" id="betweenEditBanner" hidden>
           <span id="betweenEditBannerText">Zwischenposition wird bearbeitet</span>

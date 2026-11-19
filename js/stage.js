@@ -336,6 +336,7 @@
   var PATHS_KEY = 'aufstellung-paths', CLASH_KEY = 'aufstellung-clash';
   var PATH_SAMPLES = 48, CLASH_DIST = 1; // grid units, about a metre
   var pathsToggle = document.getElementById('pathsToggle'), clashToggle = document.getElementById('clashToggle');
+  var pathDrawToggle = document.getElementById('pathDrawToggle'), pathDrawMode = document.getElementById('pathDrawMode'); // #2192, below
   try{
     pathsToggle.checked = localStorage.getItem(PATHS_KEY) === '1';
     clashToggle.checked = localStorage.getItem(CLASH_KEY) === '1';
@@ -387,10 +388,10 @@
     return out;
   }
   function renderPathLines(layer){
-    var fIdx = state.activeIndex, next = state.formations[fIdx + 1];
-    if(!next || (!pathsToggle.checked && !clashToggle.checked)) return;
+    var fIdx = state.activeIndex, next = state.formations[fIdx + 1], showPaths = pathsToggle.checked || pathDrawToggle.checked;
+    if(!next || (!showPaths && !clashToggle.checked)) return;
     var mv = movePaths(fIdx), frames = mv.frames, keys = mv.keys;
-    if(pathsToggle.checked){
+    if(showPaths){
       var svg = document.createElementNS(SVG_NS, 'svg');
       svg.setAttribute('class', 'path-lines');
       svg.setAttribute('viewBox', '0 0 100 100');
@@ -416,6 +417,89 @@
       layer.appendChild(mark);
     });
   }
+
+  /* ---------- Weg zeichnen (#2192) ----------
+     With the tool on, a drag from a point on the stage draws its way from the shown stop (Bild or
+     Zwischenposition) to the next one: "von Hand" keeps the drawn line, "Bogen" makes one smooth arc
+     through where the drag ends, and "gerade" — a tap on the point — takes the drawn way off again.
+     The way always ends in the point's spot at the next stop. Stored on the stop the leg leaves from
+     (paths, js/state.js); playback, Weglinien, video and Schritte-PDF all follow it from there. */
+  pathDrawToggle.addEventListener('change', function(){
+    pathDrawMode.hidden = !pathDrawToggle.checked;
+    stageEl.classList.toggle('path-drawing', pathDrawToggle.checked);
+    renderOnionSkin();
+  });
+  // The stop the shown pose belongs to, and the stop its leg runs to; null on the last Bild.
+  function drawLeg(){
+    var fIdx = editingBetween ? editingBetween.fIdx : state.activeIndex, f = state.formations[fIdx], next = state.formations[fIdx + 1];
+    if(!f || !next) return null;
+    var b = editingBetween ? editingBetween.bIdx : -1, stops = [f].concat(f.betweens || [], [next]);
+    return {stop: stops[b + 1], end: stops[b + 2]};
+  }
+  function gridAtEvent(ev){
+    var rect = stageEl.getBoundingClientRect();
+    return {x: percentToX((ev.clientX - rect.left) / rect.width * 100), y: percentToY((ev.clientY - rect.top) / rect.height * 100)};
+  }
+  function setDrawnPath(stop, key, pts){
+    var paths = sanitizePaths(stop.paths) || {};
+    if(pts) paths[key] = pts; else delete paths[key];
+    stop.paths = sanitizePaths(paths);
+    if(!stop.paths) delete stop.paths;
+    saveState();
+    renderOnionSkin();
+    scheduleClashBadges();
+  }
+  // Every 0.3 m at most, and no more than PATH_POINTS_MAX points (js/state.js).
+  function thinStroke(pts){
+    var out = [];
+    pts.forEach(function(p){
+      var last = out[out.length - 1];
+      if(!last || Math.hypot(p.x - last.x, p.y - last.y) >= 0.3) out.push(p);
+    });
+    var step = Math.ceil(out.length / PATH_POINTS_MAX);
+    return out.filter(function(p, i){ return i % step === 0; }).map(function(p){ return [p.x, p.y]; });
+  }
+  // Capture phase: with the tool on, the stage draws instead of moving or selecting points.
+  stageEl.addEventListener('pointerdown', function(e){
+    if(!pathDrawToggle.checked || e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    if(playing) pausePlayback();
+    var leg = drawLeg(), pos = currentFormation().pos, at = gridAtEvent(e), key = null, best = 1.2;
+    if(!leg) return;
+    Object.keys(pos).forEach(function(k){
+      var d = Math.hypot(pos[k].x - at.x, pos[k].y - at.y);
+      if(d < best){ best = d; key = k; }
+    });
+    var end = key && stopSpot(leg.end.pos, key);
+    if(!end) return;
+    if(pathDrawMode.value === 'gerade'){ setDrawnPath(leg.stop, key, null); return; }
+    var start = {x: pos[key].x, y: pos[key].y}, stroke = [], d = state.dancers.find(function(dd){ return dd.id === baseDancerId(key); });
+    var svg = document.createElementNS(SVG_NS, 'svg'), line = document.createElementNS(SVG_NS, 'polyline');
+    svg.setAttribute('class', 'path-lines path-stroke');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    line.setAttribute('stroke', d ? d.color : 'currentColor');
+    svg.appendChild(line);
+    stageEl.appendChild(svg);
+    try{ stageEl.setPointerCapture(e.pointerId); }catch(err){}
+    function drawn(){ return pathDrawMode.value === 'bogen' ? stroke.slice(-1).map(function(p){ return [p.x, p.y]; }) : thinStroke(stroke); }
+    function onMove(ev){
+      stroke.push(gridAtEvent(ev));
+      line.setAttribute('points', pathCurve(start, drawn(), end).pts.map(function(p){ return gridToPercentX(p.x).toFixed(2) + ',' + gridToPercentY(p.y).toFixed(2); }).join(' '));
+    }
+    function onUp(){
+      stageEl.removeEventListener('pointermove', onMove);
+      stageEl.removeEventListener('pointerup', onUp);
+      stageEl.removeEventListener('pointercancel', onUp);
+      svg.remove();
+      var pts = drawn();
+      if(pts.length) setDrawnPath(leg.stop, key, pts); // a tap without a drag draws nothing
+    }
+    stageEl.addEventListener('pointermove', onMove);
+    stageEl.addEventListener('pointerup', onUp);
+    stageEl.addEventListener('pointercancel', onUp);
+  }, true);
 
   // Filmstrip: a warning on every move with a clash, not only the one on stage (#2057). It walks
   // the whole choreo, so it runs a moment after the last change and only redoes moves that changed.

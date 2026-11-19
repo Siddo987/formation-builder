@@ -68,6 +68,7 @@
         coupleTurns: sanitizeCoupleTurns(f.coupleTurns),
         spins: sanitizeSpins(f.spins),
         orbits: sanitizeOrbits(f.orbits),
+        paths: sanitizePaths(f.paths),
         note: sanitizeNote(f.note)
       });
       Object.keys(f.pos || {}).forEach(function(did){
@@ -84,7 +85,7 @@
       // (which between, which dancer) is joined with '::' rather than another '/'.
       m.set('bild/' + f.id + '/betweenorder', (f.betweens || []).map(function(b){ return b.id; }));
       (f.betweens || []).forEach(function(b){
-        m.set('bild/' + f.id + '/betweenmeta/' + b.id, {name: b.name || '', at: sanitizeBetweenAt(b.at), coupleTurns: sanitizeCoupleTurns(b.coupleTurns), spins: sanitizeSpins(b.spins), orbits: sanitizeOrbits(b.orbits), note: sanitizeNote(b.note)});
+        m.set('bild/' + f.id + '/betweenmeta/' + b.id, {name: b.name || '', at: sanitizeBetweenAt(b.at), coupleTurns: sanitizeCoupleTurns(b.coupleTurns), spins: sanitizeSpins(b.spins), orbits: sanitizeOrbits(b.orbits), paths: sanitizePaths(b.paths), note: sanitizeNote(b.note)});
         Object.keys(b.pos || {}).forEach(function(did){
           var p = b.pos[did];
           m.set('bild/' + f.id + '/between/' + b.id + '::' + did, {x: hNum(p.x), y: hNum(p.y), rot: hNum(p.rot)});
@@ -162,12 +163,14 @@
         if(spins) bw.spins = spins;
         var orbits = sanitizeOrbits(bmeta.orbits);
         if(orbits) bw.orbits = orbits;
+        var paths = sanitizePaths(bmeta.paths);
+        if(paths) bw.paths = paths;
         if(sanitizeNote(bmeta.note)) bw.note = sanitizeNote(bmeta.note);
         return bw;
       });
       var startPos = {};
       Object.keys(pos).forEach(function(did){ startPos[did] = {x: pos[did].x, y: pos[did].y}; });
-      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, speedCurve: sanitizeSpeedCurve(meta.speedCurve), move: sanitizeMoveName(meta.move), coupleTurns: sanitizeCoupleTurns(meta.coupleTurns), spins: sanitizeSpins(meta.spins), orbits: sanitizeOrbits(meta.orbits), note: sanitizeNote(meta.note), splitPairs: sanitizeSplitPairs(meta.splitPairs)};
+      var out = {id: fid, name: meta.name || 'Bild', pos: pos, showAxes: meta.showAxes !== false, localAxes: localAxes, category: meta.category || '', startPos: startPos, betweens: betweens, speedCurve: sanitizeSpeedCurve(meta.speedCurve), move: sanitizeMoveName(meta.move), coupleTurns: sanitizeCoupleTurns(meta.coupleTurns), spins: sanitizeSpins(meta.spins), orbits: sanitizeOrbits(meta.orbits), paths: sanitizePaths(meta.paths), note: sanitizeNote(meta.note), splitPairs: sanitizeSplitPairs(meta.splitPairs)};
       if(typeof meta.time === 'number' && isFinite(meta.time) && meta.time >= 0) out.time = meta.time;
       return out;
     });
@@ -312,6 +315,7 @@
         if(hStable(before.coupleTurns) !== hStable(after.coupleTurns)) return where + ': Drehung im Paar ' + (after.coupleTurns ? 'geändert' : 'entfernt');
         if(hStable(before.spins) !== hStable(after.spins)) return where + ': Eigendrehung ' + (after.spins ? 'geändert' : 'entfernt');
         if(hStable(before.orbits) !== hStable(after.orbits)) return where + ': Kreisbahn ' + (after.orbits ? 'geändert' : 'entfernt');
+        if(hStable(before.paths) !== hStable(after.paths)) return where + ': Weg ' + (after.paths ? 'gezeichnet' : 'entfernt');
         if((before.note || '') !== (after.note || '')) return where + ': Notiz ' + (after.note ? 'geändert' : 'entfernt');
         if((before.move || '') !== (after.move || '')) return where + ': Übergang zum nächsten ' + (after.move ? '„' + after.move + '“' : 'ohne Namen');
         return where + ' geändert';
@@ -342,6 +346,7 @@
         if(hStable(before.coupleTurns) !== hStable(after.coupleTurns)) return where + ': Drehung im Paar ab einer Zwischenposition ' + (after.coupleTurns ? 'geändert' : 'entfernt');
         if(hStable(before.spins) !== hStable(after.spins)) return where + ': Eigendrehung ab einer Zwischenposition ' + (after.spins ? 'geändert' : 'entfernt');
         if(hStable(before.orbits) !== hStable(after.orbits)) return where + ': Kreisbahn ab einer Zwischenposition ' + (after.orbits ? 'geändert' : 'entfernt');
+        if(hStable(before.paths) !== hStable(after.paths)) return where + ': Weg ab einer Zwischenposition ' + (after.paths ? 'gezeichnet' : 'entfernt');
         if((before.note || '') !== (after.note || '')) return where + ': Notiz einer Zwischenposition ' + (after.note ? 'geändert' : 'entfernt');
         return where + ': Zwischenposition geändert';
       }

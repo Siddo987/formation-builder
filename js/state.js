@@ -282,6 +282,8 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(spins) out.spins = spins;
       var orbits = sanitizeOrbits(b.orbits);
       if(orbits) out.orbits = orbits;
+      var paths = sanitizePaths(b.paths);
+      if(paths) out.paths = paths;
       var note = sanitizeNote(b.note);
       if(note) out.note = note;
       return out;
@@ -338,6 +340,50 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   // The name of the move from a Bild to the next (#2161) — the figure danced there, kept on the Bild
   // it leaves from like its Zwischenpositionen and Geschwindigkeitsverlauf.
   function sanitizeMoveName(v){ return typeof v === 'string' && v.trim() ? v.trim().slice(0, 80) : ''; }
+  // Gezeichneter Weg (#2192), stored next to spins: pos key -> the drawn points [[x, y], …] the leg
+  // out of this stop runs through, between the key's spot here and its spot at the next stop.
+  var PATH_POINTS_MAX = 40, PATH_SEG = 10;
+  function sanitizePaths(v){
+    if(!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    var out = null;
+    Object.keys(v).forEach(function(k){
+      var pts = (Array.isArray(v[k]) ? v[k] : []).filter(function(p){
+        return Array.isArray(p) && typeof p[0] === 'number' && typeof p[1] === 'number' && Math.abs(p[0]) < 1000 && Math.abs(p[1]) < 1000;
+      }).slice(0, PATH_POINTS_MAX);
+      if(k && pts.length) (out = out || {})[k] = pts.map(function(p){ return [Math.round(p[0] * 100) / 100, Math.round(p[1] * 100) / 100]; });
+    });
+    return out;
+  }
+  function stopSpot(w, k){ return w && (w[k] || w[baseDancerId(k)]) || null; }
+  // A drawn way as a smooth curve (Catmull-Rom) from spot a through its points to spot b, in short
+  // straight pieces: pts, len (the running length at each) and knots (the running length at each
+  // drawn point).
+  function pathCurve(a, drawn, b){
+    var c = [a].concat(drawn.map(function(p){ return {x: p[0], y: p[1]}; }), [b]);
+    var pts = [{x: a.x, y: a.y}], len = [0], knots = [];
+    for(var i = 0; i < c.length - 1; i++){
+      var p0 = c[Math.max(0, i - 1)], p1 = c[i], p2 = c[i + 1], p3 = c[Math.min(c.length - 1, i + 2)];
+      for(var s = 1; s <= PATH_SEG; s++){
+        var t = s / PATH_SEG, t2 = t * t, t3 = t2 * t;
+        var q = {
+          x: 0.5 * (2 * p1.x + (p2.x - p0.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (3 * p1.x - p0.x - 3 * p2.x + p3.x) * t3),
+          y: 0.5 * (2 * p1.y + (p2.y - p0.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (3 * p1.y - p0.y - 3 * p2.y + p3.y) * t3)
+        }, last = pts[pts.length - 1];
+        len.push(len[len.length - 1] + Math.hypot(q.x - last.x, q.y - last.y));
+        pts.push(q);
+      }
+      if(i < c.length - 2) knots.push(len[len.length - 1]);
+    }
+    return {pts: pts, len: len, knots: knots};
+  }
+  // The spot a share t (0..1) of the way along a pathCurve.
+  function pointOnPath(curve, t){
+    var len = curve.len, want = Math.min(1, Math.max(0, t)) * len[len.length - 1], i = 1;
+    if(t >= 1) return curve.pts[curve.pts.length - 1]; // exactly on the next stop's spot
+    while(i < len.length - 1 && len[i] < want) i++;
+    var f = len[i] > len[i - 1] ? (want - len[i - 1]) / (len[i] - len[i - 1]) : 1, p = curve.pts[i - 1], q = curve.pts[i];
+    return {x: lerp(p.x, q.x, f), y: lerp(p.y, q.y, f)};
+  }
   function sanitizeOrbits(v){
     if(!Array.isArray(v)) return null;
     var seen = {}, out = [];
@@ -488,6 +534,14 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         interp[k].y = cy + Math.sin(ang) * r;
         interp[k].rot = normAngle((pa.rot || 0) + turnSweep((pb.rot || 0) - (pa.rot || 0), g.turn) * e);
       });
+    });
+    // Gezeichnete Wege (#2192): a point with a way drawn for this leg walks along it, at the leg's
+    // progress measured along the way, instead of the straight line or a turn's arc; its facing stays.
+    var drawn = sanitizePaths(leaving.paths);
+    if(drawn) Object.keys(drawn).forEach(function(k){
+      if(!interp[k]) return;
+      var p = pointOnPath(pathCurve(spot(a, k), drawn[k], spot(b, k)), e);
+      interp[k].x = p.x; interp[k].y = p.y;
     });
     // Eigendrehungen last, so they win over a Drehung's facing: that one person's arrow turns by
     // the set amount over the leg, wherever they're walking.
@@ -843,6 +897,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         f.spins = sanitizeSpins(f.spins);
         // migration: older saves predate Kreisbahnen (#2067)
         f.orbits = sanitizeOrbits(f.orbits);
+        f.paths = sanitizePaths(f.paths); // #2192
         f.note = sanitizeNote(f.note);
         // migration: older saves predate temporarily split pairs ("Paar lösen") entirely
         f.splitPairs = sanitizeSplitPairs(f.splitPairs);

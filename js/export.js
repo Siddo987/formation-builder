@@ -132,10 +132,12 @@
           if(spins) out.spins = spins;
           var orbits = sanitizeOrbits(b.orbits);
           if(orbits) out.orbits = orbits;
+          var paths = sanitizePaths(b.paths);
+          if(paths) out.paths = paths;
           if(sanitizeNote(b.note)) out.note = sanitizeNote(b.note);
           return out;
         });
-        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100, startPos: startPos, betweens: betweens, speedCurve: sanitizeSpeedCurve(f.speedCurve), move: sanitizeMoveName(f.move), coupleTurns: sanitizeCoupleTurns(f.coupleTurns), spins: sanitizeSpins(f.spins), orbits: sanitizeOrbits(f.orbits), note: sanitizeNote(f.note), splitPairs: sanitizeSplitPairs(f.splitPairs)};
+        return {id:f.id, name:f.name, pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: f.category||'', time: time === null ? null : Math.round(time*100)/100, startPos: startPos, betweens: betweens, speedCurve: sanitizeSpeedCurve(f.speedCurve), move: sanitizeMoveName(f.move), coupleTurns: sanitizeCoupleTurns(f.coupleTurns), spins: sanitizeSpins(f.spins), orbits: sanitizeOrbits(f.orbits), paths: sanitizePaths(f.paths), note: sanitizeNote(f.note), splitPairs: sanitizeSplitPairs(f.splitPairs)};
       }),
       axes: (s.axes||[]).map(function(ax){ return {id:ax.id, x1:roundNum(ax.x1), y1:roundNum(ax.y1), x2:roundNum(ax.x2), y2:roundNum(ax.y2), label:ax.label||''}; }),
       showAxes: !!s.showAxes,
@@ -230,7 +232,7 @@
         startPos = {};
         Object.keys(pos).forEach(function(id){ startPos[id] = {x: pos[id].x, y: pos[id].y}; });
       }
-      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, header.dancers), speedCurve: sanitizeSpeedCurve(f.speedCurve), move: sanitizeMoveName(f.move), coupleTurns: sanitizeCoupleTurns(f.coupleTurns), spins: sanitizeSpins(f.spins), orbits: sanitizeOrbits(f.orbits), note: sanitizeNote(f.note), splitPairs: sanitizeSplitPairs(f.splitPairs)};
+      var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: typeof f.showAxes === 'boolean' ? f.showAxes : (header.showAxes !== false), localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, header.dancers), speedCurve: sanitizeSpeedCurve(f.speedCurve), move: sanitizeMoveName(f.move), coupleTurns: sanitizeCoupleTurns(f.coupleTurns), spins: sanitizeSpins(f.spins), orbits: sanitizeOrbits(f.orbits), paths: sanitizePaths(f.paths), note: sanitizeNote(f.note), splitPairs: sanitizeSplitPairs(f.splitPairs)};
       if(typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) out.time = f.time;
       return out;
     });

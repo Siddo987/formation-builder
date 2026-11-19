@@ -1270,7 +1270,7 @@ function reconstructSharedState(payload){
       // dancer is dragged, rather than leaving the onion-skin gray dot permanently disabled.
       Object.keys(pos).forEach(function(id){ startPos[id] = {x: pos[id].x, y: pos[id].y}; });
     }
-    var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, payload.dancers), speedCurve: sanitizeSpeedCurve(f.speedCurve), move: sanitizeMoveName(f.move), coupleTurns: sanitizeCoupleTurns(f.coupleTurns), spins: sanitizeSpins(f.spins), orbits: sanitizeOrbits(f.orbits), note: sanitizeNote(f.note), splitPairs: sanitizeSplitPairs(f.splitPairs)};
+    var out = {id:f.id, name:f.name||'Bild', pos:pos, showAxes: f.showAxes !== false, localAxes: localAxes, category: typeof f.category === 'string' ? f.category : '', startPos: startPos, betweens: sanitizeBetweens(f.betweens, payload.dancers), speedCurve: sanitizeSpeedCurve(f.speedCurve), move: sanitizeMoveName(f.move), coupleTurns: sanitizeCoupleTurns(f.coupleTurns), spins: sanitizeSpins(f.spins), orbits: sanitizeOrbits(f.orbits), paths: sanitizePaths(f.paths), note: sanitizeNote(f.note), splitPairs: sanitizeSplitPairs(f.splitPairs)};
     if(typeof f.time === 'number' && isFinite(f.time) && f.time >= 0) out.time = f.time;
     return out;
   });

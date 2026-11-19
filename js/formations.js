@@ -883,10 +883,25 @@
     return pos;
   }
 
-  // A new stop `into` splits the leg `leaving` starts: a Drehung im Paar, Eigendrehung or Kreisbahn set on it
-  // is shared out — `share` stays on `leaving`, the rest moves on with `into` — so the move still
-  // turns as far in total.
-  function splitLegTurns(leaving, into, share){
+  // A new stop `into` splits the leg `leaving` starts (and `end` ended): a Drehung im Paar,
+  // Eigendrehung or Kreisbahn set on it is shared out — `share` stays on `leaving`, the rest moves on
+  // with `into` — so the move still turns as far in total; a drawn way is cut there, its points
+  // before the cut stay, the rest move on (#2192).
+  function splitLegTurns(leaving, into, share, end){
+    var paths = sanitizePaths(leaving.paths);
+    if(paths){
+      var first = {}, rest = {};
+      Object.keys(paths).forEach(function(k){
+        var a = stopSpot(leaving.pos, k), b = stopSpot(end && end.pos, k), curve = a && b ? pathCurve(a, paths[k], b) : null;
+        paths[k].forEach(function(p, i){
+          var side = curve && curve.knots[i] >= share * curve.len[curve.len.length - 1] ? rest : first;
+          (side[k] = side[k] || []).push(p);
+        });
+      });
+      leaving.paths = sanitizePaths(first);
+      if(!leaving.paths) delete leaving.paths;
+      if(sanitizePaths(rest)) into.paths = sanitizePaths(rest);
+    }
     ['coupleTurns', 'spins'].forEach(function(field){
       var set = sanitizeCoupleTurns(leaving[field]);
       if(!set) return;
@@ -940,7 +955,7 @@
     var src = currentFormation().pos;
     Object.keys(src).forEach(function(k){ between.pos[k] = {x: src[k].x, y: src[k].y, rot: src[k].rot || 0}; });
     var legStart = before[idx], legEnd = before[idx + 1];
-    splitLegTurns(idx ? f.betweens[idx - 1] : f, between, legEnd > legStart ? Math.min(1, Math.max(0, (target - legStart) / (legEnd - legStart))) : 0.5);
+    splitLegTurns(idx ? f.betweens[idx - 1] : f, between, legEnd > legStart ? Math.min(1, Math.max(0, (target - legStart) / (legEnd - legStart))) : 0.5, f.betweens[idx] || next);
     f.betweens.splice(idx, 0, between);
     saveState();
     renderFilmstrip();
@@ -1456,7 +1471,7 @@
       if(b.at === null) delete b.at;
     });
     var legStart = anchors[keep.length], legEnd = anchors[keep.length + 1], target = moveEase(i, i + 1, t);
-    splitLegTurns(keep.length ? keep[keep.length - 1] : prev, f, legEnd > legStart ? Math.min(1, Math.max(0, (target - legStart) / (legEnd - legStart))) : 0.5);
+    splitLegTurns(keep.length ? keep[keep.length - 1] : prev, f, legEnd > legStart ? Math.min(1, Math.max(0, (target - legStart) / (legEnd - legStart))) : 0.5, moved[0] || next);
     prev.betweens = keep;
     f.betweens = moved;
     if(paused.sync){
