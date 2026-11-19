@@ -71,8 +71,9 @@
   }
   songAudioEl.addEventListener('durationchange', updateSyncBadge);
 
-  /* „Bild auf Takt setzen“ in the dock: held in the middle of a move, the Bild arriving next lands on
-     the bar line nearest the playhead; standing on a Bild, its own mark moves onto the nearest one. */
+  /* „Bild hier ankommen lassen“ in the dock (#2191): tapped while the song plays, or held in the middle
+     of a move, the Bild arriving next lands on the bar line nearest the playhead; standing on a Bild
+     whose mark is still off its bar line (from before #2187), the mark moves onto the nearest one. */
   var bildBarBtn = document.getElementById('bildBarBtn'), bildMarkLabel = document.getElementById('bildMarkLabel'), bildBarShown = '';
   function bildBarTarget(){
     if(!state.song || !state.song.url || !state.music || !music().bars.length) return null; // js/beats.js
@@ -88,11 +89,11 @@
     var own = formationTime(currentFormation()), ownBar = barLineLabel(own); // js/beats.js
     var mark = own === null ? 'ohne Marke' : (ownBar ? ownBar + ' · ' : '') + formatTime(own, 2);
     var tg = playing ? null : bildBarTarget(), on = tg && formationTime(tg.f) !== null && Math.abs(formationTime(tg.f) - tg.t) < 0.006;
-    var text = playing ? 'Bild auf Takt setzen' : !tg ? 'Bild auf Takt setzen' : 'Bild ' + (tg.idx + 1) + (on ? ' steht auf ' : ' auf ') + barLineLabel(tg.t);
+    var text = playing || !tg ? 'Nächstes Bild hier ankommen lassen' : on ? 'Bild ' + (tg.idx + 1) + ' kommt bei ' + barLineLabel(tg.t) + ' an' : 'Bild ' + (tg.idx + 1) + ' bei ' + barLineLabel(tg.t) + ' ankommen lassen';
     var bars = !!(state.music && music().bars.length);
     var title = !state.song || !state.song.url ? 'Erst unter Musik ein Lied wählen'
       : !bars ? 'Erst unter Musik → Takte & Abschnitte die Takte festlegen'
-      : 'Steht die Zeitleiste zwischen zwei Bildern, kommt das nächste an der nächsten Taktgrenze an; steht sie auf einem Bild, rückt seine Marke auf die nächste Taktgrenze.';
+      : 'Setzt die Marke des nächsten Bildes auf die Taktgrenze, die gerade zu hören ist: im richtigen Moment antippen, während das Lied läuft, oder die Zeitleiste zwischen zwei Bilder ziehen und dann tippen.';
     var disabled = playing ? !bars : !tg || on;
     var key = [mark, text, title, disabled].join('|');
     if(key === bildBarShown) return;
