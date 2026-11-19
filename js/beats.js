@@ -198,6 +198,93 @@
       });
     });
   }
+  /* Grenzen erkennen (#2193): a second, small AI (models/dancenet.onnx; dance.py in the training
+     folder) tells from 8 s of song which dance plays there — from the beat AI's beats and bar starts
+     with the dance unknown, as a tempogram, and from the sound. Once a second over the whole song;
+     then the likeliest run of dances where every change costs DANCE_SWITCH: its changes are the
+     Grenzen, its dances the sections'. */
+  var DANCE_WIN = 400, DANCE_FEATS = 400, DANCE_SWITCH = 6, DANCE_KEYS = [DANCE_OTHER, 'langsam', 'wiener', 'tango', 'slow', 'quick', 'samba', 'cha', 'rumba', 'paso', 'jive'];
+  var danceNet = null;
+  function loadDanceNet(){
+    if(!danceNet){
+      danceNet = loadBeatNet().then(function(L){
+        return L.ort.InferenceSession.create(JS_BASE + '../models/dancenet.onnx', {executionProviders: ['wasm']});
+      });
+      danceNet.catch(function(){ danceNet = null; });
+    }
+    return danceNet;
+  }
+  // dance.py feats(): autocorrelation of the beat curve at 0.2–3 s and of the bar start curve at
+  // 0.8–6 s (every 2nd frame), then the window's mean log-mel / 5 — for the window from frame o.
+  function danceFeats(beat, down, spect, o, out){
+    var k = 0;
+    function autocorr(x, lo, hi, step){
+      var mean = 0, e = 1e-6;
+      for(var i = 0; i < DANCE_WIN; i++) mean += x[o + i] / DANCE_WIN;
+      for(i = 0; i < DANCE_WIN; i++) e += (x[o + i] - mean) * (x[o + i] - mean);
+      for(var L = lo; L <= hi; L += step){
+        var s = 0;
+        for(i = 0; i + L < DANCE_WIN; i++) s += (x[o + i] - mean) * (x[o + i + L] - mean);
+        out[k++] = s / e;
+      }
+    }
+    autocorr(beat, 10, 150, 1);
+    autocorr(down, 40, 300, 2);
+    for(var m = 0; m < 128; m++){
+      var s = 0;
+      for(var i = 0; i < DANCE_WIN; i++) s += spect[(o + i) * 128 + m];
+      out[k++] = s / DANCE_WIN / 5;
+    }
+    return k;
+  }
+  // The likeliest class per step when a change of class costs `sw` (log units) — dance.py viterbi().
+  function danceRun(logp, n, K, sw){
+    var score = new Float64Array(K), back = [], k;
+    for(k = 0; k < K; k++) score[k] = logp[k];
+    for(var t = 1; t < n; t++){
+      var best = 0;
+      for(k = 1; k < K; k++) if(score[k] > score[best]) best = k;
+      var b = new Int8Array(K), next = new Float64Array(K);
+      for(k = 0; k < K; k++){
+        var stay = score[k], jump = score[best] - sw;
+        b[k] = stay >= jump ? k : best;
+        next[k] = Math.max(stay, jump) + logp[t * K + k];
+      }
+      back.push(b); score = next;
+    }
+    var path = [0];
+    for(k = 1; k < K; k++) if(score[k] > score[path[0]]) path[0] = k;
+    for(t = n - 1; t > 0; t--) path.push(back[t - 1][path[path.length - 1]]);
+    return path.reverse();
+  }
+  // The sections the AI hears in the song: [{t, dance}], a cut on the beat nearest it where beats are.
+  function aiFindSections(blob){
+    return Promise.all([loadBeatNet(), loadDanceNet()]).then(function(r){
+      var L = r[0], session = r[1], bn = L.bn;
+      if(!aiMemo || aiMemo.blob !== blob) aiMemo = {blob: blob, spect: songMono(blob, bn.SR).then(bn.logMel), acts: {}};
+      if(!aiMemo.acts[0]) aiMemo.acts[0] = aiMemo.spect.then(function(sp){ return bn.activations(L.ort, L.session, sp, 0); });
+      return Promise.all([aiMemo.spect, aiMemo.acts[0]]).then(function(x){
+        var spect = x[0], act = x[1], T = act.beat.length, n = Math.ceil(T / bn.FPS), feats = new Float32Array(n * DANCE_FEATS);
+        if(T < DANCE_WIN) return [{t: 0}]; // under 8 s: nothing to tell apart
+        for(var c = 0; c < n; c++) danceFeats(act.beat, act.down, spect, Math.min(Math.max(0, c * bn.FPS - DANCE_WIN / 2), T - DANCE_WIN), feats.subarray(c * DANCE_FEATS));
+        return session.run({feats: new L.ort.Tensor('float32', feats, [n, DANCE_FEATS])}).then(function(res){
+          var z = res.logits.data, K = DANCE_KEYS.length, logp = new Float64Array(n * K);
+          for(var t = 0; t < n; t++){
+            var mx = -Infinity, sum = 0, k;
+            for(k = 0; k < K; k++) mx = Math.max(mx, z[t * K + k]);
+            for(k = 0; k < K; k++) sum += Math.exp(z[t * K + k] - mx);
+            for(k = 0; k < K; k++) logp[t * K + k] = z[t * K + k] - mx - Math.log(sum);
+          }
+          var path = danceRun(logp, n, K, DANCE_SWITCH), out = [{t: 0, dance: DANCE_KEYS[path[0]]}];
+          for(t = 1; t < n; t++) if(path[t] !== path[t - 1]){
+            var at = t, near = nearestIn(state.beats, at);
+            out.push({t: near !== null && Math.abs(near - at) < 0.5 ? near : at, dance: DANCE_KEYS[path[t]]});
+          }
+          return out;
+        });
+      });
+    });
+  }
   function songMono(blob, sr){
     return blob.arrayBuffer().then(function(buf){
       return new OfflineAudioContext(1, 1, sr).decodeAudioData(buf);
@@ -511,7 +598,7 @@
   var mtOverview = document.getElementById('mtOverview'), mtLupe = document.getElementById('mtLupe');
   var mtPlayBtn = document.getElementById('mtPlayBtn'), mtIconPlay = document.getElementById('mtIconPlay'), mtIconPause = document.getElementById('mtIconPause');
   var mtTimeEl = document.getElementById('mtTime'), mtClickBtn = document.getElementById('mtClickBtn');
-  var mtCutBtn = document.getElementById('mtCutBtn'), mtCutInfo = document.getElementById('mtCutInfo'), mtCutDelBtn = document.getElementById('mtCutDelBtn');
+  var mtFindCutsBtn = document.getElementById('mtFindCutsBtn'), mtCutBtn = document.getElementById('mtCutBtn'), mtCutInfo = document.getElementById('mtCutInfo'), mtCutDelBtn = document.getElementById('mtCutDelBtn');
   var mtDetectBtn = document.getElementById('mtDetectBtn'), mtProgress = document.getElementById('mtProgress');
   var mtOneBtn = document.getElementById('mtOneBtn'), mtOneInfo = document.getElementById('mtOneInfo');
   var mtShiftInfo = document.getElementById('mtShiftInfo'), mtShiftBtns = Array.prototype.slice.call(mtBackdrop.querySelectorAll('[data-shift]'));
@@ -552,7 +639,7 @@
 
   function guideText(mm){
     var secs = mm.secs, noDance = secs.filter(function(s){ return !s.key; }), noOne = secs.filter(function(s){ return s.beats.length && !s.bars.length; });
-    if(mtStep === 1) return 'Wo wechselt der Tanz? Lied abspielen und an jedem Wechsel „Grenze hier“ drücken. Dann unten in der Liste je Abschnitt den Tanz wählen.'
+    if(mtStep === 1) return 'Wo wechselt der Tanz? Lied abspielen und an jedem Wechsel „Grenze hier“ drücken – oder „Grenzen erkennen lassen“. Dann unten in der Liste je Abschnitt den Tanz wählen oder prüfen.'
       + (secs.length === 1 ? ' Nur ein Tanz im Lied? Dann keine Grenze setzen, nur den Tanz wählen.' : noDance.length ? ' Noch ohne Tanz: ' + secTitles(noDance) + '.' : '');
     if(mtStep === 2){
       if(detectJob) return 'Die App hört sich ' + secTitle(secs[detectJob.k] || secs[0]) + ' an (' + (detectJob.i + 1) + ' von ' + detectJob.n + ') – einen Moment.';
@@ -979,6 +1066,30 @@
     x[0].addEventListener('click', function(e){ if(e.timeStamp - (+x[0].dataset.at || -Infinity) > 1000) x[1](e.timeStamp); });
   });
   mtCutDelBtn.addEventListener('click', function(){ removeCut(mtCut); });
+  // Grenzen erkennen lassen (#2193): replaces the Grenzen and dances, so it asks first when there are any.
+  var findingCuts = false;
+  function findCuts(){
+    if(findingCuts || !state.song || !state.song.blob) return;
+    findingCuts = true;
+    mtFindCutsBtn.disabled = true;
+    mtSay('Die KI hört sich das ganze Lied an – einen Moment.');
+    aiFindSections(state.song.blob).then(function(found){
+      var m = musicCopy();
+      m.sections = found;
+      setMusic(state.beats, m);
+      mtCut = -1;
+      mtSay(found.length === 1 ? 'Die KI hört durchgehend ' + (danceByKey(found[0].dance) || {name: 'einen anderen Tanz'}).name + ' – keine Grenze gesetzt.'
+        : found.length + ' Abschnitte erkannt. Bitte die Grenzen in der Lupe und die Tänze in der Liste prüfen.');
+    }, function(){
+      mtSay('Die KI konnte nicht geladen werden (offline?). Grenzen bitte von Hand setzen.');
+    }).then(function(){ findingCuts = false; mtFindCutsBtn.disabled = false; renderMusikView(); });
+  }
+  mtFindCutsBtn.addEventListener('click', function(){
+    var secs = music().secs;
+    if(secs.length === 1 && !secs[0].key){ findCuts(); return; }
+    confirmDelete('Grenzen und Tänze erkennen lassen?', findCuts, mtFindCutsBtn, 'Erkennen',
+      'Die KI ersetzt ' + (secs.length === 1 ? 'den Abschnitt samt seinem Tanz' : 'die ' + secs.length + ' Abschnitte samt ihren Tänzen') + '. Schläge, die 1, Phrasierung und Figuren bleiben, wo sie sind – stimmen die neuen Abschnitte nicht, dann Rückgängig (Strg+Z).');
+  });
   mtDetectBtn.addEventListener('click', function(){
     var secs = music().secs, missing = secs.filter(function(s){ return !s.beats.length; });
     detectAsk(missing.length ? missing : secs, mtDetectBtn);

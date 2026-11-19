@@ -22,3 +22,8 @@ trained on:
   - the Hainsworth, Beatles and RWC spectrograms of the Beat This! collection
     (zenodo.org/records/13922116, CC BY 4.0) with their annotations
     (github.com/CPJKU/beat_this_annotations, MIT)
+
+models/dancenet.onnx (which dance plays where, for "Grenzen erkennen lassen") is the
+app's own model too, under the app's license. It was trained on the beat model's
+activations and the spectrograms of the same collections, plus the GTZAN
+spectrograms of the Beat This! collection as music that is no ballroom dance.
