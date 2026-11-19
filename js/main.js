@@ -48,8 +48,9 @@
     var ae = document.activeElement;
     if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
     var k = (e.key || '').toLowerCase();
-    if(k === 'z' && !e.shiftKey){ e.preventDefault(); if(typeof historyUndo === 'function') historyUndo(); }
-    else if((k === 'z' && e.shiftKey) || k === 'y'){ e.preventDefault(); if(typeof historyRedo === 'function') historyRedo(); }
+    var vl = typeof videoLayoutStep === 'function' ? videoLayoutStep : function(){ return false; }; // in the Video-Layout only its own steps (#2170)
+    if(k === 'z' && !e.shiftKey){ e.preventDefault(); if(!vl(-1) && typeof historyUndo === 'function') historyUndo(); }
+    else if((k === 'z' && e.shiftKey) || k === 'y'){ e.preventDefault(); if(!vl(1) && typeof historyRedo === 'function') historyRedo(); }
   });
 
   projectNameInput.addEventListener('input', function(){

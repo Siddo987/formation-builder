@@ -5,7 +5,8 @@
    (js/export.js), the same function that draws every exported frame, so it shows exactly what the
    export produces; over it lies one box per element to select, drag and resize — with mouse, touch
    or keyboard. Every change goes straight into state.videoLayout and is saved like any other edit,
-   so Rückgängig/Wiederholen (js/history.js), reload, the .stg file and share links carry it. */
+   so the project's Rückgängig/Wiederholen (js/history.js), reload, the .stg file and share links
+   carry it. Inside the dialog its own Rückgängig/Wiederholen step only through the layout (#2170). */
 
   var vlBackdrop = document.getElementById('videoLayoutBackdrop');
   var vlFrameWrap = document.getElementById('vlFrameWrap');
@@ -43,7 +44,35 @@
     if(!state.videoLayout) state.videoLayout = defaultVideoLayout('quer');
     return id === undefined ? state.videoLayout : vlFind(id);
   }
-  function vlSave(now){ if(now) saveState(); else saveStateDebounced(); }
+  // The dialog's own steps (#2170): the layout (as JSON) before each edit made here, so its buttons
+  // and Strg+Z in here never touch the rest of the project. Edits less than a second apart are one step.
+  var vlPast = [], vlFuture = [], vlShown = 'null', vlEditAt = 0;
+  var vlUndoBtn = document.getElementById('vlUndoBtn'), vlRedoBtn = document.getElementById('vlRedoBtn');
+  function vlResetSteps(){ vlPast = []; vlFuture = []; vlShown = JSON.stringify(state.videoLayout || null); vlEditAt = 0; vlSyncSteps(); }
+  function vlSyncSteps(){ vlUndoBtn.disabled = !vlPast.length; vlRedoBtn.disabled = !vlFuture.length; }
+  function vlSave(now){
+    var json = JSON.stringify(state.videoLayout || null), t = Date.now();
+    if(json !== vlShown){
+      if(t - vlEditAt > 1000){ vlPast.push(vlShown); vlFuture = []; }
+      vlShown = json; vlEditAt = t;
+      vlSyncSteps();
+    }
+    if(now) saveState(); else saveStateDebounced();
+  }
+  // dir -1: Rückgängig, 1: Wiederholen. false while the dialog is closed (js/main.js: the project's then).
+  function videoLayoutStep(dir){
+    if(vlBackdrop.hidden) return false;
+    var from = dir < 0 ? vlPast : vlFuture, to = dir < 0 ? vlFuture : vlPast;
+    if(!from.length) return true;
+    to.push(JSON.stringify(state.videoLayout || null));
+    vlShown = from.pop(); vlEditAt = 0;
+    state.videoLayout = JSON.parse(vlShown);
+    vlDrag = null;
+    saveState();
+    vlRefresh();
+    vlSyncSteps();
+    return true;
+  }
   function vlKeepsAspect(el){ return el.type === 'logo' || el.type === 'image'; }
 
   function vlName(el){
@@ -756,6 +785,7 @@
     vlSyncMoment(false);
     vlLoadLogo();
     vlRefresh();
+    vlResetSteps();
     requestAnimationFrame(function(){
       var box = vlBoxFor(vlSelected);
       if(box) box.focus({preventScroll: true});
@@ -780,6 +810,7 @@
     vlSyncMoment(true);
     vlLoadLogo();
     vlRefresh();
+    vlResetSteps(); // the old steps may undo what came in
   }
 
   // .stg import: the layout from the file's header JSON. parseStg itself builds its state from a
@@ -920,8 +951,8 @@
   document.getElementById('exportLayoutBtn').addEventListener('click', openVideoLayout);
   document.getElementById('videoLayoutCloseBtn').addEventListener('click', closeVideoLayout);
   document.getElementById('vlDoneBtn').addEventListener('click', closeVideoLayout);
-  document.getElementById('vlUndoBtn').addEventListener('click', function(){ historyUndo(); });
-  document.getElementById('vlRedoBtn').addEventListener('click', function(){ historyRedo(); });
+  vlUndoBtn.addEventListener('click', function(){ videoLayoutStep(-1); });
+  vlRedoBtn.addEventListener('click', function(){ videoLayoutStep(1); });
   document.getElementById('vlResetBtn').addEventListener('click', function(){
     var format = vlLayout().format;
     state.videoLayout = format === 'quer' ? null : defaultVideoLayout(format);
