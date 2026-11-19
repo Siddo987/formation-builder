@@ -449,11 +449,16 @@
     while(k < reached.length) betweenRow();
     return list;
   }
-  function buildFilmBarsEdge(span){
+  // Before the first Bild and after the last nobody dances: those bars stay folded into one line (#2190).
+  var filmEdgeOpen = {};
+  function buildFilmBarsEdge(span, where){
     var bars = buildFilmBars(span);
     if(!bars) return null;
-    var wrap = document.createElement('div');
+    var n = bars.querySelectorAll('.film-bar').length, wrap = document.createElement('details');
     wrap.className = 'film-bars-edge';
+    wrap.open = !!filmEdgeOpen[where];
+    wrap.addEventListener('toggle', function(){ filmEdgeOpen[where] = wrap.open; });
+    wrap.appendChild(document.createElement('summary')).textContent = n + (n === 1 ? ' Takt ' : ' Takte ') + where; // bar numbers restart per section
     wrap.appendChild(bars);
     return wrap;
   }
@@ -1211,7 +1216,7 @@
   function renderFilmstrip(){
     // Keep the list where it was: clearing the track would otherwise jump it back to Bild 1.
     var keepTop = filmTrackEl.scrollTop, keepLeft = filmTrackEl.scrollLeft;
-    var spans = filmBarSpans(), intro = spans && buildFilmBarsEdge(spans[0]);
+    var spans = filmBarSpans(), intro = spans && buildFilmBarsEdge(spans[0], 'vor dem ersten Bild');
     filmBarsShown = filmBarsKey(spans);
     filmTrackEl.innerHTML = '';
     if(intro) filmTrackEl.appendChild(intro);
@@ -1332,7 +1337,7 @@
       // Zwischenpositionen (see enterBetweenEdit() below) live in the gap after this Bild, so the
       // connector only makes sense while there's a next Bild to move to — never after the last one.
       if(idx < state.formations.length - 1) filmTrackEl.appendChild(buildBetweenConnector(f, idx, spans && spans[idx + 1]));
-      else{ var outro = spans && buildFilmBarsEdge(spans[idx + 1]); if(outro) filmTrackEl.appendChild(outro); }
+      else{ var outro = spans && buildFilmBarsEdge(spans[idx + 1], 'nach dem letzten Bild'); if(outro) filmTrackEl.appendChild(outro); }
     });
 
     var addWrap = document.createElement('div');
