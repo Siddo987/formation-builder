@@ -28,15 +28,16 @@
   // playback the song from 0:00 to its end, otherwise the chain of moves from the first Bild to the
   // last, one equal stretch per move (Bild i sits at i/(n-1)). Dragging it seeks — see scrubTo().
   var timelinePct = 0;
-  // Zoom of the dock's timeline while the song is in sync: null = the whole song, else the seconds it
-  // shows from dockStart. Mausrad or pinch zooms around the pointer, sideways or Shift + Mausrad
-  // moves along, − / + next to it zoom around the playhead; a new song shows all of it again.
+  // Zoom of the dock's timeline while the song is in sync: the seconds it shows from dockStart; null
+  // until zoomed by hand — the whole song, on a phone 40 s, where the whole song is too cramped to
+  // read. Mausrad or pinch zooms around the pointer, sideways or Shift + Mausrad moves along, − / +
+  // next to it zoom around the playhead; a new song starts over.
   var dockSpan = null, dockStart = 0;
   function dockView(){
-    var dur = songDurationSec();
-    if(!dockSpan || dockSpan >= dur || !isSyncActive()) return {t0: 0, t1: dur};
-    dockStart = Math.min(Math.max(0, dockStart), dur - dockSpan);
-    return {t0: dockStart, t1: dockStart + dockSpan};
+    var dur = songDurationSec(), span = dockSpan !== null ? dockSpan : playScrubEl.clientWidth < 600 ? 40 : dur;
+    if(span >= dur || !isSyncActive()) return {t0: 0, t1: dur, zoomed: false};
+    dockStart = Math.min(Math.max(0, dockStart), dur - span);
+    return {t0: dockStart, t1: dockStart + span, zoomed: true};
   }
   function dockPct(t){ var v = dockView(); return v.t1 > v.t0 ? (t - v.t0) / (v.t1 - v.t0) * 100 : 0; }
   function dockTimeAt(frac){ var v = dockView(); return v.t0 + Math.min(1, Math.max(0, frac)) * (v.t1 - v.t0); }
@@ -46,7 +47,7 @@
     if(!dur || !isSyncActive()) return;
     var v = dockView(), span = Math.max(4, Math.min(dur, (v.t1 - v.t0) * factor));
     dockStart = at - (at - v.t0) / (v.t1 - v.t0) * span;
-    dockSpan = span >= dur ? null : span;
+    dockSpan = span;
     redrawDock();
   }
   function redrawDock(){
@@ -58,11 +59,12 @@
   function updateProgress(pct){
     var moved = playing || pct !== timelinePct, shown = pct, dur = songDurationSec();
     timelinePct = pct;
-    if(dockSpan && dur && isSyncActive()){
+    var v = dockView();
+    if(v.zoomed){
       // Zoomed in, the view turns the page once the playhead leaves it (playing, or a Bild picked) —
       // not when only the view moved (zoom, sideways).
-      var t = pct / 100 * dur, v = dockView();
-      if(moved && (t < v.t0 || t > v.t1)){ dockStart = t - dockSpan * (playing ? 0.05 : 0.5); updateSyncBadge(); }
+      var t = pct / 100 * dur;
+      if(moved && (t < v.t0 || t > v.t1)){ dockStart = t - (v.t1 - v.t0) * (playing ? 0.05 : 0.5); updateSyncBadge(); }
       shown = dockPct(t);
     }
     progressFillEl.style.width = shown + '%';
@@ -496,7 +498,7 @@
       if(!(r.width > 0)) return;
       // Within 4px of a Bild the pointer picks that Bild.
       var frac = (e.clientX - r.left)/r.width, dur = songDurationSec();
-      if(dockSpan && dur && isSyncActive()) frac = dockTimeAt(frac) / dur;
+      if(dockView().zoomed) frac = dockTimeAt(frac) / dur;
       scrubTo(frac, Math.min(0.25, 4*(n-1)/r.width));
     }
     function begin(){
@@ -535,8 +537,9 @@
         zoomDock(Math.exp(e.deltaY * (e.deltaMode === 1 ? 0.3 : 0.01)), dockTimeAt((e.clientX - r.left) / r.width)); // deltaMode 1 (Firefox) counts lines
         return;
       }
-      if(!dockSpan || !dx) return;
-      dockStart += dx / r.width * dockSpan;
+      var v = dockView();
+      if(!v.zoomed || !dx) return;
+      dockStart += dx / r.width * (v.t1 - v.t0);
       redrawDock();
     }, {passive: false});
     document.getElementById('dockZoomInBtn').addEventListener('click', function(){ zoomDock(1 / 2.5, timelinePct / 100 * songDurationSec()); });

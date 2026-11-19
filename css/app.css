@@ -1125,13 +1125,14 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
    Kein Seiten-Scrollen; nur der Streifen und die Listen scrollen.
    ===================================================================== */
 @media (max-width:899.98px) and (orientation:portrait),(max-width:599.98px){
+  .readonly-more{display:none;}
   :root{--ctl-h:34px;}
   .app{grid-template-rows:auto minmax(0,1fr);}
   .ws{grid-row:2;}
 
   /* Kopfleiste: Projekt und Knöpfe oben, die drei Bereiche als Reiter darunter */
   .topbar{flex-wrap:wrap;height:auto;row-gap:0;padding:env(safe-area-inset-top) 6px 0 10px;}
-  .brand{flex:1 1 0;height:48px;}
+  .brand{flex:1 1 60%;height:48px;} /* a basis, so the tabs always wrap below it — also with nothing beside it (view-only link) */
   .project-name-field{flex:1;}
   .project-name{width:100%;font-size:15px;}
   .ws-tabs{order:10;flex:1 0 100%;height:40px;margin:0 -6px 0 -10px;padding:0 4px;border-top:1px solid var(--line);}
