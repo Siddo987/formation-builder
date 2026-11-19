@@ -953,13 +953,16 @@
     var f = state.formations[idx] || {};
     var sec = Math.floor(Math.max(0, (info && info.tMs) || 0) / 1000);
     // With the song, the video's time is the song's (buildSyncSegments): the bar heard then.
-    var bar = isSyncActive() ? barAt(Math.max(0, (info && info.tMs) || 0) / 1000) : null;
+    var songT = isSyncActive() ? Math.max(0, (info && info.tMs) || 0) / 1000 : null, bar = songT === null ? null : barAt(songT);
+    // With the song, an Abschnitt starts when its Bild is reached: none yet before Bild 1, and on the
+    // way to the next Abschnitt's Bild still the current one.
+    var reached = songT === null ? idx : syncTimes().filter(function(t){ return t !== null && t <= songT + 0.02; }).length - 1;
     var vals = {
       choreo: state.projectName || '',
       bild: f.name || ('Bild ' + (idx + 1)),
       nr: String(idx + 1),
       anzahl: String(total),
-      abschnitt: categoryLabelAt(idx),
+      abschnitt: reached < 0 ? '' : categoryLabelAt(reached),
       zeit: Math.floor(sec / 60) + ':' + (sec % 60 < 10 ? '0' : '') + (sec % 60),
       notiz: f.note || '',
       wer: (info && info.who) || '',
