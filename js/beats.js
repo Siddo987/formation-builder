@@ -1182,27 +1182,29 @@
   function drawDockTimeline(){
     var g = fitCanvas(scrubWave), W = scrubWave.clientWidth, H = scrubWave.clientHeight, dur = songDur();
     if(!W || !H || !dur || !isSyncActive()) return;
-    var cs = getComputedStyle(scrubWave), X = function(t){ return t / dur * W; }, mm = music(), top = 15;
+    var cs = getComputedStyle(scrubWave), vw = dockView(), X = function(t){ return (t - vw.t0) / (vw.t1 - vw.t0) * W; }, mm = music(), top = 15; // js/playback.js — zoomed in, a part of the song
     function v(n){ return cs.getPropertyValue(n).trim(); }
     g.font = '500 10px ' + cs.fontFamily;
     g.textBaseline = 'middle';
     if(state.music) mm.secs.forEach(function(sec){
       var a = X(sec.start), b = X(Math.min(sec.end, dur));
+      if(b < 0 || a > W) return;
       g.fillStyle = v(SEC_COLORS[sec.k % 3][1]); g.fillRect(a, 0, b - a, top);
       if(sec.k){ g.fillStyle = v('--line-strong'); g.fillRect(Math.round(a), 0, 1, H); }
       var name = (sec.k + 1) + (danceLabel(sec) ? ' · ' + danceLabel(sec) : '') + (sec.bars.length ? ' · ' + sec.bars.length + ' Takte' : '');
       g.fillStyle = v('--ink-2');
+      a = Math.max(0, a); // a section begun left of the view keeps its name in sight
       if(b - a > 24){ g.save(); g.beginPath(); g.rect(a, 0, b - a - 4, top); g.clip(); g.fillText(name, a + 5, top / 2 + 1); g.restore(); }
     });
     g.fillStyle = v('--ink-3'); g.globalAlpha = 0.4;
-    drawWave(g, 0, dur, W, top + 14, H - top - 34);
+    drawWave(g, vw.t0, vw.t1, W, top + 14, H - top - 34);
     g.globalAlpha = 1;
     // Bar lines, numbered as densely as they stay readable (every 1st, 2nd, 4th … bar of a section).
-    var bars = mm.bars, px = bars.length ? W / dur * (bars[bars.length - 1].end - bars[0].t) / bars.length : 0, step = 1;
+    var bars = mm.bars, px = bars.length ? W / (vw.t1 - vw.t0) * (bars[bars.length - 1].end - bars[0].t) / bars.length : 0, step = 1;
     while(step < 64 && step * px < 22) step *= 2;
     bars.forEach(function(b){
       var x = Math.round(X(b.t)), label = (b.n - 1) % step === 0;
-      if(!label && px < 4) return;
+      if(x < 0 || x > W || !label && px < 4) return;
       g.fillStyle = v('--line-strong'); g.fillRect(x, top, 1, H - top - 18);
       if(label){ g.fillStyle = v('--ink-3'); g.fillText(String(b.n), x + 3, top + 7); }
     });

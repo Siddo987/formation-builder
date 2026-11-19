@@ -298,6 +298,10 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
           <span class="playbar-bar" id="playbarBar" hidden></span>
         </div>
         <button class="btn-ghost marker-toggle-btn" id="dockClickBtn" type="button" aria-pressed="false" disabled>Klicks</button>
+        <div class="dock-zoom">
+          <button class="btn-ghost" id="dockZoomOutBtn" type="button" title="Zeitleiste verkleinern (auch Mausrad über der Zeitleiste)" aria-label="Zeitleiste verkleinern" hidden>−</button>
+          <button class="btn-ghost" id="dockZoomInBtn" type="button" title="Zeitleiste vergrößern (auch Mausrad über der Zeitleiste)" aria-label="Zeitleiste vergrößern" hidden>+</button>
+        </div>
         <div class="tempo-control">
           <label class="caption tempo-caption"><span class="tempo-word">Tempo </span><input type="text" id="tempoInput" class="tempo-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Tempo als Zahl"><span id="tempoUnit">Bilder/s</span></label>
           <input type="range" id="tempoSlider" min="0" max="100" value="50" aria-label="Abspieltempo">

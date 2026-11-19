@@ -43,6 +43,7 @@
     return Math.round(t*100)/100;
   }
 
+  var dockZoomBtns = [document.getElementById('dockZoomOutBtn'), document.getElementById('dockZoomInBtn')];
   function updateSyncBadge(){
     var sync = isSyncActive();
     syncBadge.hidden = !sync;
@@ -52,8 +53,8 @@
     scrubTicksEl.innerHTML = '';
     var dur = songAudioEl.duration, n = state.formations.length, times = sync ? syncTimes() : null;
     if(!sync || isFinite(dur) && dur > 0) state.formations.forEach(function(f, i){
-      var pct = times ? (times[i] === null ? null : times[i] / dur * 100) : n > 1 ? i / (n - 1) * 100 : 0;
-      if(pct === null) return;
+      var pct = times ? (times[i] === null ? null : dockPct(times[i])) : n > 1 ? i / (n - 1) * 100 : 0; // js/playback.js — zoomed in, only those in view
+      if(pct === null || pct < -0.5 || pct > 100.5) return;
       var tick = document.createElement('span');
       tick.textContent = i + 1;
       tick.dataset.idx = i;
@@ -64,6 +65,7 @@
       scrubTicksEl.appendChild(tick);
     });
     if(sync) loadWavePeaks();
+    dockZoomBtns.forEach(function(b){ b.hidden = !sync; });
     if(typeof drawDockTimeline === 'function') drawDockTimeline(); // js/beats.js
     updateBildBar();
     updateFilmMarks(); // js/formations.js
@@ -133,8 +135,8 @@
     if(!isSyncActive() || !dur){ select(); return; }
     dragBildMark(e, tick, idx, function(x){
       var r = scrubTicksEl.getBoundingClientRect();
-      return Math.min(1, Math.max(0, (x - r.left) / r.width)) * dur;
-    }, function(t){ return t / dur * 100; }, select);
+      return dockTimeAt((x - r.left) / r.width); // js/playback.js
+    }, dockPct, select);
   }
 
   // Time markers should climb in Bild order. When they don't — hand-entered out of sequence, or a
