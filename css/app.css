@@ -673,12 +673,13 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 .scrub .progress-fill{border-radius:0;background:var(--accent-wash);}
 .scrub-ticks{position:absolute;inset:0;pointer-events:none;}
 .scrub-ticks span{
-  position:absolute;bottom:5px;transform:translateX(-50%);
+  position:absolute;bottom:5px;transform:translateX(-50%);pointer-events:auto;cursor:pointer;
   min-width:20px;height:16px;padding:0 3px;border-radius:3px;
   border:1px solid var(--line-strong);background:var(--panel);color:var(--ink-2);
   font-size:10px;font-weight:600;line-height:14px;text-align:center;
 }
 .scrub-ticks span::before{content:"";position:absolute;left:50%;bottom:100%;width:1px;height:6px;background:var(--line-strong);}
+.scrub-ticks span:hover{border-color:var(--primary);}
 .scrub-ticks span.spread{border-style:dashed;color:var(--ink-3);}
 .scrub-ticks span.active{z-index:1;border-color:var(--primary);background:var(--primary);color:#fff;}
 .scrub-ticks span.active::before{background:var(--primary);}

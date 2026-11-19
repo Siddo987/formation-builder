@@ -478,6 +478,8 @@
     playScrubEl.addEventListener('pointerdown', function(e){
       if(e.button !== 0 || state.formations.length < 2) return;
       e.preventDefault();
+      var tick = e.target.closest('.scrub-ticks span');
+      if(tick){ selectFormation(+tick.dataset.idx); return; } // a Bild's number jumps right onto it, as in the list
       // Focus for the arrow keys; not on touch, where it would only leave a focus ring behind.
       if(e.pointerType !== 'touch') playScrubEl.focus({preventScroll: true, focusVisible: false});
       begin();
