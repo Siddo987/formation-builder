@@ -11,8 +11,14 @@ Third-party parts under their own licenses:
   - vendor/essentia/          Essentia.js, AGPL-3.0 (vendor/essentia/LICENSE)
   - models/beat_this_small0.onnx, js/beatthis.js
                               Beat This! (CPJKU, JKU Linz), MIT (models/LICENSE-beat-this.txt)
+  - fonts/                    Manrope, JetBrains Mono, Bebas Neue, SIL Open Font License 1.1
 
 models/beatnet.onnx is the app's own beat model, under the app's license. It was
-trained on the Ballroom dataset (Gouyon et al., ISMIR 2004) with the beat and bar
-annotations of Krebs et al. (github.com/CPJKU/BallroomAnnotations).
-  - fonts/                    Manrope, JetBrains Mono, Bebas Neue, SIL Open Font License 1.1
+trained on:
+  - the Ballroom dataset (Gouyon et al., ISMIR 2004) with the beat and bar
+    annotations of Krebs et al. (github.com/CPJKU/BallroomAnnotations)
+  - the Extended Ballroom dataset (Marchand & Peeters, ISMIR 2016), with beats and
+    bar starts labelled by the Beat This! model at each clip's given tempo
+  - the Hainsworth, Beatles and RWC spectrograms of the Beat This! collection
+    (zenodo.org/records/13922116, CC BY 4.0) with their annotations
+    (github.com/CPJKU/beat_this_annotations, MIT)

@@ -1,14 +1,13 @@
-// #2155: the app's own beat AI (models/beatnet.onnx), trained on the Ballroom dataset (Gouyon et al.,
-// beat and bar annotations by Krebs et al.) with the dance as a second input. It hears the same log-mel
-// spectrogram as Beat This (js/beatthis.js) and gives each frame (50 per second) how likely a beat and
-// a bar start is. Training code: /opt/docker/_data/rwkreator_train on the server (train.py).
+// #2155: the app's own beat AI (models/beatnet.onnx), trained on Ballroom, Extended Ballroom, Hainsworth,
+// Beatles and RWC (see NOTICE) with the dance as a second input. It hears the same log-mel spectrogram
+// as Beat This (js/beatthis.js) and gives each frame (50 per second) how likely a beat and a bar start
+// is. Training code: /opt/docker/_data/rwkreator_train on the server (train.py, then train2.py).
 import {SR, FPS, logMel} from './beatthis.js';
 export {SR, FPS, logMel};
 
 const N_MELS = 128;
-// The model's dance input (prep.py DANCES); slowfox and paso doble weren't in its training music,
-// so they go in as "unknown" (0) and only the tempo search below knows them.
-const DANCE_IDS = {langsam: 1, wiener: 2, tango: 3, quick: 5, samba: 6, cha: 7, rumba: 8, jive: 10};
+// The model's dance input (prep.py DANCES); 0 = unknown.
+const DANCE_IDS = {langsam: 1, wiener: 2, tango: 3, slow: 4, quick: 5, samba: 6, cha: 7, rumba: 8, paso: 9, jive: 10};
 export function danceId(key){ return DANCE_IDS[key] || 0; }
 
 // Beat and bar start activations (0…1) for the whole song, with the given dance id.
