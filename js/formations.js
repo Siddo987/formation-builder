@@ -365,24 +365,9 @@
     });
     wrap.addEventListener('drop', function(e){ if(betweenDragEl) e.preventDefault(); });
 
-    // With bars, they are the move (#2183): one line per bar with its Figur. Without, the move's own
-    // name (#2161) — kept too where one was given before. A line of its own above the icons; on phones
-    // just the pen.
+    // The bars of the move with their Figuren (#2183) — they replace the move's own name (#2161).
     var bars = buildFilmBars(span);
     if(bars) wrap.appendChild(bars);
-    if(!bars || f.move){
-      var moveBtn = document.createElement('button');
-      moveBtn.type = 'button';
-      moveBtn.className = 'film-move-name' + (f.move ? ' named' : '');
-      moveBtn.appendChild(svgIcon('pen', 12));
-      var moveLbl = document.createElement('span');
-      moveLbl.textContent = f.move || 'Übergang benennen';
-      moveBtn.appendChild(moveLbl);
-      moveBtn.title = (f.move ? '„' + f.move + '“ – ' : '') + 'Name des Übergangs zu „' + (next ? next.name : '?') + '“: die Figur, die hier getanzt wird';
-      moveBtn.setAttribute('aria-label', 'Übergang zu „' + (next ? next.name : '?') + '“' + (f.move ? ': ' + f.move : '') + ' – benennen');
-      moveBtn.addEventListener('click', function(){ openMoveRenamePopover(moveBtn, idx); });
-      wrap.appendChild(moveBtn);
-    }
     wrap.appendChild(chips);
     wrap.appendChild(addBtn);
     wrap.appendChild(buildSpeedCurveButton(f, next));
@@ -1152,16 +1137,7 @@
       }
     });
   }
-  // The name of the move from Bild fIdx to the next (#2161).
-  function openMoveRenamePopover(anchorEl, fIdx){
-    var f = state.formations[fIdx], next = state.formations[fIdx + 1];
-    if(!f || !next) return;
-    openRenamePopover(anchorEl, false, {
-      value: f.move || '', max: 80, wide: true, placeholder: 'Figur, z. B. Natural Turn', label: 'Name des Übergangs zu „' + next.name + '“',
-      set: function(v){ f.move = sanitizeMoveName(v); }
-    });
-  }
-  // o: {value, max, placeholder, label, set(value) while typing, done() once closed, wide}
+  // o: {value, max, placeholder, label, set(value) while typing, done() once closed}
   function openRenamePopover(anchorEl, below, o){
     closeBetweenRenamePopover();
     var rect = anchorEl.getBoundingClientRect();
@@ -1170,7 +1146,7 @@
 
     var input = document.createElement('input');
     input.type = 'text';
-    input.className = 'between-rename-input' + (o.wide ? ' between-rename-input--wide' : '');
+    input.className = 'between-rename-input';
     input.maxLength = o.max;
     input.placeholder = o.placeholder;
     input.value = o.value;

@@ -74,7 +74,7 @@
         : 'x ' + fmtSigned(pos.x) + ' m · y ' + fmtSigned(pos.y) + ' m' + (follow ? ' · Follow x ' + fmtSigned(follow.x) + ' y ' + fmtSigned(follow.y) : ''));
       if(next){
         var bars = t !== null && tNext !== null ? barPhrasingLine(t, tNext) : '';
-        line('dv-move', (f.move ? '→ ' + f.move : '→ ' + next.name) + (bars ? ' · ' + bars : ''));
+        line('dv-move', '→ ' + next.name + (bars ? ' · ' + bars : ''));
       }
       line('dv-note', f.note);
       dvList.appendChild(row);

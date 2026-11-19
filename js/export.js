@@ -921,7 +921,6 @@
     var sec = Math.floor(Math.max(0, (info && info.tMs) || 0) / 1000);
     // With the song, the video's time is the song's (buildSyncSegments): the bar heard then.
     var bar = isSyncActive() ? barAt(Math.max(0, (info && info.tMs) || 0) / 1000) : null;
-    var move = state.formations[Math.max(0, Math.min(total - 2, Math.floor(cursor + 1e-6)))]; // the move under way, or the next one (#2161)
     var vals = {
       choreo: state.projectName || '',
       bild: f.name || ('Bild ' + (idx + 1)),
@@ -934,7 +933,7 @@
       takt: bar ? String(bar.n) : '',
       rhythmus: bar ? bar.p : '',
       figur: bar ? bar.f : '',
-      uebergang: total > 1 && move ? move.move || '' : ''
+      uebergang: bar ? bar.f : '' // the moves' own names are gone (#2183): older texts get the Figur
     };
     var used = 0, filled = 0;
     var text = el.text.replace(/\{(\w+)\}/g, function(m, key){
