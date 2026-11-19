@@ -247,12 +247,14 @@
       info.appendChild(note);
     }
     // The bars up to the next Bild's mark with their Phrasierung and Figur (#2096, js/beats.js).
-    var times = syncTimes(), phrasing = barPhrasingLine(times[formationIdx], formationIdx + 1 < times.length ? times[formationIdx + 1] : null);
+    var times = syncTimes(), phrasing = barPhrasing(times[formationIdx], formationIdx + 1 < times.length ? times[formationIdx + 1] : null);
     if(phrasing){
       var phraseLine = document.createElement('p');
       phraseLine.className = 'step-between-line';
-      phraseLine.textContent = phrasing;
+      phraseLine.textContent = phrasing.head;
       info.appendChild(phraseLine);
+      var figs = barPhrasingTable(phrasing, 'step-figs');
+      if(figs) info.appendChild(figs);
     }
     if(showNotes) addNote(formation.note);
 

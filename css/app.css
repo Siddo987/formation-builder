@@ -1009,6 +1009,10 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
 .dv-pos,.dv-move,.dv-note{grid-column:2 / -1;font-size:12px;color:var(--ink-2);}
 .dv-pos{color:var(--ink);}
 .dv-note{color:var(--ink-3);white-space:pre-wrap;}
+.dv-figs{grid-column:2 / -1;display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:1px 8px;margin-top:2px;font-size:12px;line-height:1.35;}
+.dv-figs .n{color:var(--ink-3);text-align:right;font-variant-numeric:tabular-nums;}
+.dv-figs .p{color:var(--ink-3);white-space:nowrap;}
+.dv-figs .f{color:var(--ink-2);}
 .dv-empty{padding:8px 4px;}
 .dv-foot{flex:none;padding:10px 12px 12px;border-top:1px solid var(--line);}
 .dv-foot .btn-ghost{width:100%;}

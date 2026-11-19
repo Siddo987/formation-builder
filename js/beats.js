@@ -566,21 +566,35 @@
     if(!state.music || t0 === null || t1 === null || !(t1 > t0)) return [];
     return music().bars.filter(function(b){ return b.t + BAR_SLACK >= t0 && b.t + BAR_SLACK < t1; });
   }
-  // For the Schritte sheets (js/steps.js): the bars from song time t0 to t1 with their Phrasierung
-  // and Figur, runs of the same folded ("Takt 5–12: 4× QQS+ Basic · SQQ · 3× QQS+"); the bar numbers
-  // alone without either, a new range where a section starts counting again; '' without bars.
-  function barPhrasingLine(t0, t1){
+  // For the Tänzer-Ansicht and the Schritte sheets: the bars from song time t0 to t1 — head: their
+  // numbers ("Takt 5–12", a new range where a section starts counting again), runs: bars with the
+  // same Phrasierung and Figur folded together ([] without either); null without bars.
+  function barPhrasing(t0, t1){
     var bars = barsBetween(t0, t1);
-    if(!bars.length) return '';
+    if(!bars.length) return null;
     var ranges = [], runs = [];
     bars.forEach(function(b, i){
-      var r = ranges[ranges.length - 1], p = [b.p, b.f].filter(Boolean).join(' ') || '–', last = runs[runs.length - 1];
+      var r = ranges[ranges.length - 1], last = runs[runs.length - 1];
       if(r && bars[i - 1].sec === b.sec) r[1] = b.n; else ranges.push([b.n, b.n]);
-      if(last && last.p === p) last.n++; else runs.push({p: p, n: 1});
+      if(last && last.p === b.p && last.f === b.f) last.to = b.n; else runs.push({from: b.n, to: b.n, p: b.p, f: b.f});
     });
-    var head = 'Takt ' + ranges.map(function(r){ return r[0] === r[1] ? r[0] : r[0] + '–' + r[1]; }).join(' + ');
-    if(!bars.some(function(b){ return b.p || b.f; })) return head;
-    return head + ': ' + runs.map(function(r){ return (r.n > 1 ? r.n + '× ' : '') + r.p; }).join(' · ');
+    return {head: 'Takt ' + ranges.map(function(r){ return r[0] === r[1] ? r[0] : r[0] + '–' + r[1]; }).join(' + '),
+      runs: bars.some(function(b){ return b.p || b.f; }) ? runs : []};
+  }
+  // Those runs as a small table, one line each: bar numbers, Phrasierung, Figur — easier to read than
+  // one long line. null without Phrasierung and Figuren.
+  function barPhrasingTable(ph, cls){
+    if(!ph || !ph.runs.length) return null;
+    var table = document.createElement('div');
+    table.className = cls;
+    ph.runs.forEach(function(r){
+      [[r.from === r.to ? r.from : r.from + '–' + r.to, 'n'], [r.p, 'p'], [r.f || (r.p ? '' : '–'), 'f']].forEach(function(c){
+        var el = table.appendChild(document.createElement('span'));
+        el.className = c[1];
+        el.textContent = c[0];
+      });
+    });
+    return table;
   }
 
   /* ---------- the view "Musik & Takte" ----------

@@ -496,6 +496,10 @@ button.video-chip:hover{border-color:var(--line-strong);}
   .step-dot-between.step-dot-follow{border-color:#8a7c9c;}
   .step-legend{margin:-.6rem 0 1rem; font-size:.8rem; color:#6b6178;}
   .step-between-line{margin:.15rem 0 0; font-size:.78rem; font-style:italic; color:#999;}
+  .step-figs{display:grid; grid-template-columns:auto auto 1fr; gap:.05rem .7rem; margin:.2rem 0 0; font-size:.78rem; line-height:1.35;}
+  .step-figs .n{color:#999; text-align:right; font-variant-numeric:tabular-nums;}
+  .step-figs .p{color:#8a7c9c; white-space:nowrap;}
+  .step-figs .f{color:#333;}
   .step-note{margin:.25rem 0 0; padding-left:.4rem; border-left:2px solid #bbb; font-size:.8rem; color:#333; white-space:pre-wrap;}
   .step-secondary{margin:.3rem 0 0; font-size:.8rem; font-style:italic; color:#999;}
 

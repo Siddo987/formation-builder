@@ -73,8 +73,9 @@
       line('dv-pos', !pos ? 'nicht auf der Fläche'
         : 'x ' + fmtSigned(pos.x) + ' m · y ' + fmtSigned(pos.y) + ' m' + (follow ? ' · Follow x ' + fmtSigned(follow.x) + ' y ' + fmtSigned(follow.y) : ''));
       if(next){
-        var bars = t !== null && tNext !== null ? barPhrasingLine(t, tNext) : '';
-        line('dv-move', '→ ' + next.name + (bars ? ' · ' + bars : ''));
+        var ph = t !== null && tNext !== null ? barPhrasing(t, tNext) : null, figs = barPhrasingTable(ph, 'dv-figs'); // js/beats.js
+        line('dv-move', '→ ' + next.name + (ph ? ' · ' + ph.head : ''));
+        if(figs) row.appendChild(figs);
       }
       line('dv-note', f.note);
       dvList.appendChild(row);
