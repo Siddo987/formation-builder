@@ -334,8 +334,8 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
         <nav class="mt-steps" aria-label="Schritte">
           <button class="mt-step" type="button" data-step="1"><b>1</b><span>Grenzen</span></button>
           <button class="mt-step" type="button" data-step="2"><b>2</b><span>Schläge</span></button>
-          <button class="mt-step" type="button" data-step="3"><b>3</b><span>Takt &amp; 1</span></button>
-          <button class="mt-step" type="button" data-step="4"><b>4</b><span>Korrigieren</span></button>
+          <button class="mt-step" type="button" data-step="3"><b>3</b><span>Korrigieren</span></button>
+          <button class="mt-step" type="button" data-step="4"><b>4</b><span>Takt &amp; 1</span></button>
           <button class="mt-step" type="button" data-step="5"><b>5</b><span>Phrasierung</span></button>
         </nav>
         <div class="modal-body mt-body">
@@ -366,10 +366,6 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
             <progress id="mtProgress" max="1" value="0" hidden></progress>
           </div>
           <div class="mt-panel" data-step="3">
-            <button class="btn-ghost btn-accent mt-big" id="mtOneBtn" type="button" aria-keyshortcuts="1">Das ist die 1 <kbd>1</kbd></button>
-            <span class="mt-info" id="mtOneInfo"></span>
-          </div>
-          <div class="mt-panel" data-step="4">
             <div class="mt-row">
               <span class="mt-info" id="mtShiftInfo"></span>
               <span class="mt-shift" role="group" aria-labelledby="mtShiftInfo">
@@ -385,6 +381,10 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
               <button class="btn-ghost danger" id="mtBeatDelBtn" type="button" aria-keyshortcuts="Delete" hidden>Schlag löschen <kbd>Entf</kbd></button>
               <button class="btn-ghost" id="mtBeatOneBtn" type="button" aria-keyshortcuts="1" hidden></button>
             </div>
+          </div>
+          <div class="mt-panel" data-step="4">
+            <button class="btn-ghost btn-accent mt-big" id="mtOneBtn" type="button" aria-keyshortcuts="1">Das ist die 1 <kbd>1</kbd></button>
+            <span class="mt-info" id="mtOneInfo"></span>
           </div>
           <div class="mt-panel" data-step="5">
             <label class="mt-info" for="mtPhrase" id="mtPhraseLabel"></label>

@@ -493,8 +493,8 @@
   }
 
   /* ---------- the view "Musik & Takte" ----------
-     Five steps, each a button on top (any can be chosen any time): 1 Grenzen, 2 Schläge, 3 Takt & 1,
-     4 Korrigieren, 5 Phrasierung. Above the song a box says what to do now and which step comes
+     Five steps, each a button on top (any can be chosen any time): 1 Grenzen, 2 Schläge, 3 Korrigieren,
+     4 Takt & 1 (#2171: the beats are set right before the bars are counted from them), 5 Phrasierung. Above the song a box says what to do now and which step comes
      next. The overview shows the whole song (a press goes there), the Lupe a few seconds around what
      is heard, scrolling along while it plays. In the Lupe a tap goes there; a tap on a beat (step 1: a
      cut, step 5: a bar) also selects it, and the step's buttons below act on that. Setting a beat
@@ -515,11 +515,11 @@
   var mtBeatDelBtn = document.getElementById('mtBeatDelBtn'), mtBeatOneBtn = document.getElementById('mtBeatOneBtn');
   var mtPhraseLabel = document.getElementById('mtPhraseLabel'), mtPhrase = document.getElementById('mtPhrase'), mtFigure = document.getElementById('mtFigure'), mtFillBtn = document.getElementById('mtFillBtn');
   var mtKeysEl = document.getElementById('mtKeys'), mtSecsEl = document.getElementById('mtSecs');
-  var STEP_NEXT = ['', 'Weiter zu 2: Schläge erkennen', 'Weiter zu 3: Takt & 1', 'Weiter zu 4: Korrigieren', 'Weiter zu 5: Phrasierung', '']; // step 5: "Fertig" below
+  var STEP_NEXT = ['', 'Weiter zu 2: Schläge erkennen', 'Weiter zu 3: Korrigieren', 'Weiter zu 4: Takt & 1', 'Weiter zu 5: Phrasierung', '']; // step 5: "Fertig" below
   var STEP_KEYS = ['', 'Leertaste spielt und hält an · G setzt eine Grenze · Grenze in der Lupe ziehen verschiebt sie · Rechtsklick oder Entf entfernt sie',
     'Leertaste spielt und hält an · ← → springen von Schlag zu Schlag',
-    'Leertaste spielt und hält an · Taste 1 beim Hören der 1 · ← → wählen einen Schlag',
     'Leertaste · ← → wählen einen Schlag · Entf löscht ihn · 1 macht ihn zur 1 · S setzt einen an der Abspielposition · Umschalt + ← → rückt den Abschnitt um 10 ms',
+    'Leertaste spielt und hält an · Taste 1 beim Hören der 1 · ← → wählen einen Schlag',
     'Leertaste · ← → wählen einen Takt · Tab: Phrasierung → Figur → nächster Takt · Enter: nächster Takt · Strg + Enter: Phrasierung auch für die leeren danach'];
   var SEC_COLORS = [['--accent', '--accent-wash'], ['--pair', '--pair-wash'], ['--split', '--split-wash']];
   var mtStep = 1, mtSel = null, mtCut = -1, mtBar = null, mtNote = '', mtSeen = {}, mtRaf = 0;
@@ -543,7 +543,7 @@
   function beatNow(eventTime){ return songAudioEl.paused && mtSel !== null ? mtSel : nearestIn(allBeats(), timeNow(eventTime)); }
   function stepsDone(mm){
     return {1: mm.secs.every(function(s){ return s.key; }), 2: mm.secs.every(function(s){ return s.beats.length; }),
-      3: mm.secs.every(function(s){ return s.bars.length; }), 4: false, 5: mm.bars.length > 0 && mm.bars.every(function(b){ return b.p; })};
+      3: false, 4: mm.secs.every(function(s){ return s.bars.length; }), 5: mm.bars.length > 0 && mm.bars.every(function(b){ return b.p; })};
   }
 
   function guideText(mm){
@@ -555,18 +555,18 @@
       if(!state.beats) return '„Schläge erkennen“ lässt eine KI die Schläge und Taktanfänge hören und schlägt je Abschnitt die 1 vor. Das Lied bleibt dabei auf diesem Gerät.';
       var noBeats = secs.filter(function(s){ return !s.beats.length; });
       if(noBeats.length) return 'In ' + secTitles(noBeats) + ' fehlen noch Schläge.';
-      return 'Die Schläge sind da. Mit „Klicks“ anhören, ob sie sitzen – einzelne Fehler richtest du in Schritt 4.';
+      return 'Die Schläge sind da. Mit „Klicks“ anhören, ob sie sitzen – einzelne Fehler richtest du in Schritt 3.';
     }
-    if(mtStep === 3){
+    if(mtStep === 4){
       if(!state.beats) return 'Erst in Schritt 2 die Schläge erkennen.';
       return 'Je Abschnitt einmal die 1 festlegen: Lied abspielen und bei der 1 „Das ist die 1“ drücken – oder einen Schlag in der Lupe antippen und dann den Knopf. Ab dieser 1 zählt die App die Takte. Wie viele Schläge ein Takt hat, steht unten in der Liste.'
         + (noOne.length ? ' Noch ohne 1: ' + secTitles(noOne) + '.' : ' Alle Abschnitte haben ihre 1 – mit „Klicks“ anhören: die 1 klickt höher.');
     }
-    if(mtStep === 4){
+    if(mtStep === 3){
       if(!state.beats) return 'Erst in Schritt 2 die Schläge erkennen.';
       return 'Mit „Klicks“ anhören. Klickt ein ganzer Abschnitt zu früh oder zu spät: alle seine Schläge zusammen verschieben. Ein Schlag zu viel: antippen und löschen. Einer fehlt: dorthin tippen und „Schlag hier setzen“. Zählt ein Takt falsch: den Schlag antippen und „Zur 1 machen“.';
     }
-    if(!mm.bars.length) return 'Erst in Schritt 3 die 1 festlegen – dann gibt es Takte.';
+    if(!mm.bars.length) return 'Erst in Schritt 4 die 1 festlegen – dann gibt es Takte.';
     return 'Freiwillig: je Takt die Schrittfolge (z. B. QQS+) und die Figur eintragen. Takt in der Lupe antippen, Enter springt zum nächsten. Beides steht dann in der Abspielleiste, auf den Schritte-Blättern und im Video ({rhythmus}, {figur}).';
   }
 
@@ -587,7 +587,7 @@
     mtNoteEl.textContent = mtNote;
     mtNextBtn.textContent = STEP_NEXT[mtStep];
     mtNextBtn.hidden = mtStep === 5;
-    mtNextBtn.classList.toggle('btn-accent', !!done[mtStep] || (mtStep === 4 && done[3]));
+    mtNextBtn.classList.toggle('btn-accent', !!done[mtStep] || (mtStep === 3 && done[2]));
     mtKeysEl.textContent = STEP_KEYS[mtStep];
     renderSecList(mm);
     updatePanels();
@@ -610,10 +610,10 @@
       mtDetectBtn.classList.toggle('btn-accent', !!detectJob || missing.length > 0);
       mtProgress.hidden = !detectJob;
       if(detectJob){ mtProgress.max = detectJob.n; mtProgress.value = detectJob.i + 0.5; }
-    }else if(mtStep === 3){
+    }else if(mtStep === 4){
       mtOneBtn.disabled = !state.beats;
       mtOneInfo.textContent = !state.beats ? '' : playing ? 'beim Schlag, den du gerade hörst' : mtSel !== null ? 'für den gewählten Schlag bei ' + formatTime(mtSel, 2) : 'für den Schlag an der Abspielposition';
-    }else if(mtStep === 4){
+    }else if(mtStep === 3){
       var sec = shiftSec(), sel = mtSel, bar = sel !== null ? barOf(sel) : null, mine = sel !== null && sec.ones.indexOf(sel) !== -1;
       mtShiftInfo.textContent = 'Alle Schläge in ' + secTitle(sec) + ':';
       mtShiftBtns.forEach(function(b){ b.disabled = !sec.beats.length; });
@@ -802,7 +802,7 @@
     var m = musicCopy(), sec = secAt(t);
     m.ones = m.ones.filter(function(x){ return x !== t; });
     setMusic(state.beats, m);
-    mtSay(sec.ones.length > 1 ? 'Keine feste 1 mehr bei ' + formatTime(t, 2) + ' – die Takte zählen von der 1 davor weiter.' : secTitle(sec) + ' hat jetzt keine 1 mehr – in Schritt 3 eine festlegen.');
+    mtSay(sec.ones.length > 1 ? 'Keine feste 1 mehr bei ' + formatTime(t, 2) + ' – die Takte zählen von der 1 davor weiter.' : secTitle(sec) + ' hat jetzt keine 1 mehr – in Schritt 4 eine festlegen.');
   }
   function deleteBeat(t){
     if(isCut(t)){ mtSay('Das ist eine Grenze – sie zählt als Schlag. Entfernen: Rechtsklick auf die Grenze (oder in Schritt 1 „Grenze davor entfernen“).'); return; }
@@ -906,7 +906,7 @@
     loadWavePeaks(); // js/marker.js
     mtSel = null; mtCut = -1; mtBar = null; mtNote = '';
     var filled = prefillSections(), done = stepsDone(music());
-    mtStep = filled || !done[1] ? 1 : !done[2] ? 2 : !done[3] ? 3 : 4;
+    mtStep = filled || !done[1] ? 1 : !done[2] ? 2 : 3;
     renderBeats();
     syncPlayIcon();
     if(!mtRaf) mtRaf = requestAnimationFrame(mtFrame);
@@ -1016,14 +1016,14 @@
     var k = e.key, done = true;
     if(k === ' ') togglePlay(); // also on a focused button: the one just pressed shouldn't fire again
     else if((k === 'g' || k === 'G') && mtStep === 1) addCutHere(e.timeStamp);
-    else if(k === '1' && mtStep === 3) makeOne(beatNow(e.timeStamp), false);
-    else if(k === '1' && mtStep === 4){ var t = beatNow(e.timeStamp); if(t !== null && mtSel === t && secAt(t).ones.indexOf(t) !== -1) removeOne(t); else makeOne(t, true); }
-    else if((k === 's' || k === 'S') && mtStep === 4) addBeatHere(e.timeStamp);
-    else if((k === 'Delete' || k === 'Backspace') && mtStep === 4 && mtSel !== null) deleteBeat(mtSel);
+    else if(k === '1' && mtStep === 4) makeOne(beatNow(e.timeStamp), false);
+    else if(k === '1' && mtStep === 3){ var t = beatNow(e.timeStamp); if(t !== null && mtSel === t && secAt(t).ones.indexOf(t) !== -1) removeOne(t); else makeOne(t, true); }
+    else if((k === 's' || k === 'S') && mtStep === 3) addBeatHere(e.timeStamp);
+    else if((k === 'Delete' || k === 'Backspace') && mtStep === 3 && mtSel !== null) deleteBeat(mtSel);
     else if((k === 'Delete' || k === 'Backspace') && mtStep === 1 && mtCut > 0) removeCut(mtCut);
     else if((k === 'ArrowLeft' || k === 'ArrowRight') && (ae === mtLupe || ae === document.body || !ae || ae.tagName === 'BUTTON' || ae === mtOverview)){
       var dir = k === 'ArrowRight' ? 1 : -1;
-      if(e.shiftKey && mtStep === 4) shiftBy(dir * 0.01);
+      if(e.shiftKey && mtStep === 3) shiftBy(dir * 0.01);
       else if(e.shiftKey && mtStep === 1 && mtCut > 0) moveCut(mtCut, music().secs[mtCut].start + dir * 0.1);
       else if(mtStep === 5) stepBarSel(dir);
       else if(mtStep >= 2 && state.beats) stepBeat(dir);
@@ -1234,7 +1234,7 @@
     var p = mtLupePtr = {id: e.pointerId, x: e.clientX, v: v, t: t, from: songAudioEl.currentTime, moved: false, cut: cutNear(mtLupe, e.clientX, reach), beat: null, resume: resume};
     if(p.cut < 0 && mtStep >= 2){ var b = nearestIn(allBeats(), t); if(b !== null && Math.abs(b - t) * v.pps <= reach) p.beat = b; }
     if(p.cut > 0) p.base = {beats: state.beats, music: state.music};
-    if(mtStep === 4 && p.beat !== null && p.beat === mtSel) p.base = {beats: state.beats, music: state.music, k: secAt(p.beat).k};
+    if(mtStep === 3 && p.beat !== null && p.beat === mtSel) p.base = {beats: state.beats, music: state.music, k: secAt(p.beat).k};
     mtLupe.setPointerCapture(e.pointerId);
     mtLupe.focus({preventScroll: true});
     e.preventDefault();
@@ -1243,7 +1243,7 @@
     var p = mtLupePtr;
     if(!p){ // the mouse shows what can be dragged
       if(e.pointerType === 'mouse') mtLupe.style.cursor = cutNear(mtLupe, e.clientX, 8) > 0 ? 'col-resize'
-        : mtStep === 4 && mtSel !== null && Math.abs(lupeView().t0 + (e.clientX - mtLupe.getBoundingClientRect().left) / lupeView().pps - mtSel) * lupeView().pps <= 8 ? 'ew-resize' : '';
+        : mtStep === 3 && mtSel !== null && Math.abs(lupeView().t0 + (e.clientX - mtLupe.getBoundingClientRect().left) / lupeView().pps - mtSel) * lupeView().pps <= 8 ? 'ew-resize' : '';
       return;
     }
     if(e.pointerId !== p.id) return;
