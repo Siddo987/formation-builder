@@ -856,8 +856,7 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 /* Die Takte zwischen zwei Bildern mit ihren Figuren (#2183) */
 .film-bars{order:-2;flex:1 0 100%;display:flex;flex-direction:column;padding:2px 0;}
 .film-bars-edge{flex:none;padding:2px 0 2px calc(var(--cp) + 1px + var(--pv) / 2 - 10px);}
-.film-bars-sec{padding:4px 0 2px 26px;font-size:11px;font-weight:600;color:var(--ink-2);}
-.film-bar{display:flex;align-items:center;gap:6px;min-height:24px;}
+.film-bar{position:relative;display:flex;align-items:center;gap:6px;min-height:24px;}
 .film-bar-n{flex:none;width:20px;text-align:right;font-size:11px;font-variant-numeric:tabular-nums;color:var(--ink-3);}
 .film-bar-fig{
   flex:1;min-width:0;height:22px;padding:1px 6px;border:1px solid transparent;border-radius:4px;
@@ -867,6 +866,17 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 .film-bar-fig:focus{background:var(--panel);outline:2px solid var(--accent);outline-offset:-2px;border-color:transparent;}
 .film-bar-fig::placeholder{color:var(--ink-3);opacity:.7;}
 .film-bar:not(:hover) .film-bar-fig:not(:focus)::placeholder{color:transparent;}
+/* Zwischenpositionen zwischen den Figuren: + auf der Taktgrenze über dem Takt, darauf die Chips */
+.film-bar-add{
+  position:absolute;z-index:1;left:-15px;top:-7px;width:14px;height:14px;padding:0;
+  display:flex;align-items:center;justify-content:center;border:1px solid var(--pair);border-radius:50%;
+  background:var(--panel);color:var(--pair);opacity:0;transition:opacity .15s ease-out,background .15s ease-out,color .15s ease-out;
+}
+.film-bar:hover .film-bar-add,.film-bar-add:focus-visible{opacity:1;}
+.film-bar-add:hover{background:var(--pair);color:var(--panel);}
+.film-bar-between{display:flex;align-items:center;gap:6px;min-height:26px;padding-left:26px;font-size:12px;color:var(--pair);}
+.film-bar-between > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.film-connector.has-bars > .film-between-chips,.film-connector.has-bars > .film-between-add{display:none;}
 .film-between-add,.film-between-speed{order:-1;} /* zuerst, damit sie immer an derselben Stelle sitzen (#2141) */
 .film-between-chip-wrap{position:relative;}
 .film-between-chip{
@@ -1191,6 +1201,8 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
     flex-direction:column;flex-wrap:nowrap;justify-content:flex-start;align-self:stretch;
   }
   .film-bars,.film-bars-edge{display:none;} /* zu schmal: Figuren je Takt dort unter Musik › Phrasierung */
+  .film-connector.has-bars > .film-between-chips{display:contents;}
+  .film-connector.has-bars > .film-between-add{display:flex;}
   .film-add-wrap{width:56px;height:auto;align-self:stretch;margin:0 0 0 4px;}
 
   /* Tänzerliste: Blatt von unten */
@@ -1237,6 +1249,7 @@ body.dancer-view .dancer-panel{display:flex;flex:1;flex-direction:column;min-hei
 /* Touch: nichts nur per Hover erreichbar */
 @media (hover:none),(pointer:coarse){
   .remove-btn,.film-between-chip-remove{opacity:1;}
+  .film-bar-add{opacity:.6;}
   .film-remove{opacity:0;pointer-events:none;}
   .film-card.active .film-remove{opacity:.85;pointer-events:auto;}
   .split-btn{opacity:1;}

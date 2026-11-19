@@ -291,6 +291,29 @@
      stage/roster editing code a real Bild uses, via currentFormation()'s editingBetween override
      (state.js) — see interpolateThroughBetweens() there for how they play back. */
 
+  // Zwischenposition bIdx after Bild idx as a chip (edit; right-click renames) with its × (removes).
+  function buildBetweenChip(f, idx, bIdx, hint){
+    var between = f.betweens[bIdx], next = state.formations[idx + 1];
+    var chipWrap = document.createElement('div');
+    chipWrap.className = 'film-between-chip-wrap';
+    var chip = chipWrap.appendChild(document.createElement('button'));
+    chip.type = 'button';
+    chip.className = 'film-between-chip' + (editingBetween && editingBetween.fIdx === idx && editingBetween.bIdx === bIdx ? ' active' : '');
+    chip.dataset.f = idx; chip.dataset.b = bIdx; // renderFilmstripActiveOnly (playback.js)
+    chip.textContent = String(bIdx + 1);
+    chip.title = 'Zwischenposition ' + (bIdx + 1) + (between.name ? ' — ' + between.name : '')
+      + ' bearbeiten — zwischen „' + f.name + '“ und „' + (next ? next.name : '?') + '“ (umbenennen per Rechtsklick oder mit dem Stift in der Leiste über der Bühne' + hint + ')';
+    chip.addEventListener('click', function(){ enterBetweenEdit(idx, bIdx); });
+    chip.addEventListener('contextmenu', function(e){ e.preventDefault(); openBetweenRenamePopover(chip, idx, bIdx); });
+    var del = chipWrap.appendChild(document.createElement('button'));
+    del.type = 'button';
+    del.className = 'film-between-chip-remove';
+    del.setAttribute('aria-label', 'Zwischenposition ' + (bIdx + 1) + ' entfernen');
+    del.appendChild(svgIcon('x', 9, 3));
+    armDeleteButton(del, function(){ removeBetween(idx, bIdx); });
+    return chipWrap;
+  }
+
   // span: the song time from this Bild to the next ([t0, t1], filmBarSpans) — its bars are listed here.
   function buildBetweenConnector(f, idx, span){
     var wrap = document.createElement('div');
@@ -302,8 +325,7 @@
     var chips = document.createElement('div');
     chips.className = 'film-between-chips';
     (f.betweens || []).forEach(function(between, bIdx){
-      var chipWrap = document.createElement('div');
-      chipWrap.className = 'film-between-chip-wrap';
+      var chipWrap = buildBetweenChip(f, idx, bIdx, ', verschieben per Ziehen — auch in eine andere Lücke');
       chipWrap.draggable = true;
       chipWrap.dataset.f = idx; chipWrap.dataset.b = bIdx;
       chipWrap.addEventListener('dragstart', function(e){
@@ -322,26 +344,6 @@
         if(!to) return;
         moveBetween(idx, bIdx, +to.dataset.f, Array.prototype.indexOf.call(chipWrap.parentNode.children, chipWrap));
       });
-
-      var chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'film-between-chip' + (editingBetween && editingBetween.fIdx === idx && editingBetween.bIdx === bIdx ? ' active' : '');
-      chip.dataset.f = idx; chip.dataset.b = bIdx; // renderFilmstripActiveOnly (playback.js)
-      chip.textContent = String(bIdx + 1);
-      chip.title = 'Zwischenposition ' + (bIdx + 1) + (between.name ? ' — ' + between.name : '')
-        + ' bearbeiten — zwischen „' + f.name + '“ und „' + (next ? next.name : '?') + '“ (umbenennen per Rechtsklick oder mit dem Stift in der Leiste über der Bühne, verschieben per Ziehen — auch in eine andere Lücke)';
-      chip.addEventListener('click', function(){ enterBetweenEdit(idx, bIdx); });
-      chip.addEventListener('contextmenu', function(e){ e.preventDefault(); openBetweenRenamePopover(chip, idx, bIdx); });
-
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'film-between-chip-remove';
-      del.setAttribute('aria-label', 'Zwischenposition ' + (bIdx + 1) + ' entfernen');
-      del.appendChild(svgIcon('x', 9, 3));
-      armDeleteButton(del, function(){ removeBetween(idx, bIdx); });
-
-      chipWrap.appendChild(chip);
-      chipWrap.appendChild(del);
       chips.appendChild(chipWrap);
     });
 
@@ -365,9 +367,10 @@
     });
     wrap.addEventListener('drop', function(e){ if(betweenDragEl) e.preventDefault(); });
 
-    // The bars of the move with their Figuren (#2183) — they replace the move's own name (#2161).
-    var bars = buildFilmBars(span);
-    if(bars) wrap.appendChild(bars);
+    // The bars of the move with their Figuren (#2183), the Zwischenpositionen between them. The chips
+    // with their + stay for phones, where the list doesn't fit (css/app.css).
+    var bars = buildFilmBars(span, idx);
+    if(bars){ wrap.classList.add('has-bars'); wrap.appendChild(bars); }
     wrap.appendChild(chips);
     wrap.appendChild(addBtn);
     wrap.appendChild(buildSpeedCurveButton(f, next));
@@ -391,21 +394,36 @@
   function filmBarsKey(spans){
     return spans ? JSON.stringify([spans, music().bars.map(function(b){ return [b.t, b.n]; })]) : '';
   }
-  // The bars of span with their Figur fields, or null without bars there. Enter goes to the next
-  // bar's field (Shift: back).
-  function buildFilmBars(span){
+  // The bars of span with their Figur fields, or null without bars there. In a move (fIdx: the Bild
+  // it leaves from) its Zwischenpositionen sit between the bars, where they are reached, and a + on
+  // each bar line inside it adds one there. Enter goes to the next bar's field (Shift: back).
+  function buildFilmBars(span, fIdx){
     var bars = span ? barsBetween(span[0], span[1]) : []; // js/beats.js
     if(!bars.length) return null;
     var list = document.createElement('div');
     list.className = 'film-bars';
-    bars.forEach(function(b){
-      if(b.n === 1 && b.sec.dance){ // a section starts counting again
-        var head = list.appendChild(document.createElement('div'));
-        head.className = 'film-bars-sec';
-        head.textContent = b.sec.dance.name;
-      }
-      var row = list.appendChild(document.createElement('label'));
+    var f = fIdx === undefined ? null : state.formations[fIdx], len = span[1] - span[0];
+    var reached = f ? betweenTimes(fIdx).map(function(x){ return span[0] + x * len; }) : [], k = 0; // js/state.js
+    function betweenRow(){
+      var row = list.appendChild(document.createElement('div')), between = f.betweens[k];
+      row.className = 'film-bar-between';
+      row.appendChild(buildBetweenChip(f, fIdx, k, ''));
+      row.appendChild(document.createElement('span')).textContent = between.name || 'Zwischenposition ' + (k + 1);
+      k++;
+    }
+    bars.forEach(function(b, n){
+      while(k < reached.length && reached[k] <= b.t + 0.01) betweenRow();
+      var row = list.appendChild(document.createElement('div'));
       row.className = 'film-bar';
+      if(f && n && !reached.some(function(t){ return Math.abs(t - b.t) < 0.05; })){
+        var add = row.appendChild(document.createElement('button'));
+        add.type = 'button';
+        add.className = 'film-bar-add';
+        add.appendChild(svgIcon('plus', 10, 2.5));
+        add.setAttribute('aria-label', 'Zwischenposition zwischen Takt ' + bars[n - 1].n + ' und ' + b.n);
+        add.title = 'Zwischenposition hier – zwischen Takt ' + bars[n - 1].n + ' und ' + b.n;
+        add.addEventListener('click', function(){ addBetween(fIdx, (b.t - span[0]) / len); });
+      }
       var num = row.appendChild(document.createElement('span'));
       num.className = 'film-bar-n';
       num.textContent = b.n;
@@ -428,6 +446,7 @@
         if(to) to.focus();
       });
     });
+    while(k < reached.length) betweenRow();
     return list;
   }
   function buildFilmBarsEdge(span){
@@ -872,10 +891,10 @@
   }
 
   // New Zwischenposition's starting pose: a plain copy of the selected Bild (or Zwischenposition),
-  // like a freshly duplicated Bild — not the half-way pose of the move. Paused in this move: timed
-  // to that moment (#2031); otherwise after the last one so far, untimed, so spread like the
-  // others (see betweenAnchors).
-  function addBetween(fIdx){
+  // like a freshly duplicated Bild — not the half-way pose of the move. Timed to `at` (a share of the
+  // move, e.g. a bar line: #2183) or, paused in this move, to that moment (#2031); otherwise after the
+  // last one so far, untimed, so spread like the others (see betweenAnchors).
+  function addBetween(fIdx, at){
     var f = state.formations[fIdx];
     var next = state.formations[fIdx + 1];
     if(!f || !next) return;
@@ -883,9 +902,9 @@
     var paused = pausedMidMove(); // js/playback.js
     var before = betweenAnchors(fIdx, fIdx + 1);
     var between = {id: uid('bw'), name: '', pos: {}};
-    var at, idx, target;
-    if(paused && paused.fromIdx === fIdx){
-      at = paused.t;
+    var idx, target;
+    if(at === undefined && paused && paused.fromIdx === fIdx) at = paused.t;
+    if(at !== undefined){
       between.at = sanitizeBetweenAt(at);
       idx = betweenTimes(fIdx).filter(function(bt){ return bt < at; }).length;
       target = moveEase(fIdx, fIdx + 1, at);
@@ -1035,6 +1054,7 @@
       if(between.at === null) delete between.at;
     }
     saveState();
+    renderFilmstrip(); // its place between the bars (#2183)
     updateBetweenTimeInput();
     updatePlaybarInfo();
   }
