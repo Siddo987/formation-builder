@@ -203,9 +203,9 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     function safeId(s){ return typeof s === 'string' && /^[\w-]{1,40}$/.test(s) ? s : ''; }
     var els = v.els.slice(0, 60).map(function(e){
       if(!e || typeof e !== 'object') return null;
-      var type = oneOf(e.type, ['stage', 'logo', 'bilder', 'text', 'image']);
-      // One stage, logo and Bild-name list each; texts and images as many as wanted.
-      if(e.type !== type || ((type === 'stage' || type === 'logo' || type === 'bilder') && seen[type])) return null;
+      var type = oneOf(e.type, ['stage', 'logo', 'bilder', 'figuren', 'text', 'image']);
+      // One stage, logo, Bild-name and Figuren list each; texts and images as many as wanted.
+      if(e.type !== type || (type !== 'text' && type !== 'image' && seen[type])) return null;
       seen[type] = true;
       var id = safeId(e.id);
       if(!id || ids[id]) id = uid('ve');
@@ -216,7 +216,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         out.grid = e.grid !== false; out.nums = e.nums === true; out.line = num(e.line, 0.5, 8, 1); out.dot = num(e.dot, 40, 250, 100);
         out.initials = e.initials !== false; out.names = e.names !== false; out.room = e.room !== false;
         out.floor = e.floor === 'none' ? 'none' : color(e.floor, '');
-      }else if(type === 'bilder'){
+      }else if(type === 'bilder' || type === 'figuren'){
         out.size = num(e.size, 40, 300, 100); out.color = VIDEO_HEX_RE.test(e.color) ? e.color : '#ffffff'; out.divider = e.divider === true;
       }else if(type === 'text'){
         out.text = typeof e.text === 'string' ? e.text.slice(0, 500) : ''; out.font = oneOf(e.font, ['sans', 'mono']); out.size = num(e.size, 6, 200, 32);

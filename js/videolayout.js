@@ -79,6 +79,7 @@
     if(el.type === 'stage') return 'Bühne';
     if(el.type === 'logo') return 'Logo';
     if(el.type === 'bilder') return 'Bild-Namen';
+    if(el.type === 'figuren') return 'Figuren';
     if(el.type === 'text') return 'Text „' + (el.text.replace(/\s+/g, ' ').trim().slice(0, 24) || '…') + '“';
     return 'Grafik „' + (el.name || 'ohne Namen') + '“';
   }
@@ -524,7 +525,7 @@
   // The bar heard in each moment (Musik & Takte, js/beats.js): at the foot of the Bild names, where
   // the standard layouts have room, else of the frame's middle.
   document.getElementById('vlAddBarBtn').addEventListener('click', function(){
-    var F = vlSize(), n = currentVideoLayout().els.filter(function(e){ return e.type === 'bilder'; })[0] || {x: F.w * 0.25, y: 0, w: F.w * 0.5, h: F.h};
+    var F = vlSize(), n = currentVideoLayout().els.filter(function(e){ return e.type === 'bilder' || e.type === 'figuren'; })[0] || {x: F.w * 0.25, y: 0, w: F.w * 0.5, h: F.h};
     vlAddText('Takt {takt}  {rhythmus}\n{figur}', {x: n.x + n.w * 0.08, y: n.y + n.h * 0.8, w: n.w * 0.84}, Math.round(Math.min(48, Math.max(24, n.w * 0.08))));
   });
 
@@ -702,11 +703,12 @@
       }));
       if(floorMode === 'color') vlProps.appendChild(vlColor(el, 'floor', 'Bodenfarbe'));
       vlProps.appendChild(vlHint('Weglinien, Herkunfts- und Zielpunkte und das Hellgrau anderer Paare wählst du im Exportieren-Dialog, die Blickrichtungs-Pfeile in den Einstellungen – die Vorschau zeigt sie, wie sie dort stehen.'));
-    }else if(el.type === 'bilder'){
+    }else if(el.type === 'bilder' || el.type === 'figuren'){
       vlProps.appendChild(vlRange(el, 'size', 'Schriftgröße', 50, 250, 5, '%'));
       vlProps.appendChild(vlColor(el, 'color', 'Schriftfarbe'));
       vlProps.appendChild(vlCheck(el, 'divider', 'Trennlinie rechts'));
-      vlProps.appendChild(vlHint('Die Namen der Bilder laufen mit dem Video durch, das aktuelle groß in der Mitte.'));
+      vlProps.appendChild(vlHint(el.type === 'bilder' ? 'Die Namen der Bilder laufen mit dem Video durch, das aktuelle groß in der Mitte.'
+        : 'Die Figuren der Takte (Musik › Phrasierung) laufen mit dem Lied durch: die getanzte groß in der Mitte, darüber die nächste, darunter die vorige. Ohne Figuren stehen hier die Bild-Namen.'));
     }else if(el.type === 'logo'){
       vlProps.appendChild(vlHint(state.logo ? 'Bild und Deckkraft des Logos stellst du in den Einstellungen ein.' : 'Noch kein Logo – du lädst es in den Einstellungen hoch.'));
     }else if(el.type === 'text'){

@@ -795,7 +795,7 @@
     return effectiveText ? (num + '. ' + effectiveText) : '';
   }
 
-  // Width of the left Bild-name panel in the standard landscape layout (defaultVideoLayout below) —
+  // Width of the left info panel in the standard landscape layout (defaultVideoLayout below) —
   // the stage itself keeps its old 1200×800 footprint; the panel is added alongside it, not carved
   // out of it.
   var VIDEO_INFO_PANEL_W = 300;
@@ -810,25 +810,36 @@
   // along the grid (#2154).
   function defaultVideoLayout(format){
     format = VIDEO_FORMATS[format] ? format : 'quer';
-    var W = VIDEO_FORMATS[format].w, H = VIDEO_FORMATS[format].h, stage, names, section, size = 100;
+    var W = VIDEO_FORMATS[format].w, H = VIDEO_FORMATS[format].h, stage, panel, pad, s = 1;
     if(format === 'hoch'){
-      // Phone portrait: stage on top, the Bild names underneath.
-      stage = {x: 0, y: 0, w: W, h: Math.round(H * 0.62)};
-      names = {x: 0, y: stage.h, w: W, h: H - stage.h};
-      section = {x: 40, y: stage.h + 24, w: W - 80, h: 40};
-      size = 150;
+      // Phone portrait: stage on top, the panel underneath.
+      stage = {x: 0, y: 0, w: W, h: Math.round(H * 0.58)};
+      panel = {x: 0, y: stage.h, w: W, h: H - stage.h};
+      pad = 40; s = 1.2;
     }else{
-      var pw = Math.min(VIDEO_INFO_PANEL_W, Math.round(W * 0.25)), pad = Math.round(pw * 0.09);
+      var pw = Math.min(VIDEO_INFO_PANEL_W, Math.round(W * 0.25));
       stage = {x: pw, y: 0, w: W - pw, h: H};
-      names = {x: 0, y: 0, w: pw, h: H};
-      section = {x: pad, y: 30, w: pw - pad * 2, h: 40};
+      panel = {x: 0, y: 0, w: pw, h: H};
+      pad = Math.round(pw * 0.09);
+    }
+    // The panel, top to bottom: Abschnitt, the bar heard and its Phrasierung, the Figuren
+    // (the one danced now in the middle, the one before and after it), the Bild's name. Offsets in
+    // the landscape panel's units, from its top (top >= 0) or its foot (top < 0).
+    var gold = 'rgba(217,154,52,.95)', fig = {top: 170, foot: 140};
+    function text(id, t, top, h, size, mono, color){
+      return {id: id, type: 'text', x: panel.x + pad, y: Math.round(top < 0 ? panel.y + panel.h + top * s : panel.y + top * s), w: panel.w - pad * 2, h: Math.round(h * s),
+        text: t, font: mono ? 'mono' : 'sans', size: Math.round(size * s), bold: true, upper: mono, color: color, align: 'left', bg: ''};
     }
     var lw = stage.w * 0.8, lh = stage.h * 0.8;
     return {format: format, bg: '#150f1c', els: [
       {id: 'logo', type: 'logo', x: stage.x + (stage.w - lw) / 2, y: stage.y + (stage.h - lh) / 2, w: lw, h: lh},
       {id: 'stage', type: 'stage', x: stage.x, y: stage.y, w: stage.w, h: stage.h, grid: true, nums: true, line: 1, dot: 100, initials: true, names: true, room: true, floor: ''},
-      {id: 'abschnitt', type: 'text', x: section.x, y: section.y, w: section.w, h: section.h, text: '{abschnitt}', font: 'mono', size: format === 'hoch' ? 22 : 15, bold: true, upper: true, color: 'rgba(217,154,52,.95)', align: 'left', bg: ''},
-      {id: 'bilder', type: 'bilder', x: names.x, y: names.y, w: names.w, h: names.h, size: size, color: '#ffffff', divider: format !== 'hoch'}
+      text('abschnitt', '{abschnitt}', 30, 40, 15, true, gold),
+      text('takt', 'Takt {takt}', 72, 52, 36, false, '#ffffff'),
+      text('rhythmus', '{rhythmus}', 126, 34, 22, true, 'rgba(255,255,255,.7)'),
+      {id: 'figuren', type: 'figuren', x: panel.x, y: Math.round(panel.y + fig.top * s), w: panel.w, h: Math.round(panel.h - (fig.top + fig.foot) * s), size: Math.round(100 * s), color: '#ffffff', divider: format !== 'hoch'},
+      text('bildnr', 'Bild {nr}', -120, 24, 13, true, gold),
+      text('bild', '{bild}', -94, 70, 26, false, '#ffffff')
     ]};
   }
   function currentVideoLayout(){ return state.videoLayout || defaultVideoLayout('quer'); }
@@ -863,9 +874,30 @@
   // in from the top as the show approaches it, passes through the middle, then shrinks away toward
   // the bottom as the show moves past — "durchfahren", not next/current/previous swapped in a hard cut.
   function drawVideoInfoPanel(ctx, el, cursor){
-    var total = state.formations.length;
+    drawNameStack(ctx, el, state.formations.map(function(f, i){ return f.name || ('Bild ' + (i + 1)); }), cursor, el.y, el.h);
+  }
+  // The 'figuren' element: the Figuren of the bars (Musik › Phrasierung, one per run of bars) scroll
+  // the same way — the one danced now in the middle, the next one above, the last one below. Each
+  // stays put while it's danced and glides on in the half second before the next one starts. Without
+  // any Figuren (or without the song) it shows the Bild names instead.
+  function drawFigurenPanel(ctx, el, cursor, info){
+    var list = [], t = Math.max(0, (info && info.tMs) || 0) / 1000;
+    if(isSyncActive()) music().bars.forEach(function(b){ // js/beats.js
+      var f = b.f.trim();
+      if(f && (!list.length || list[list.length - 1].f !== f)) list.push({t: b.t, f: f});
+    });
+    if(!list.length){ drawVideoInfoPanel(ctx, el, cursor); return; }
+    var k = 0;
+    while(k + 1 < list.length && list[k + 1].t <= t + 0.02) k++;
+    function glide(from, to){ var g = Math.min(0.5, (to - from) * 0.4); return g > 0 ? Math.min(1, Math.max(0, (t - (to - g)) / g)) : 1; }
+    var c = t + 0.02 < list[0].t ? glide(0, list[0].t) - 1 : k + (k + 1 < list.length ? glide(list[k].t, list[k + 1].t) : 0);
+    // The panel's divider runs the frame's full height, though the Figuren sit only in its middle.
+    drawNameStack(ctx, el, list.map(function(x){ return x.f; }), c, 0, videoFrameSize().h);
+  }
+  function drawNameStack(ctx, el, names, cursor, divY, divH){
+    var total = names.length;
     if(!total) return;
-    cursor = Math.max(0, Math.min(total - 1, cursor));
+    cursor = Math.max(-1, Math.min(total - 1, cursor));
     var maxTextW = el.w * 0.8;
     var cx = el.x + el.w / 2;
     var centerY = el.y + el.h * 0.52;
@@ -878,7 +910,7 @@
     if(el.divider){
       ctx.strokeStyle = 'rgba(255,255,255,.12)';
       ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(el.x + el.w, el.y); ctx.lineTo(el.x + el.w, el.y + el.h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(el.x + el.w, divY); ctx.lineTo(el.x + el.w, divY + divH); ctx.stroke();
     }
 
     ctx.textAlign = 'center';
@@ -890,14 +922,13 @@
       var fade = Math.max(0, Math.min(1, (1.6 - Math.abs(s)) / 0.6)); // fades out over the last stretch instead of popping off
       var y = centerY - s * slotH;
       var size = Math.round((15 + emphasis * 17) * k); // 15px far away up to 32px dead center, at 100 %
-      var f = state.formations[i];
       var weight = emphasis > 0.6 ? '700 ' : '600 ';
       ctx.globalAlpha = fade * (0.4 + 0.6 * emphasis);
       ctx.fillStyle = emphasis > 0.6 ? el.color : dim;
       // Just the Bild's own name — no "Bild N — " prefix — wrapped and never cut off (#2167): a name
       // too tall for its slot (or with a word too wide) gets a smaller font instead, so it never runs
       // into its neighbours (a blank name already falls back to "Bild N", see formations.js).
-      var name = f.name || ('Bild ' + (i + 1)), lines, lineH;
+      var name = names[i], lines, lineH;
       for(;;){
         lines = wrapCanvasText(ctx, name, maxTextW, weight + size + 'px "Manrope",sans-serif');
         lineH = size * 1.22;
@@ -1212,6 +1243,7 @@
       if(el.type === 'stage') drawStageElement(ctx, el, posMap, focusIds, ghosts);
       else if(el.type === 'logo') drawImageFit(ctx, logoImg, el, ((state.logo && state.logo.opacity) || 18) / 100);
       else if(el.type === 'bilder') drawVideoInfoPanel(ctx, el, panelCursor);
+      else if(el.type === 'figuren') drawFigurenPanel(ctx, el, panelCursor, info);
       else if(el.type === 'text') drawTextElement(ctx, el, panelCursor, info);
       else if(el.type === 'image') drawImageFit(ctx, videoImageFor(el.img), el, el.opacity / 100);
     });
