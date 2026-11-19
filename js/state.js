@@ -585,9 +585,13 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   var confirmBackdrop = document.getElementById('confirmBackdrop');
   var confirmOkBtn = document.getElementById('confirmOkBtn');
   var confirmPending = null;
-  function confirmDelete(title, onConfirm, btn, okLabel){
+  // detail: an optional line under the question (what else the action touches).
+  function confirmDelete(title, onConfirm, btn, okLabel, detail){
     closeConfirm();
     document.getElementById('confirmTitle').textContent = title;
+    var detailEl = document.getElementById('confirmDetail');
+    detailEl.textContent = detail || '';
+    detailEl.hidden = !detail;
     confirmOkBtn.textContent = okLabel || 'Löschen';
     confirmPending = {run:onConfirm, btn:btn || null};
     if(btn) btn.classList.add('armed');

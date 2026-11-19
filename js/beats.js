@@ -211,13 +211,29 @@
       return off.startRendering();
     }).then(function(r){ return r.getChannelData(0); });
   }
+  // What hangs on a section's bars: Phrasierung and Figur {t, p, f} (also those a changed dance left
+  // off its bar starts), and the Bilder standing on one of its bar lines (#2180) — taken before
+  // "Neu erkennen", so they can follow onto the new bars.
+  function barTies(sec){
+    var lines = sec.bars.map(function(b){ return b.t; }), m = state.music || {}, ph = m.phrases || {}, fi = m.figures || {};
+    if(lines.length) lines.push(sec.bars[lines.length - 1].end);
+    return {
+      texts: Object.keys(Object.assign({}, ph, fi)).filter(function(t){ return inRange(+t, sec.start, sec.end); })
+        .map(function(t){ return {t: +t, p: ph[t] || '', f: fi[t] || ''}; }).sort(function(a, b){ return a.t - b.t; }),
+      bilder: state.formations.filter(function(f){
+        var t = formationTime(f);
+        return t !== null && lines.some(function(x){ return Math.abs(x - t) < 0.006; });
+      })
+    };
+  }
   // Finds the beats of the given sections (from music().secs), one after the other. Each section's
-  // beats replace only its own (its 1s and Phrasierung go with them), and each is saved as soon as it
-  // is done. With the AI loaded, every section also gets its 1.
+  // beats replace only its own, and each is saved as soon as it is done. With the AI loaded, every
+  // section also gets its 1 — but where Phrasierung, Figuren or Bilder hang on the bars, the old 1s
+  // stay (where a new beat is) and those follow onto the nearest new bar.
   var detectJob = null;
   function detectSections(list){
     if(detectJob || !state.song || !state.song.blob || !list.length) return;
-    var song = state.song, worker = null, mono = null, ai = true, found = 0;
+    var song = state.song, worker = null, mono = null, ai = true, found = 0, carry = {ones: 0, texts: 0, bilder: 0, lostTexts: 0, lostBilder: 0};
     var todo = list.map(function(s){ return {k: s.k, start: s.start, end: s.end, dance: s.dance, per: s.per}; });
     detectJob = {i: 0, n: todo.length, k: todo[0].k};
     mtSay('');
@@ -246,20 +262,49 @@
         }) : null;
         return Promise.resolve(heard).then(function(h){ return h || essentiaTicks(r, from); }).then(function(h){
           if(state.song !== song) return;
+          var old = music().secs[r.k], ties = old ? barTies(old) : {texts: [], bilder: []}, tied = ties.texts.length || ties.bilder.length;
           var ticks = h.ticks, m = musicWithout(musicCopy(), r.start, r.end), start = r.start;
           var near = r.k ? nearestIn(ticks, r.start) : null, half = ticks.length > 1 ? (ticks[ticks.length - 1] - ticks[0]) / (ticks.length - 1) / 2 : 0;
           if(near !== null && Math.abs(near - r.start) < Math.max(CUT_BEAT_GAP, half) && m.sections[r.k]){ start = near; m.sections[r.k].t = near; } // the cut onto the beat heard there, as it is the section's first
           ticks = ticks.filter(function(t){ return inRange(t, start, r.end); });
+          // The value in arr within tol (half a beat) of t, or null.
+          function onto(arr, t, tol){ var x = nearestIn(arr, t); return x !== null && Math.abs(x - t) < (tol || half) ? x : null; }
+          var kept = tied ? old.ones.map(function(t){ return onto(ticks, t); }).filter(function(t){ return t !== null; }) : [];
           var one = h.downs.filter(function(t){ return t >= start && t < r.end; })[0];
-          if(one !== undefined) m.ones.push(one);
+          if(kept.length){ m.ones = m.ones.concat(kept); carry.ones++; } else if(one !== undefined) m.ones.push(one);
           var beats = (state.beats || []).filter(function(t){ return !inRange(t, Math.min(start, r.start), r.end); }).concat(ticks).sort(byNum);
           found += ticks.length;
-          setMusic(beats.filter(function(t, x){ return !x || t - beats[x - 1] > 0.08; }), m);
+          beats = beats.filter(function(t, x){ return !x || t - beats[x - 1] > 0.08; });
+          if(!tied){ setMusic(beats, m); return; }
+          setMusic(beats, m, true); // for the new bars; saved below
+          var bars = music().secs[r.k].bars, starts = bars.map(function(b){ return b.t; }), lines = bars.length ? starts.concat([bars[bars.length - 1].end]) : [];
+          var halfBar = bars.length ? (bars[bars.length - 1].end - bars[0].t) / bars.length / 2 : 0; // texts may move that far, Bilder only half a beat
+          var m2 = musicCopy();
+          ties.texts.forEach(function(b){
+            var t = onto(starts, b.t, halfBar);
+            if(t === null || m2.phrases[t] || m2.figures[t]){ carry.lostTexts++; return; }
+            if(b.p) m2.phrases[t] = b.p;
+            if(b.f) m2.figures[t] = b.f;
+            carry.texts++;
+          });
+          ties.bilder.forEach(function(f){
+            var t = onto(lines, formationTime(f));
+            if(t === null || (typeof bildLockHolder === 'function' && bildLockHolder(f.id))){ carry.lostBilder++; return; } // js/share.js (#2076)
+            f.time = snapTime(t); // js/marker.js
+            carry.bilder++;
+          });
+          setMusic(state.beats, m2);
+          if(ties.bilder.length){ renderMarkerList(); renderMarkerTimeline(); } // js/marker.js
         });
       });
     }, Promise.resolve()).then(function(){
       var off = music().secs.filter(function(s){ return (sectionTempo(s) || {}).off; });
-      mtSay(found + ' Schläge gefunden' + (ai ? ', mit KI – die 1 hat sie auch gleich vorgeschlagen. ' : '. Die KI ließ sich nicht laden (offline?), darum die einfache Erkennung im Tempo des Tanzes. ')
+      var moved = [carry.texts && carry.texts + (carry.texts === 1 ? ' Takt' : ' Takte') + ' mit Phrasierung/Figur', carry.bilder && carry.bilder + (carry.bilder === 1 ? ' Bild' : ' Bilder')].filter(Boolean);
+      var lost = [carry.lostTexts && carry.lostTexts + '× Phrasierung/Figur weggefallen', carry.lostBilder && carry.lostBilder + (carry.lostBilder === 1 ? ' Bild steht' : ' Bilder stehen') + ' nicht mehr auf einer Taktgrenze'].filter(Boolean);
+      mtSay(found + ' Schläge gefunden' + (ai ? ', mit KI' + (carry.ones ? '. ' : ' – die 1 hat sie auch gleich vorgeschlagen. ') : '. Die KI ließ sich nicht laden (offline?), darum die einfache Erkennung im Tempo des Tanzes. ')
+        + (carry.ones ? 'Wo schon etwas an den Takten hing, ist deine 1 geblieben. ' : '')
+        + (moved.length ? 'Auf die neuen Takte mitgenommen: ' + moved.join(' und ') + '. ' : '')
+        + (lost.length ? 'Die Takte liegen dort jetzt anders: ' + lost.join(', ') + ' – prüfen oder Rückgängig (Strg+Z). ' : '')
         + (off.length ? 'Achtung: In ' + secTitles(off) + ' passt das Tempo nicht zum Tanz – Tanz prüfen, dann dort „Neu erkennen“.' : 'Weiter mit Schritt 3.'));
     }).catch(function(err){
       console.error('Schläge erkennen fehlgeschlagen', err);
@@ -728,8 +773,13 @@
   }
   function detectAsk(list, btn){
     if(!list.some(function(s){ return s.beats.length; })){ detectSections(list); return; }
-    confirmDelete((list.length === 1 ? 'Schläge in ' + secTitle(list[0]) : 'Alle Schläge') + ' neu erkennen? Deine Korrekturen, die 1, Phrasierung und Figuren dort gehen dabei verloren.',
-      function(){ detectSections(list); }, btn, 'Neu erkennen');
+    var texts = 0, bilder = 0;
+    list.forEach(function(s){ var t = barTies(s); texts += t.texts.length; bilder += t.bilder.length; });
+    var tied = [texts && texts + (texts === 1 ? ' Takt' : ' Takte') + ' mit Phrasierung oder Figur', bilder && bilder + (bilder === 1 ? ' Bild' : ' Bilder') + ' auf einer Taktgrenze'].filter(Boolean).join(' und ');
+    confirmDelete((list.length === 1 ? 'Schläge in ' + secTitle(list[0]) : 'Alle Schläge') + ' neu erkennen?', function(){ detectSections(list); }, btn, 'Neu erkennen',
+      'Deine Korrekturen an den Schlägen gehen dabei verloren. ' + (tied
+        ? 'Achtung, an den Takten hängen ' + tied + '. Die 1 bleibt, wo ein neuer Schlag auf ihr liegt, und alles rückt auf den nächsten neuen Takt. Liegen die neuen Schläge deutlich anders, kann dabei etwas verrutschen oder wegfallen – dann Rückgängig (Strg+Z).'
+        : 'Die KI schlägt auch die 1 neu vor.'));
   }
   // t becomes a 1. restart: one more 1, the count starts again there (step 4); else the 1 that
   // counts at t moves there (step 3: "where is the 1?" — set once, moved when it was wrong).
