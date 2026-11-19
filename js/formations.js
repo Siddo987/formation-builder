@@ -397,11 +397,14 @@
      last get a block of their own. */
   var filmBarsShown = '';
   // [t0, t1] per stretch of song: 0 before Bild 1, i + 1 after Bild i (the last to the song's end);
-  // null without bars or without the Bilder in the song.
+  // null without bars or without the Bilder in the song. Needs only the bars and the Bilder's marks,
+  // not the song itself: that can take a while to load, and the list is there from the start.
   function filmBarSpans(){
-    if(typeof music !== 'function' || !isSyncActive() || !music().bars.length) return null; // js/beats.js
-    var times = syncTimes(), dur = songDurationSec(); // js/stage.js, js/playback.js
-    return [0].concat(times).map(function(t, i, all){ return [t, i + 1 < all.length ? all[i + 1] : dur]; });
+    var bars = typeof music === 'function' ? music().bars : []; // js/beats.js
+    if(!bars.length) return null;
+    var dur = songDurationSec() || bars[bars.length - 1].end; // js/playback.js
+    if(syncWaypoints(dur).length < 2) return null; // js/stage.js
+    return [0].concat(syncTimes(dur)).map(function(t, i, all){ return [t, i + 1 < all.length ? all[i + 1] : dur]; });
   }
   function filmBarsKey(spans){
     return spans ? JSON.stringify([spans, music().bars.map(function(b){ return [b.t, b.n]; })]) : '';

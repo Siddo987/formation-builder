@@ -563,7 +563,7 @@
 
   // The bars that start from song time t0 up to t1 (a Bild's mark to the next one's); [] without.
   function barsBetween(t0, t1){
-    if(!state.music || !songDur() || t0 === null || t1 === null || !(t1 > t0)) return [];
+    if(!state.music || t0 === null || t1 === null || !(t1 > t0)) return [];
     return music().bars.filter(function(b){ return b.t + BAR_SLACK >= t0 && b.t + BAR_SLACK < t1; });
   }
   // For the Schritte sheets (js/steps.js): the bars from song time t0 to t1 with their Phrasierung
