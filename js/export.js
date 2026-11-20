@@ -348,9 +348,9 @@
   var filenameExt = document.getElementById('filenameExt');
   // Kept across openings, so a second video right after the first needs one click.
   var exportFormat = 'stg';
-  // Wer?: the ticked steps.js values ('d:<id>' dancer, 'p:<id>' pair), in list order; none = alle.
-  // Kept across openings too.
-  var exportWho = [];
+  // Wer?: null = Alle (everyone ticked; the PDF starts with the Übersicht), else the ticked steps.js
+  // values ('d:<id>' dancer, 'p:<id>' pair) in list order, maybe none. Kept across openings too.
+  var exportWho = null;
   // Once the name is typed by hand it stays put when switching format/Wer; until then it follows them.
   var filenameEdited = false;
 
@@ -367,7 +367,7 @@
   // One name group per ticked entry ("Anna & Ben, Clara & Dirk"); '' for alle.
   function exportWhoLabel(){
     var labels = [];
-    exportWho.forEach(function(v){
+    (exportWho || []).forEach(function(v){
       var label = sheetsLabel(getStepsSheets(v));
       if(label && labels.indexOf(label) === -1) labels.push(label);
     });
@@ -379,7 +379,7 @@
   // "Alle" first, then the pairs, then (on a line of their own) the single dancers.
   function fillExportWhoList(){
     var choices = stepsWhoChoices();
-    exportWho = exportWho.filter(function(v){ return choices.some(function(c){ return c.value === v; }); });
+    if(exportWho) exportWho = exportWho.filter(function(v){ return choices.some(function(c){ return c.value === v; }); });
     exportWhoList.innerHTML = '';
     var prevKind = null;
     [{value: '', label: 'Alle'}].concat(choices).forEach(function(c){
@@ -418,16 +418,19 @@
     });
     exportEmptyHint.hidden = !noDancers;
     var media = exportNeedsDancers(exportFormat);
-    var who = exportWho.length > 0;
+    var who = !!exportWho, none = who && !exportWho.length;
     exportWhoInputs().forEach(function(inp){
-      inp.checked = inp.value ? exportWho.indexOf(inp.value) !== -1 : !who;
+      inp.checked = !who || exportWho.indexOf(inp.value) !== -1;
     });
     exportWhoSection.hidden = !media;
-    if(exportFormat === 'pdf'){
+    exportConfirmBtn.disabled = media && none;
+    if(none){
+      exportWhoHint.textContent = 'Wähl aus, für wen.';
+    } else if(exportFormat === 'pdf'){
       exportWhoHint.textContent = (who
-        ? (exportWho.length > 1 ? 'Ein Dokument mit den Blättern aller Gewählten, Paar für Paar. ' : '') +
+        ? (exportWho.length > 1 ? 'Ein Dokument mit den Blättern aller Gewählten, Paar für Paar, mit Inhaltsverzeichnis. ' : '') +
           'Pro Bild eine Karte mit großer, gut lesbarer Koordinatenangabe.'
-        : 'Ein Dokument mit den Blättern aller Tänzer – erst Paar 1, dann Paar 2 usw.') +
+        : 'Erst eine Übersicht mit allen in jedem Bild, dann alle einzeln – erst Paar 1, dann Paar 2 usw. –, mit Inhaltsverzeichnis.') +
         ' Ist ein Paar in Lead & Follow geteilt, stehen beide Positionen auf derselben Karte nebeneinander.';
     } else {
       exportWhoHint.textContent = who ? 'Das Video zeigt nur die Gewählten.' : 'Die ganze Choreo mit allen Tänzern.';
@@ -485,13 +488,13 @@
       return;
     }
     if(!state.dancers.length || !state.formations.length) return;
-    var sheets = exportWho.length ? getStepsSheetsFor(exportWho) : null;
+    var sheets = exportWho ? getStepsSheetsFor(exportWho) : null;
     if(sheets && !sheets.length) return;
     var showContext = !exportContextOption.hidden && exportContextToggle.checked;
     if(exportFormat === 'video'){
       startVideoExport(base + videoExportExt(), sheets ? stepsFocusIds(sheets) : null, exportGhostToggle.checked, showContext, exportPathsToggle.checked);
     } else {
-      printStepsSheets(sheets || getAllStepsSheets(), base, showContext, exportNotesToggle.checked, exportPathsToggle.checked, document.getElementById('exportBackToggle').checked);
+      printStepsSheets(sheets || [{overview: true}].concat(getAllStepsSheets()), base, showContext, exportNotesToggle.checked, exportPathsToggle.checked, document.getElementById('exportBackToggle').checked);
     }
   }
 
@@ -507,11 +510,12 @@
       syncExportDialog();
     });
   });
-  // Ticking "Alle" (or unticking the last one) clears the rest; ticking anyone else unticks "Alle".
+  // "Alle" ticks (or unticks) everyone below; unticking anyone unticks "Alle", ticking the last
+  // one ticks it again.
   exportWhoList.addEventListener('change', function(e){
-    exportWho = !e.target.value ? [] : exportWhoInputs().filter(function(inp){
-      return inp.value && inp.checked;
-    }).map(function(inp){ return inp.value; });
+    var entries = exportWhoInputs().filter(function(inp){ return inp.value; });
+    var ticked = entries.filter(function(inp){ return inp.checked; }).map(function(inp){ return inp.value; });
+    exportWho = !e.target.value ? (e.target.checked ? null : []) : ticked.length === entries.length ? null : ticked;
     syncExportDialog();
   });
   filenameInput.addEventListener('input', function(){ filenameEdited = true; });

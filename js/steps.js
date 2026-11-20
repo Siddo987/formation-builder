@@ -96,12 +96,12 @@
   // js/state.js's interpolateThroughBetweens), in order — drawn as small numbered gray dots, same
   // idea as the "heller Ring = graue Zusatzposition" convention the source choreography PDF this
   // app grew out of already used, just with a number instead of a bare ring since there can be more
-  // than one.
+  // than one. Each carries its name (or "Zwischenposition N"), printed beside its dot.
   // rolePos: the couple's Follow where it's split in this Bild — then both dots are drawn smaller
   // and lettered L/F, the Follow dashed, same as the stage's role badges. followBetweens: the
   // Follow's own Zwischenpositionen where the couple is split there (null elsewhere), dashed too.
   // contextPositions: every other couple's spot in this Bild ("Andere Paare hellgrau einblenden"),
-  // drawn as small light-gray dots.
+  // drawn as small light-gray dots — or, with a label, everyone's dot on the Übersicht.
   function buildStepDiagram(primaryPos, secondaryPos, betweenPositions, followBetweens, rolePos, contextPositions, paths){
     var diagram = document.createElement('div');
     diagram.className = 'step-diagram';
@@ -128,14 +128,44 @@
     var cross = document.createElement('span');
     cross.className = 'step-cross';
     room.appendChild(cross);
+    var dotsAt = []; // where the dots are, in % of the room — the Zwischenposition names avoid them
     function addDot(pos, cls, label, at){
       if(!pos) return;
       var dot = document.createElement('span');
       dot.className = 'step-dot ' + cls;
-      dot.style.left = (at ? at.x : stepPctX(pos.x)) + '%';
-      dot.style.top = (at ? at.y : stepPctY(pos.y)) + '%';
+      dotsAt.push({x: at ? at.x : stepPctX(pos.x), y: at ? at.y : stepPctY(pos.y)});
+      dot.style.left = dotsAt[dotsAt.length - 1].x + '%';
+      dot.style.top = dotsAt[dotsAt.length - 1].y + '%';
       if(label !== undefined) dot.textContent = label;
       room.appendChild(dot);
+    }
+    // Each Zwischenposition's name goes beside its dot, after all dots are down: right of it (left
+    // near the right wall), else on the other side, else a line or two up or down, wherever it
+    // covers no dot and no other name. Moved off its dot's line, it gets the dot's number in front
+    // (the fallback "Zwischenposition N" has it already). Sizes in % of the room, roughly.
+    var names = [];
+    function placeNames(){
+      var boxes = dotsAt.map(function(d){ return {l: d.x - 6, r: d.x + 6, t: d.y - 6, b: d.y + 6}; }).concat(
+        [{l: 30, r: 70, t: -16, b: -8}, {l: 30, r: 70, t: 108, b: 116}, {l: -16, r: -8, t: 25, b: 75}, {l: 108, r: 116, t: 25, b: 75}]); // the wall names
+      function boxAt(n, t){
+        var w = n.text.length * 3.5 + 2, l = t.right ? n.x + 7 : n.x - 7 - w;
+        return {l: l, r: l + w, t: n.y + t.dy - 3.5, b: n.y + t.dy + 3.5};
+      }
+      function free(b){ // inside the sketch's frame (the room plus its 22 px rim) and clear of the rest
+        return b.l > -15 && b.r < 115 && b.t > -15 && b.b < 115 && !boxes.some(function(o){ return b.l < o.r && o.l < b.r && b.t < o.b && o.t < b.b; });
+      }
+      names.forEach(function(n){
+        var tries = [];
+        [0, 7.5, -7.5, 15, -15, 22.5, -22.5].forEach(function(dy){ tries.push({dy: dy, right: n.x <= 55}, {dy: dy, right: n.x > 55}); });
+        var pick = tries.find(function(t){ return free(boxAt(n, t)); }) || tries[0];
+        boxes.push(boxAt(n, pick));
+        var name = document.createElement('span');
+        name.className = 'step-between-name' + (pick.right ? '' : ' left');
+        name.style.left = n.x + '%';
+        name.style.top = (n.y + pick.dy) + '%';
+        name.textContent = pick.dy && !/\d$/.test(n.text) ? n.num + ' ' + n.text : n.text;
+        room.appendChild(name);
+      });
     }
     // A split couple's Lead and Follow usually stand a step or less apart — closer than two dots
     // are wide at this scale, so one hid half of the other. The Follow's dot is pushed away on
@@ -166,16 +196,20 @@
       room.appendChild(svg);
       paths.forEach(function(p){ addDot(p.end, 'step-dot-target'); }); // where the walk ends: the next Bild
     }
-    (contextPositions || []).forEach(function(cp){ addDot(cp, 'step-dot-context'); });
+    (contextPositions || []).forEach(function(cp){
+      addDot(cp, cp.label ? 'step-dot-all' + (cp.follow ? ' step-dot-follow' : '') : 'step-dot-context', cp.label);
+    });
     // Between-dots first so the main/partner dots (added after, further down) paint on top of them
     // where positions happen to overlap.
     (betweenPositions || []).forEach(function(bp, i){
       addDot(bp, 'step-dot-between', String(i+1));
+      if(bp) names.push({x: stepPctX(bp.x), y: stepPctY(bp.y), text: bp.name, num: i+1});
       if(followBetweens && followBetweens[i]) addDot(followBetweens[i], 'step-dot-between step-dot-follow', String(i+1));
     });
     addDot(secondaryPos, 'step-dot-secondary');
     addDot(rolePos, 'step-dot-role step-dot-split step-dot-follow', 'F', roleAt);
     addDot(primaryPos, 'step-dot-primary' + (rolePos ? ' step-dot-split' : ''), rolePos ? 'L' : undefined);
+    placeNames();
     diagram.appendChild(room);
     return diagram;
   }
@@ -200,7 +234,10 @@
     var rolePos = formation.pos[fk] || null;
     var secondaryPos = secondary ? formation.pos[secondary.id] : null;
     var betweens = Array.isArray(formation.betweens) ? formation.betweens : [];
-    var betweenPositions = betweens.map(function(b){ return b.pos[primary.id]; });
+    var betweenPositions = betweens.map(function(b, i){
+      var bp = b.pos[primary.id];
+      return bp ? {x: bp.x, y: bp.y, name: b.name || 'Zwischenposition ' + (i+1)} : null;
+    });
     var followBetweens = betweens.map(function(b){ return b.pos[fk] || null; });
     var contextPositions = [];
     if(showContext){
@@ -254,16 +291,7 @@
       note.textContent = text;
       info.appendChild(note);
     }
-    // The bars up to the next Bild's mark with their Phrasierung and Figur (#2096, js/beats.js).
-    var times = syncTimes(), phrasing = barPhrasing(times[formationIdx], formationIdx + 1 < times.length ? times[formationIdx + 1] : null);
-    if(phrasing){
-      var phraseLine = document.createElement('p');
-      phraseLine.className = 'step-between-line';
-      phraseLine.textContent = phrasing.head;
-      info.appendChild(phraseLine);
-      var figs = barPhrasingTable(phrasing, 'step-figs');
-      if(figs) info.appendChild(figs);
-    }
+    addStepPhrasing(info, formationIdx);
     if(showNotes) addNote(formation.note);
 
     // Zwischenpositionen line up right under the main position, in the same order they play in —
@@ -314,6 +342,51 @@
     return card;
   }
 
+  // The bars up to the next Bild's mark with their Phrasierung and Figur (#2096, js/beats.js).
+  function addStepPhrasing(info, formationIdx){
+    var times = syncTimes(), phrasing = barPhrasing(times[formationIdx], formationIdx + 1 < times.length ? times[formationIdx + 1] : null);
+    if(!phrasing) return;
+    var phraseLine = document.createElement('p');
+    phraseLine.className = 'step-between-line';
+    phraseLine.textContent = phrasing.head;
+    info.appendChild(phraseLine);
+    var figs = barPhrasingTable(phrasing, 'step-figs');
+    if(figs) info.appendChild(figs);
+  }
+
+  // The Übersicht at the start of "Wer? Alle" (#2200): every Bild with everyone on it, the dots
+  // lettered like the stage, and everyone's coordinates.
+  function buildOverviewCard(formationIdx, formation, showNotes, showPaths){
+    var card = document.createElement('div');
+    card.className = 'step-card';
+    var dots = [], paths = [], coords = document.createElement('div');
+    coords.className = 'step-all-coords';
+    state.dancers.forEach(function(d){
+      [d.id, followKey(d.id)].forEach(function(k, i){
+        var p = formation.pos[k];
+        if(!p) return;
+        dots.push({x: p.x, y: p.y, label: initials(d.name), follow: i === 1});
+        var row = coords.appendChild(document.createElement('span'));
+        row.appendChild(document.createElement('b')).textContent = markerDisplayName(k);
+        row.appendChild(document.createTextNode(' X ' + fmtCoord(p.x, 'x') + ' Y ' + fmtCoord(p.y, 'y')));
+      });
+      if(showPaths) paths = paths.concat(stepPaths(formationIdx, d.id) || []);
+    });
+    card.appendChild(buildStepDiagram(null, null, [], null, null, dots, paths));
+    var info = document.createElement('div');
+    info.className = 'step-info';
+    info.appendChild(document.createElement('h3')).textContent = 'Bild ' + (formationIdx+1) + (formation.name ? ' — ' + formation.name : '');
+    addStepPhrasing(info, formationIdx);
+    info.appendChild(coords);
+    if(showNotes && formation.note){
+      var note = info.appendChild(document.createElement('p'));
+      note.className = 'step-note';
+      note.textContent = formation.note;
+    }
+    card.appendChild(info);
+    return card;
+  }
+
   // A section header ("1. Langsamer Walzer" — see js/export.js's categoryLabelAt(), the same
   // Tänze-grouping the video export overlays as a caption) inserted right before the first Bild of
   // each dance section, so a multi-dance choreography's printed sheet reads as its actual sections
@@ -321,7 +394,7 @@
   // section, same as everywhere else categories show up (filmstrip, video caption).
   function buildStepSectionHeader(label){
     var h = document.createElement('h4');
-    h.className = 'step-section-header';
+    h.className = 'step-section-header step-keep';
     h.textContent = label;
     return h;
   }
@@ -347,33 +420,92 @@
     return sheets;
   }
 
+  // Whose sheet it is: its heading and the top of each of its pages.
+  function sheetWho(sheet){
+    if(sheet.overview) return 'Alle';
+    return sheet.primary.name + (sheet.secondary ? ' (Partner: ' + sheet.secondary.name + ')' : '');
+  }
+
+  function stepEl(tag, cls, text){
+    var el = document.createElement(tag);
+    el.className = cls;
+    if(text !== undefined) el.textContent = text;
+    return el;
+  }
+
+  // The print document as A4 pages (#2200): each page names the choreo and whose sheet it is, and
+  // ends with "Stand …", © RWKREATOR and its number; with more than one pair a table of contents
+  // comes first. The blocks are laid out off screen and start a new page where they'd run over.
+  // sheets: getAllStepsSheets()-style, plus {overview: true} for the Übersicht with everyone.
   function buildStepsPrintDocument(sheets, showContext, showNotes, showPaths, fromBack){
     stepsPrintArea.innerHTML = '';
+    stepsPrintArea.classList.add('measuring');
     stepFromBack = !!fromBack;
     stepPathCache = {};
-    sheets.forEach(function(sheet, sheetIdx){
-      var title = document.createElement('h2');
-      title.className = 'step-sheet-title';
-      title.textContent = (state.projectName || 'Aufstellung') + ' — ' + sheet.primary.name +
-        (sheet.secondary ? ' (Partner: ' + sheet.secondary.name + ')' : '');
-      stepsPrintArea.appendChild(title);
-      if(sheet.split){
-        var legend = document.createElement('p');
-        legend.className = 'step-legend';
-        legend.textContent = 'Wo Lead und Follow getrennt stehen, stehen beide Positionen nebeneinander. ' +
-          'In der Skizze: L = Lead (gefüllt), F = Follow (gestrichelt).';
-        stepsPrintArea.appendChild(legend);
-      }
+    var pages = [];
+    var stand = 'Stand ' + new Date().toLocaleDateString('de-DE', {day: 'numeric', month: 'long', year: 'numeric'});
+    function newPage(who){
+      var page = stepsPrintArea.appendChild(stepEl('section', 'step-page'));
+      var head = page.appendChild(stepEl('header', 'step-page-head'));
+      head.appendChild(stepEl('span', '', state.projectName || 'Aufstellung'));
+      head.appendChild(stepEl('span', '', who));
+      var body = page.appendChild(stepEl('div', 'step-page-body'));
+      var foot = page.appendChild(stepEl('footer', 'step-page-foot'));
+      [stand, '© RWKREATOR', ''].forEach(function(t){ foot.appendChild(stepEl('span', '', t)); });
+      pages.push(page);
+      return body;
+    }
+    // Returns the number of the first page; a heading (.step-keep) moves on with the block after it.
+    function place(who, blocks){
+      var body = newPage(who), first = pages.length;
+      blocks.forEach(function(el){
+        body.appendChild(el);
+        if(body.scrollHeight <= body.clientHeight) return;
+        var carry = [el];
+        while(carry[0].previousElementSibling && carry[0].previousElementSibling.classList.contains('step-keep')) carry.unshift(carry[0].previousElementSibling);
+        if(carry[0] === body.firstElementChild) return; // taller than a page by itself: it stays
+        body = newPage(who);
+        carry.forEach(function(c){ body.appendChild(c); });
+      });
+      return first;
+    }
+
+    var units = {};
+    sheets.forEach(function(sh){
+      var pair = sh.overview ? null : findPairForDancer(sh.primary.id);
+      units[sh.overview ? 'alle' : pair ? 'p:' + pair.id : 'd:' + sh.primary.id] = true;
+    });
+    var tocRows = [];
+    if(Object.keys(units).length > 1){
+      tocRows = sheets.map(function(sh){
+        var row = stepEl('div', 'step-toc-row');
+        row.appendChild(stepEl('span', '', sh.overview ? 'Alle – Übersicht' : sheetWho(sh)));
+        row.appendChild(stepEl('span', 'step-toc-dots'));
+        row.appendChild(stepEl('span', ''));
+        return row;
+      });
+      place('Inhalt', [stepEl('h2', 'step-sheet-title step-keep', 'Inhalt')].concat(tocRows));
+    }
+
+    sheets.forEach(function(sheet, i){
+      var blocks = [stepEl('h2', 'step-sheet-title step-keep', sheet.overview ? 'Alle – Übersicht' : sheetWho(sheet))];
+      if(sheet.split) blocks.push(stepEl('p', 'step-legend step-keep', 'Wo Lead und Follow getrennt stehen, stehen beide Positionen nebeneinander. ' +
+        'In der Skizze: L = Lead (gefüllt), F = Follow (gestrichelt).'));
       var lastCategory = null;
       state.formations.forEach(function(f, idx){
         var cat = categoryLabelAt(idx);
         if(cat && cat !== lastCategory){
-          stepsPrintArea.appendChild(buildStepSectionHeader(cat));
+          blocks.push(buildStepSectionHeader(cat));
           lastCategory = cat;
         }
-        stepsPrintArea.appendChild(buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.split, showContext, showNotes, showPaths));
+        blocks.push(sheet.overview ? buildOverviewCard(idx, f, showNotes, showPaths)
+          : buildStepCard(idx, f, sheet.primary, sheet.secondary, sheet.split, showContext, showNotes, showPaths));
       });
+      var first = place(sheetWho(sheet), blocks);
+      if(tocRows[i]) tocRows[i].lastChild.textContent = first;
     });
+    pages.forEach(function(page, i){ page.querySelector('.step-page-foot').lastChild.textContent = 'Seite ' + (i+1) + ' / ' + pages.length; });
+    stepsPrintArea.classList.remove('measuring');
   }
 
   // Builds the print document, swaps in the dialog's filename as document.title (that's what the

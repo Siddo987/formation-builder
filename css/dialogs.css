@@ -418,11 +418,28 @@ button.video-chip:hover{border-color:var(--line-strong);}
   .marker-bar{order:1;flex-basis:100%;padding-left:30px;} /* own line under the name, which keeps its room */
 }
 
-/* ---- Schritte-PDF (Druckansicht) — unverändert übernommen ---- */
+/* ---- Schritte-PDF (Druckansicht) ---- */
 #stepsPrintArea{display:none;}
+/* js/steps.js lays the pages out off screen first, to see where each one is full (#2200). */
+#stepsPrintArea.measuring{display:block;position:fixed;left:-10000px;top:0;visibility:hidden;}
+  /* One A4 sheet: whose it is on top, Stand / © / Seite at the bottom. */
+  .step-page{
+    width:210mm; height:296mm; padding:10mm 14mm 8mm; box-sizing:border-box;
+    display:flex; flex-direction:column; gap:4mm; overflow:hidden;
+    background:#fff; color:#1c1626;
+  }
+  .step-page-head,.step-page-foot{display:grid; gap:1rem; font-size:.72rem; color:#6b6178;}
+  .step-page-head{grid-template-columns:1fr auto; padding-bottom:2mm; border-bottom:1px solid #ddd;}
+  .step-page-head span:last-child{font-weight:700; color:#1c1626;}
+  .step-page-foot{grid-template-columns:1fr auto 1fr; padding-top:2mm; border-top:1px solid #ddd;}
+  .step-page-foot span:last-child{text-align:right;}
+  .step-page-body{flex:1; min-height:0; overflow:hidden;}
+  #stepsPrintArea.measuring .step-page-body{margin-bottom:4mm;} /* slack, in case print lays out a hair taller */
+  .step-toc-row{display:flex; align-items:baseline; gap:.5rem; padding:.3rem 0; font-size:.95rem;}
+  .step-toc-dots{flex:1; border-bottom:1px dotted #aaa;}
   .step-sheet-title{
     font-family:var(--font-display); font-weight:600;
-    font-size:1.3rem; margin:0 0 1rem;
+    font-size:1.3rem; margin:0 0 .6rem;
   }
   /* Groups the sheet's Bild cards by dance section (state.formations[].category — same running
      "N. Name" as the filmstrip and the video export's caption, see js/export.js's
@@ -430,14 +447,13 @@ button.video-chip:hover{border-color:var(--line-strong);}
   .step-section-header{
     font-family:var(--font-mono); font-weight:700; font-size:.78rem;
     letter-spacing:.06em; text-transform:uppercase; color:#8a7c9c;
-    margin:1.4rem 0 .6rem; padding-bottom:.3rem;
+    margin:.9rem 0 0; padding-bottom:.3rem;
     border-bottom:1px solid #ddd;
   }
   .step-section-header:first-child{margin-top:0;}
   .step-card{
-    display:flex; align-items:center; gap:1.5rem;
-    border:1px solid #ddd; border-radius:12px;
-    padding:1.4rem; margin-bottom:1rem;
+    display:flex; align-items:center; gap:1.2rem;
+    padding:.55rem 0; border-bottom:1px solid #e6e2ec;
   }
   .step-diagram{
     position:relative; flex:none;
@@ -475,14 +491,32 @@ button.video-chip:hover{border-color:var(--line-strong);}
   /* Zwischenpositionen (see interpolateThroughBetweens in state.js) — a numbered gray dot per pose,
      matching the source choreography PDF's own "heller Ring = graue Zusatzposition" convention but
      numbered, since there can be more than one on the way to the next Bild. */
+  /* Name of a Zwischenposition beside its dot (#2200), left of it near the right wall */
+  .step-between-name{
+    position:absolute; transform:translate(11px,-50%); white-space:nowrap;
+    font-size:8px; font-weight:600; line-height:1.2; color:#3a3050;
+    text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 2px #fff;
+  }
+  .step-between-name.left{transform:translate(calc(-100% - 11px),-50%);}
+  /* Übersicht: everyone's dot, lettered like the stage */
+  .step-dot-all{
+    width:16px; height:16px; background:#3a3050; border:1.5px solid #fff; color:#fff;
+    font-size:.48rem; font-weight:800; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .step-dot-all.step-dot-follow{background:#fff; border:1.5px dashed #3a3050; color:#3a3050;}
+  .step-all-coords{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(9rem,1fr)); gap:.05rem .8rem;
+    margin:.25rem 0 0; font-size:.74rem; font-variant-numeric:tabular-nums;
+  }
   .step-dot-between{
     background:#c7c0d6; border:2px solid #fff; color:#3a3050;
     font-family:var(--font-mono); font-size:.56rem; font-weight:800;
     display:flex; align-items:center; justify-content:center;
   }
   .step-info{flex:1; min-width:0;}
-  .step-info h3{margin:0 0 .25rem; font-family:var(--font-display); font-weight:600; font-size:1.3rem; color:#8a7c9c;}
-  .step-coords{font-size:2rem; font-weight:800; letter-spacing:.02em; margin-bottom:.35rem; font-family:var(--font-mono);}
+  .step-info h3{margin:0 0 .15rem; font-family:var(--font-display); font-weight:600; font-size:1.05rem; color:#8a7c9c;}
+  .step-coords{font-size:1.6rem; font-weight:800; letter-spacing:.02em; margin-bottom:.2rem; font-family:var(--font-mono);}
   .step-role-tag{
     display:inline-block; vertical-align:middle; margin-right:.6rem;
     padding:.15rem .5rem; border:2px solid #d99a34; border-radius:999px;
@@ -491,12 +525,12 @@ button.video-chip:hover{border-color:var(--line-strong);}
   .step-role-tag-follow{border-style:dashed;}
   /* Paar geteilt: Lead und Follow gleich groß nebeneinander, Rolle jeweils darüber */
   .step-coords-split{display:flex; flex-wrap:wrap; gap:.3rem 1.6rem; margin-bottom:.35rem;}
-  .step-coords-split .step-coords{font-size:1.6rem; margin:0;}
+  .step-coords-split .step-coords{font-size:1.35rem; margin:0;}
   .step-coords-split .step-role-tag{display:table; margin:0 0 .2rem;}
   .step-dot-between.step-dot-follow{border-color:#8a7c9c;}
-  .step-legend{margin:-.6rem 0 1rem; font-size:.8rem; color:#6b6178;}
+  .step-legend{margin:-.3rem 0 .6rem; font-size:.8rem; color:#6b6178;}
   .step-between-line{margin:.15rem 0 0; font-size:.78rem; font-style:italic; color:#999;}
-  .step-figs{display:grid; grid-template-columns:auto auto 1fr; gap:.05rem .7rem; margin:.2rem 0 0; font-size:.78rem; line-height:1.35;}
+  .step-figs{display:grid; grid-template-columns:auto auto 1fr; gap:.05rem .7rem; margin:.15rem 0 0; font-size:.76rem; line-height:1.3;}
   .step-figs .n{color:#999; text-align:right; font-variant-numeric:tabular-nums;}
   .step-figs .p{color:#8a7c9c; white-space:nowrap;}
   .step-figs .f{color:#333;}
@@ -515,10 +549,9 @@ button.video-chip:hover{border-color:var(--line-strong);}
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    .step-sheet-title{page-break-before:always;}
-    .step-sheet-title:first-child{page-break-before:auto;}
-    .step-card{page-break-inside:avoid;}
-    .step-section-header{page-break-after:avoid;}
+    @page{size:A4; margin:0;} /* no browser header/footer: the pages carry their own (#2200) */
+    .step-page{break-after:page;}
+    .step-page:last-child{break-after:auto;}
   }
 
 
