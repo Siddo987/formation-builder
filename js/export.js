@@ -339,6 +339,7 @@
   var exportNotesToggle = document.getElementById('exportNotesToggle');
   var exportPathsOption = document.getElementById('exportPathsOption');
   var exportPathsToggle = document.getElementById('exportPathsToggle');
+  var exportBackOption = document.getElementById('exportBackOption');
   var exportPdfHint = document.getElementById('exportPdfHint');
   var exportQualityOption = document.getElementById('exportQualityOption');
   var exportQualitySelect = document.getElementById('exportQualitySelect');
@@ -435,12 +436,13 @@
     exportContextOption.hidden = !media || (exportFormat === 'video' && !who);
     exportGhostOption.hidden = exportFormat !== 'video';
     exportNotesOption.hidden = exportFormat !== 'pdf';
+    exportBackOption.hidden = exportFormat !== 'pdf';
     exportPathsOption.hidden = exportFormat !== 'pdf' && exportFormat !== 'video';
     exportQualityOption.hidden = exportFormat !== 'video';
     document.getElementById('exportLayoutOption').hidden = exportFormat !== 'video';
     syncVideoQualityLabels();
     exportRealtimeHint.hidden = fastVideoExportPossible();
-    exportOptionsSection.hidden = exportContextOption.hidden && exportGhostOption.hidden && exportNotesOption.hidden && exportPathsOption.hidden;
+    exportOptionsSection.hidden = exportContextOption.hidden && exportGhostOption.hidden && exportNotesOption.hidden && exportPathsOption.hidden && exportBackOption.hidden;
     exportPdfHint.hidden = exportFormat !== 'pdf';
     filenameExt.textContent = exportExt();
     if(!filenameEdited) filenameInput.value = exportDefaultName();
@@ -489,7 +491,7 @@
     if(exportFormat === 'video'){
       startVideoExport(base + videoExportExt(), sheets ? stepsFocusIds(sheets) : null, exportGhostToggle.checked, showContext, exportPathsToggle.checked);
     } else {
-      printStepsSheets(sheets || getAllStepsSheets(), base, showContext, exportNotesToggle.checked, exportPathsToggle.checked);
+      printStepsSheets(sheets || getAllStepsSheets(), base, showContext, exportNotesToggle.checked, exportPathsToggle.checked, document.getElementById('exportBackToggle').checked);
     }
   }
 

@@ -86,6 +86,12 @@
 
   /* ---------- PDF: a printable step sheet per dancer, one card per Bild --------- */
 
+  // Blick von hinten (#2198): the sketch turned by 180°, as seen from the back instead of the
+  // front — walls, dots and paths; the coordinates stay as the Achsen count them.
+  var stepFromBack = false;
+  function stepPctX(v){ var p = gridToPercentX(v); return stepFromBack ? 100 - p : p; }
+  function stepPctY(v){ var p = gridToPercentY(v); return stepFromBack ? 100 - p : p; }
+
   // betweenPositions: primary dancer's Zwischenpositionen for the move leaving this Bild (see
   // js/state.js's interpolateThroughBetweens), in order — drawn as small numbered gray dots, same
   // idea as the "heller Ring = graue Zusatzposition" convention the source choreography PDF this
@@ -104,11 +110,12 @@
     diagram.style.width = Math.round(136 * Math.min(1, ar) + 44) + 'px';
     diagram.style.height = Math.round(136 / Math.max(1, ar) + 44) + 'px';
     var labels = state.roomLabels || {};
+    var top = labels.top || 'WAND', left = labels.left || 'FENSTER', right = labels.right || 'SPIEGEL', bottom = labels.bottom || 'EINGANG';
     var walls = [
-      [labels.top || 'WAND', 'top'],
-      [labels.left || 'FENSTER', 'left'],
-      [labels.right || 'SPIEGEL', 'right'],
-      [labels.bottom || 'EINGANG', 'bottom']
+      [stepFromBack ? bottom : top, 'top'],
+      [stepFromBack ? right : left, 'left'],
+      [stepFromBack ? left : right, 'right'],
+      [stepFromBack ? top : bottom, 'bottom']
     ];
     walls.forEach(function(w){
       var el = document.createElement('span');
@@ -125,8 +132,8 @@
       if(!pos) return;
       var dot = document.createElement('span');
       dot.className = 'step-dot ' + cls;
-      dot.style.left = (at ? at.x : gridToPercentX(pos.x)) + '%';
-      dot.style.top = (at ? at.y : gridToPercentY(pos.y)) + '%';
+      dot.style.left = (at ? at.x : stepPctX(pos.x)) + '%';
+      dot.style.top = (at ? at.y : stepPctY(pos.y)) + '%';
       if(label !== undefined) dot.textContent = label;
       room.appendChild(dot);
     }
@@ -137,8 +144,8 @@
     var roleAt = null;
     if(primaryPos && rolePos){
       var MIN_SPLIT_GAP = 13; // % of the room — a little more than one lettered dot
-      var px = gridToPercentX(primaryPos.x), py = gridToPercentY(primaryPos.y);
-      var dx = gridToPercentX(rolePos.x) - px, dy = gridToPercentY(rolePos.y) - py;
+      var px = stepPctX(primaryPos.x), py = stepPctY(primaryPos.y);
+      var dx = stepPctX(rolePos.x) - px, dy = stepPctY(rolePos.y) - py;
       var dist = Math.sqrt(dx*dx + dy*dy);
       if(dist < MIN_SPLIT_GAP){
         if(dist < 0.01){ dx = 1; dy = 0; dist = 1; }
@@ -180,7 +187,7 @@
     var mv = stepPathCache[formationIdx] || (stepPathCache[formationIdx] = movePaths(formationIdx));
     return [primaryId, followKey(primaryId)].map(function(k, i){
       if(i && !mv.frames.some(function(w){ return w[k]; })) return null;
-      var pts = mv.frames.map(function(w){ var p = pathAt(w, k); return p ? gridToPercentX(p.x).toFixed(2) + ',' + gridToPercentY(p.y).toFixed(2) : null; }).filter(Boolean);
+      var pts = mv.frames.map(function(w){ var p = pathAt(w, k); return p ? stepPctX(p.x).toFixed(2) + ',' + stepPctY(p.y).toFixed(2) : null; }).filter(Boolean);
       return pts.length ? {points: pts.join(' '), follow: i === 1, end: pathAt(mv.frames[mv.frames.length - 1], k)} : null;
     }).filter(Boolean);
   }
@@ -340,14 +347,15 @@
     return sheets;
   }
 
-  function buildStepsPrintDocument(sheets, showContext, showNotes, showPaths){
+  function buildStepsPrintDocument(sheets, showContext, showNotes, showPaths, fromBack){
     stepsPrintArea.innerHTML = '';
+    stepFromBack = !!fromBack;
     stepPathCache = {};
     sheets.forEach(function(sheet, sheetIdx){
       var title = document.createElement('h2');
       title.className = 'step-sheet-title';
       title.textContent = (state.projectName || 'Aufstellung') + ' — ' + sheet.primary.name +
-        (sheet.secondary ? ' (Partner: ' + sheet.secondary.name + ')' : '');
+        (sheet.secondary ? ' (Partner: ' + sheet.secondary.name + ')' : '') + (stepFromBack ? ' · Blick von hinten' : '');
       stepsPrintArea.appendChild(title);
       if(sheet.split){
         var legend = document.createElement('p');
@@ -373,8 +381,8 @@
   // print() — modern Chrome's print dialog is asynchronous, print() returns immediately and the
   // preview renders afterward, so restoring on a fixed timer could win the race and hand the dialog
   // the old title back before it ever reads the new one), and opens the print dialog.
-  function printStepsSheets(sheets, title, showContext, showNotes, showPaths){
-    buildStepsPrintDocument(sheets, showContext, showNotes, showPaths);
+  function printStepsSheets(sheets, title, showContext, showNotes, showPaths, fromBack){
+    buildStepsPrintDocument(sheets, showContext, showNotes, showPaths, fromBack);
     var prevTitle = document.title;
     document.title = title;
     window.addEventListener('afterprint', function restoreTitle(){
