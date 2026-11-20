@@ -19,6 +19,42 @@
         "rule": "design-system-font",
         "value": "jetbrains mono",
         "createdAt": "2026-11-18T22:51:21.926Z"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-20T16:18:46.532Z",
+        "reason": "#logoPreview gets its src from JS and sits in a hidden wrapper until a logo exists"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-20T16:18:46.538Z",
+        "reason": "indeterminate progress bar shows real ongoing work; off under prefers-reduced-motion"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-20T16:18:55.074Z",
+        "reason": "DESIGN.md sanctions 11px labels (Label role) in the inspector and dialogs"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-20T16:18:55.080Z",
+        "reason": "side-tabs segmented track, between-edit-banner inset buttons, filename-field centred input: all keep >=8px around their text"
       }
     ]
   }
