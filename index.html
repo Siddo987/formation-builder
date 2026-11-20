@@ -267,6 +267,19 @@ try { var th = localStorage.getItem('aufstellung-theme'); if (th === 'light' || 
           <label class="insp-field"><span>B</span><input type="number" id="stageWidthInput" class="coord-input" min="4" max="40" step="0.5" inputmode="decimal" aria-label="Bühnenbreite in Metern"><span>m</span></label>
           <label class="insp-field"><span>T</span><input type="number" id="stageDepthInput" class="coord-input" min="4" max="40" step="0.5" inputmode="decimal" aria-label="Bühnentiefe in Metern"><span>m</span></label>
         </div>
+        <div class="insp-sub" title="Wie die Koordinaten zählen – am Raster, in den Feldern, in der Schritte-PDF, in der Tänzer-Ansicht und im Video. Der Nullpunkt ist immer die Mitte. Gilt für die ganze Choreo.">
+          <label class="insp-row"><span class="insp-label">Achsen</span>
+            <select id="coordModeSelect">
+              <option value="signed">eine Seite +, eine −</option>
+              <option value="abs">beide Seiten + (7 … 0 … 7)</option>
+            </select>
+          </label>
+          <div class="insp-row insp-coords" id="coordDirRow">
+            <label>X + <select id="coordXSelect" aria-label="X plus nach"><option value="1">rechts →</option><option value="-1">links ←</option></select></label>
+            <label>Y + <select id="coordYSelect" aria-label="Y plus nach"><option value="1">vorne ↓</option><option value="-1">hinten ↑</option></select></label>
+          </div>
+          <p class="hint">So einstellen, dass es für die Tänzer stimmt, wenn sie zum Trainer schauen – dann haben sie es auch auf ihren Handys richtig.</p>
+        </div>
         <label class="toggle-label" title="Die kleinen Pfeile an den Punkten, auf der Bühne und im Video. Gilt für die ganze Choreo – auf jedem Gerät, das sie öffnet, auch beim Teilen."><input type="checkbox" id="facingToggle" checked> Blickrichtungen anzeigen</label>
         <div class="insp-sub">
           <span class="insp-label">Hintergrund-Logo</span>

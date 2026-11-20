@@ -6,6 +6,7 @@
   function updateSettingsUI(){
     stageWidthInput.value = stageSize().w;
     stageDepthInput.value = stageSize().d;
+    updateCoordsUI();
     updateLogoSettingsUI();
     updateSongSettingsUI();
   }
@@ -237,6 +238,25 @@
   }
   stageWidthInput.addEventListener('change', applyStageSizeInputs);
   stageDepthInput.addEventListener('change', applyStageSizeInputs);
+
+  // Achsen (#2199): for the whole choreo, so every phone that opens it counts the same way.
+  var coordModeSelect = document.getElementById('coordModeSelect');
+  var coordXSelect = document.getElementById('coordXSelect');
+  var coordYSelect = document.getElementById('coordYSelect');
+  function updateCoordsUI(){
+    var c = coordAxes();
+    coordModeSelect.value = c.abs ? 'abs' : 'signed';
+    coordXSelect.value = c.x;
+    coordYSelect.value = c.y;
+    document.getElementById('coordDirRow').hidden = c.abs;
+  }
+  [coordModeSelect, coordXSelect, coordYSelect].forEach(function(sel){
+    sel.addEventListener('change', function(){
+      state.coords = sanitizeCoords({abs: coordModeSelect.value === 'abs', x: +coordXSelect.value, y: +coordYSelect.value});
+      saveState();
+      fullRerender();
+    });
+  });
 
   /* ---------- wiring ---------- */
 

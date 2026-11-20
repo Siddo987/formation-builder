@@ -1290,6 +1290,7 @@ function reconstructSharedState(payload){
       left: (payload.roomLabels && typeof payload.roomLabels.left === 'string') ? payload.roomLabels.left : 'FENSTER'
     },
     stage: sanitizeStage(payload.stage),
+    coords: sanitizeCoords(payload.coords),
     beats: mu.beats,
     music: mu.music,
     videoLayout: sanitizeVideoLayout(payload.videoLayout),

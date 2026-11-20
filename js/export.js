@@ -149,6 +149,7 @@
         left: (s.roomLabels && s.roomLabels.left) || ''
       },
       stage: sanitizeStage(s.stage),
+      coords: sanitizeCoords(s.coords),
       pairs: (s.pairs||[]).map(function(p){ return {id:p.id, memberIds:p.memberIds.slice(), name:p.name||'', collapsed:!!p.collapsed}; }),
       customFigures: (s.customFigures||[]).map(function(fig){ return {id:fig.id, name:fig.name, transform:fig.transform}; }),
       activeIndex: s.activeIndex,
@@ -272,6 +273,7 @@
         left: (header.roomLabels && typeof header.roomLabels.left === 'string') ? header.roomLabels.left : 'FENSTER'
       },
       stage: sanitizeStage(header.stage),
+      coords: sanitizeCoords(header.coords),
       beats: mu.beats,
       music: mu.music,
       pairs: pairs,
@@ -1061,13 +1063,13 @@
       for(v = Math.ceil(-stage.w / 2); v <= stage.w / 2; v++){
         if(v % step) continue;
         ctx.fillStyle = v === 0 ? 'rgba(255,255,255,.65)' : 'rgba(255,255,255,.38)';
-        ctx.fillText(String(v), gx(v), gy0 + sideH - fs * 0.4);
+        ctx.fillText(String(dispCoord(v, 'x')), gx(v), gy0 + sideH - fs * 0.4);
       }
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       for(v = Math.ceil(-stage.d / 2); v <= stage.d / 2; v++){
         if(v % step) continue;
         ctx.fillStyle = v === 0 ? 'rgba(255,255,255,.65)' : 'rgba(255,255,255,.38)';
-        ctx.fillText(String(v), gx0 + fs * 0.45, gy(v));
+        ctx.fillText(String(dispCoord(v, 'y')), gx0 + fs * 0.45, gy(v));
       }
       ctx.restore();
     }

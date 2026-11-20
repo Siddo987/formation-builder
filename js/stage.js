@@ -989,7 +989,7 @@
     var overlay = document.createElement('div');
     overlay.className = 'stage-grid';
     var s = stageSize(), step = Math.max(s.w, s.d) > 20 ? 2 : 1;
-    function lines(half, toPct, lineCls, labelCls, prop){
+    function lines(half, toPct, lineCls, labelCls, prop, axis){
       for(var v = Math.ceil(-half); v <= half; v++){
         var pct = toPct(v), isZero = v === 0;
         var line = document.createElement('div');
@@ -1000,12 +1000,12 @@
         var label = document.createElement('span');
         label.className = 'grid-label ' + labelCls + (isZero ? ' zero' : '');
         label.style[prop] = pct + '%';
-        label.textContent = String(v).replace('-', '−');
+        label.textContent = String(dispCoord(v, axis)).replace('-', '−'); // Achsen (#2199)
         overlay.appendChild(label);
       }
     }
-    lines(s.w / 2, gridToPercentX, 'vertical', 'x-label', 'left');
-    lines(s.d / 2, gridToPercentY, 'horizontal', 'y-label', 'top');
+    lines(s.w / 2, gridToPercentX, 'vertical', 'x-label', 'left', 'x');
+    lines(s.d / 2, gridToPercentY, 'horizontal', 'y-label', 'top', 'y');
     stageEl.appendChild(overlay);
   }
 
@@ -1848,8 +1848,8 @@
   function updateRosterCoords(dancerId, x, y, rot){
     var refs = rosterCoordInputs[dancerId];
     if(refs){
-      if(document.activeElement !== refs.x) refs.x.value = roundNum(x);
-      if(document.activeElement !== refs.y) refs.y.value = roundNum(y);
+      if(document.activeElement !== refs.x) showCoord(refs.x, x, 'x');
+      if(document.activeElement !== refs.y) showCoord(refs.y, y, 'y');
       if(refs.rot && document.activeElement !== refs.rot) refs.rot.value = roundNum(rot||0);
     }
     // A collapsed pair shows its midpoint instead of per-dancer rows — keep that live too (e.g.
@@ -1859,8 +1859,8 @@
       var midRefs = rosterPairMidpointInputs[pair.id];
       if(midRefs){
         var mid = pairMidpoint(pair);
-        if(document.activeElement !== midRefs.x) midRefs.x.value = roundNum(mid.x);
-        if(document.activeElement !== midRefs.y) midRefs.y.value = roundNum(mid.y);
+        if(document.activeElement !== midRefs.x) showCoord(midRefs.x, mid.x, 'x');
+        if(document.activeElement !== midRefs.y) showCoord(midRefs.y, mid.y, 'y');
       }
     }
   }

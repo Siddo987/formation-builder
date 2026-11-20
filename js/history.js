@@ -35,6 +35,7 @@
     m.set('meta/showAxes', s.showAxes !== false);
     m.set('meta/showFacing', s.showFacing !== false);
     m.set('meta/stage', sanitizeStage(s.stage));
+    m.set('meta/coords', sanitizeCoords(s.coords));
     var mu = sanitizeMusic(s); // a snapshot from before has bars instead: converted
     m.set('meta/beats', mu.beats);
     m.set('meta/music', mu.music);
@@ -188,6 +189,7 @@
       showFacing: get('meta/showFacing', true) !== false,
       roomLabels: rl,
       stage: sanitizeStage(get('meta/stage', null)),
+      coords: sanitizeCoords(get('meta/coords', null)),
       beats: sanitizeBeats(get('meta/beats', null)),
       music: sanitizeMusic({beats: get('meta/beats', null), music: get('meta/music', null)}).music, // a merge can pair 1s with other beats
       videoLayout: sanitizeVideoLayout(get('meta/videoLayout', null)),
@@ -276,6 +278,7 @@
     if(path === 'meta/music') return musicChangeLabel(before, after);
     if(path === 'meta/videoLayout') return after ? 'Video-Layout geändert' : 'Video-Layout auf Standard zurückgesetzt';
     if(path === 'meta/stage') return 'Bühnengröße: ' + (before ? before.w + ' × ' + before.d : '14 × 14') + ' m → ' + after.w + ' × ' + after.d + ' m';
+    if(path === 'meta/coords') return 'Achsen: ' + (after.abs ? 'beide Seiten +' : 'X + nach ' + (after.x < 0 ? 'links' : 'rechts') + ', Y + nach ' + (after.y < 0 ? 'hinten' : 'vorne'));
     if(parts[0] === 'room') return 'Bühnenrand ' + parts[1] + ': „' + (before || '') + '“ → „' + (after || '') + '“';
     if(path === 'order/dancers') return 'Tänzer-Reihenfolge geändert';
     if(path === 'order/formations') return 'Bild-Reihenfolge geändert';

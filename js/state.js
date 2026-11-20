@@ -26,6 +26,12 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
     function side(n){ return typeof n === 'number' && isFinite(n) ? Math.min(STAGE_MAX, Math.max(STAGE_MIN, Math.round(n * 2) / 2)) : STAGE_DEFAULT; }
     return {w: side(v && v.w), d: side(v && v.d)};
   }
+  // Achsen (#2199): the zero is always the middle; either one side counts + and the other −
+  // (x/y: 1 = + to the right / to the front, as stored) or both sides count + (abs, 7 … 0 … 7).
+  // Only what's shown and typed changes; positions are always stored signed.
+  function sanitizeCoords(v){
+    return {abs: !!(v && v.abs), x: v && v.x === -1 ? -1 : 1, y: v && v.y === -1 ? -1 : 1};
+  }
   // While a project is still being loaded (`state` not assigned yet) it's the default size.
   // Schläge im Lied (#2041, js/beats.js): every beat, sorted seconds, or null — as detected and then
   // corrected by hand. Belong to the song — a new or removed song clears them (js/main.js).
@@ -240,6 +246,18 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
   function gridToPercentY(v){ var d = stageSize().d, m = stageMargin(); return (v + d / 2 + m) / (d + 2 * m) * 100; }
   function percentToX(p){ var w = stageSize().w, m = stageMargin(); return p / 100 * (w + 2 * m) - w / 2 - m; }
   function percentToY(p){ var d = stageSize().d, m = stageMargin(); return p / 100 * (d + 2 * m) - d / 2 - m; }
+  function coordAxes(){ return (state && state.coords) || sanitizeCoords(null); }
+  function dispCoord(v, axis){ var c = coordAxes(); return c.abs ? Math.abs(v) : c[axis] * v; }
+  // A coordinate field shows the chosen Achsen. With both sides + it keeps the side it was last
+  // shown on, so typing 0,5 doesn't flip it over; a minus puts it on the other side.
+  function showCoord(input, v, axis){
+    input.value = roundNum(dispCoord(v, axis));
+    if(v) input.dataset.side = v < 0 ? -1 : 1;
+  }
+  function readCoord(input, axis){
+    var u = parseFloat(input.value) || 0, c = coordAxes();
+    return c.abs ? (+input.dataset.side || 1) * u : c[axis] * u;
+  }
   function roundNum(v){ return Math.round(v*10)/10; }
   // A plain {dancerId:{x,y}} copy of a pos map, detached from the source object — used to freeze a
   // Bild's own startPos (see addFormation/applyFigure) so later edits to the position it was
@@ -753,6 +771,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       showFacing: true,
       roomLabels: {top:'WAND', right:'SPIEGEL', bottom:'EINGANG', left:'FENSTER'},
       stage: sanitizeStage(null),
+      coords: sanitizeCoords(null),
       beats: null,
       music: null,
       pairs: [],
@@ -819,6 +838,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
       if(typeof parsed.projectName !== 'string' || !parsed.projectName.trim()) parsed.projectName = 'Meine Formation';
       if(!Array.isArray(parsed.axes)) parsed.axes = [];
       parsed.stage = sanitizeStage(parsed.stage);
+      parsed.coords = sanitizeCoords(parsed.coords);
       var mu = sanitizeMusic(parsed); // older saves have bars instead: converted
       parsed.beats = mu.beats;
       parsed.music = mu.music;
@@ -921,6 +941,7 @@ var PALETTE = ['#e0a336','#4fa3a0','#8d79d1','#d1637d','#5b93c4','#8fae4f','#c96
         showFacing: state.showFacing !== false,
         roomLabels: state.roomLabels,
         stage: state.stage,
+        coords: state.coords,
         beats: state.beats,
         music: state.music,
         videoLayout: state.videoLayout || null,

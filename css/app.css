@@ -575,6 +575,7 @@ body.hide-facing .dancer .rot-indicator{display:none;}
 .insp-actions{display:flex;flex-wrap:wrap;gap:6px;}
 .insp-sub{display:flex;flex-direction:column;gap:6px;padding-top:4px;}
 .insp-size{justify-content:flex-start;}
+.insp-coords label{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--ink-3);white-space:nowrap;}
 .insp-field{
   flex:1;display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;
   border:1px solid transparent;border-radius:var(--radius);background:var(--panel-2);

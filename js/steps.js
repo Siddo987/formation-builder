@@ -68,11 +68,12 @@
     return getAllStepsSheets().filter(function(sh){ return wanted[sh.primary.id]; });
   }
 
-  function fmtSigned(v){
-    var r = Math.round((v||0)*10)/10;
+  // A stored x or y as the chosen Achsen show it (#2199): with a sign, or none where both sides are +.
+  function fmtCoord(v, axis){
+    var r = Math.round(dispCoord(v||0, axis)*10)/10;
     if(Object.is(r, -0)) r = 0;
     var s = Math.abs(r).toFixed(1).replace('.', ',');
-    return (r < 0 ? '−' : '+') + s;
+    return (r < 0 ? '−' : coordAxes().abs ? '' : '+') + s;
   }
 
   /* ---------- video: reuses the existing video pipeline, filtered to just this sheet's dancer(s) --------- */
@@ -226,7 +227,7 @@
         tag.textContent = tagText;
         coords.appendChild(tag);
       }
-      coords.appendChild(document.createTextNode('X ' + fmtSigned(pos.x) + '   Y ' + fmtSigned(pos.y)));
+      coords.appendChild(document.createTextNode('X ' + fmtCoord(pos.x, 'x') + '   Y ' + fmtCoord(pos.y, 'y')));
       parent.appendChild(coords);
     }
     if(primaryPos && rolePos){
@@ -267,8 +268,8 @@
       if(!bp) return;
       var line = document.createElement('p');
       line.className = 'step-between-line';
-      line.textContent = 'grau ' + (fp ? 'L ' : '') + 'x ' + fmtSigned(bp.x) + ' y ' + fmtSigned(bp.y) +
-        (fp ? ' · F x ' + fmtSigned(fp.x) + ' y ' + fmtSigned(fp.y) : '') +
+      line.textContent = 'grau ' + (fp ? 'L ' : '') + 'x ' + fmtCoord(bp.x, 'x') + ' y ' + fmtCoord(bp.y, 'y') +
+        (fp ? ' · F x ' + fmtCoord(fp.x, 'x') + ' y ' + fmtCoord(fp.y, 'y') : '') +
         ' · ' + (b.name ? b.name : ('Zwischenposition ' + (i+1)));
       info.appendChild(line);
       if(showNotes) addNote(b.note);
@@ -298,7 +299,7 @@
     if(secondary && secondaryPos){
       var sec = document.createElement('p');
       sec.className = 'step-secondary';
-      sec.textContent = secondary.name + ': x ' + fmtSigned(secondaryPos.x) + ' y ' + fmtSigned(secondaryPos.y);
+      sec.textContent = secondary.name + ': x ' + fmtCoord(secondaryPos.x, 'x') + ' y ' + fmtCoord(secondaryPos.y, 'y');
       info.appendChild(sec);
     }
 

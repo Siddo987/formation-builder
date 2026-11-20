@@ -72,7 +72,7 @@
       line('dv-bar', t === null ? '' : barLineLabel(t) || formatTime(t));
       var pos = f.pos[me], follow = f.pos[followKey(me)];
       line('dv-pos', !pos ? 'nicht auf der Fläche'
-        : 'x ' + fmtSigned(pos.x) + ' m · y ' + fmtSigned(pos.y) + ' m' + (follow ? ' · Follow x ' + fmtSigned(follow.x) + ' y ' + fmtSigned(follow.y) : ''));
+        : 'x ' + fmtCoord(pos.x, 'x') + ' m · y ' + fmtCoord(pos.y, 'y') + ' m' + (follow ? ' · Follow x ' + fmtCoord(follow.x, 'x') + ' y ' + fmtCoord(follow.y, 'y') : ''));
       if(next){
         var ph = t !== null && tNext !== null ? barPhrasing(t, tNext) : null, figs = barPhrasingTable(ph, 'dv-figs'); // js/beats.js
         line('dv-move', '→ ' + next.name + (ph ? ' · ' + ph.head : ''));

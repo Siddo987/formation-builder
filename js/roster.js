@@ -169,12 +169,12 @@
     var xInput = document.createElement('input');
     xInput.type = 'number';
     xInput.className = 'coord-input';
-    xInput.min = -stageSize().w / 2; xInput.max = stageSize().w / 2; xInput.step = '0.5';
-    xInput.value = roundNum(mid.x);
+    xInput.min = coordMin(stageSize().w / 2); xInput.max = stageSize().w / 2; xInput.step = '0.5';
+    showCoord(xInput, mid.x, 'x');
     xInput.setAttribute('aria-label', 'X-Position des Mittelpunkts von ' + a.name + ' & ' + b.name);
     xInput.addEventListener('input', function(){
       var cur = pairMidpoint(pair);
-      setPairMidpoint(pair, parseFloat(xInput.value)||0, cur.y);
+      setPairMidpoint(pair, readCoord(xInput, 'x'), cur.y);
     });
 
     var yLabel = document.createElement('span');
@@ -183,12 +183,12 @@
     var yInput = document.createElement('input');
     yInput.type = 'number';
     yInput.className = 'coord-input';
-    yInput.min = -stageSize().d / 2; yInput.max = stageSize().d / 2; yInput.step = '0.5';
-    yInput.value = roundNum(mid.y);
+    yInput.min = coordMin(stageSize().d / 2); yInput.max = stageSize().d / 2; yInput.step = '0.5';
+    showCoord(yInput, mid.y, 'y');
     yInput.setAttribute('aria-label', 'Y-Position des Mittelpunkts von ' + a.name + ' & ' + b.name);
     yInput.addEventListener('input', function(){
       var cur = pairMidpoint(pair);
-      setPairMidpoint(pair, cur.x, parseFloat(yInput.value)||0);
+      setPairMidpoint(pair, cur.x, readCoord(yInput, 'y'));
     });
 
     row.appendChild(xLabel);
@@ -264,12 +264,12 @@
       var xInput = document.createElement('input');
       xInput.type = 'number';
       xInput.className = 'coord-input';
-      xInput.min = -stageSize().w / 2; xInput.max = stageSize().w / 2; xInput.step = '0.5';
-      xInput.value = roundNum(p.x);
+      xInput.min = coordMin(stageSize().w / 2); xInput.max = stageSize().w / 2; xInput.step = '0.5';
+      showCoord(xInput, p.x, 'x');
       xInput.setAttribute('aria-label', 'X-Position von ' + d.name);
       xInput.addEventListener('input', function(){
         var yy = (currentFormation().pos[d.id]||{y:0}).y;
-        setDancerPos(d.id, parseFloat(xInput.value)||0, yy, true);
+        setDancerPos(d.id, readCoord(xInput, 'x'), yy, true);
       });
 
       var yLabel = document.createElement('span');
@@ -278,12 +278,12 @@
       var yInput = document.createElement('input');
       yInput.type = 'number';
       yInput.className = 'coord-input';
-      yInput.min = -stageSize().d / 2; yInput.max = stageSize().d / 2; yInput.step = '0.5';
-      yInput.value = roundNum(p.y);
+      yInput.min = coordMin(stageSize().d / 2); yInput.max = stageSize().d / 2; yInput.step = '0.5';
+      showCoord(yInput, p.y, 'y');
       yInput.setAttribute('aria-label', 'Y-Position von ' + d.name);
       yInput.addEventListener('input', function(){
         var xx = (currentFormation().pos[d.id]||{x:0}).x;
-        setDancerPos(d.id, xx, parseFloat(yInput.value)||0, true);
+        setDancerPos(d.id, xx, readCoord(yInput, 'y'), true);
       });
 
       var rotLabel = document.createElement('span');
@@ -340,6 +340,9 @@
       return row;
   }
 
+  // Lower end of an X/Y field's spinner in the chosen Achsen (#2199): 0 where both sides count +.
+  function coordMin(half){ return coordAxes().abs ? 0 : -half; }
+
   // X/Y/° for the Follow half of a couple split in this Bild (pos key <id>~f).
   function buildFollowCoords(d, pos){
     var fk = followKey(d.id);
@@ -364,16 +367,18 @@
       i.setAttribute('aria-label', aria);
       return {l: l, i: i};
     }
-    var x = mk('X', p.x, -stageSize().w / 2, stageSize().w / 2, '0.5', 'X-Position Follow von ' + d.name);
-    var y = mk('Y', p.y, -stageSize().d / 2, stageSize().d / 2, '0.5', 'Y-Position Follow von ' + d.name);
+    var x = mk('X', p.x, coordMin(stageSize().w / 2), stageSize().w / 2, '0.5', 'X-Position Follow von ' + d.name);
+    var y = mk('Y', p.y, coordMin(stageSize().d / 2), stageSize().d / 2, '0.5', 'Y-Position Follow von ' + d.name);
+    showCoord(x.i, p.x, 'x');
+    showCoord(y.i, p.y, 'y');
     var r = mk('°', p.rot||0, 0, 359, '5', 'Drehung Follow von ' + d.name);
     x.i.addEventListener('input', function(){
       var cur = currentFormation().pos[fk]; if(!cur) return;
-      setDancerPos(fk, parseFloat(x.i.value)||0, cur.y, true); saveStateDebounced();
+      setDancerPos(fk, readCoord(x.i, 'x'), cur.y, true); saveStateDebounced();
     });
     y.i.addEventListener('input', function(){
       var cur = currentFormation().pos[fk]; if(!cur) return;
-      setDancerPos(fk, cur.x, parseFloat(y.i.value)||0, true); saveStateDebounced();
+      setDancerPos(fk, cur.x, readCoord(y.i, 'y'), true); saveStateDebounced();
     });
     r.i.addEventListener('input', function(){ setDancerRot(fk, parseFloat(r.i.value)||0); });
     [x.l, y.l, r.l, x.i, y.i, r.i].forEach(function(n){ coords.appendChild(n); });
