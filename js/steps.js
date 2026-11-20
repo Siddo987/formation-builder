@@ -86,8 +86,8 @@
 
   /* ---------- PDF: a printable step sheet per dancer, one card per Bild --------- */
 
-  // Blick von hinten (#2198): the sketch turned by 180°, as seen from the back instead of the
-  // front — walls, dots and paths; the coordinates stay as the Achsen count them.
+  // Blick von vorne (#2198): the sketch turned by 180°, as seen from the other side of the floor —
+  // walls, dots and paths; the coordinates stay as the Achsen count them.
   var stepFromBack = false;
   function stepPctX(v){ var p = gridToPercentX(v); return stepFromBack ? 100 - p : p; }
   function stepPctY(v){ var p = gridToPercentY(v); return stepFromBack ? 100 - p : p; }
@@ -355,7 +355,7 @@
       var title = document.createElement('h2');
       title.className = 'step-sheet-title';
       title.textContent = (state.projectName || 'Aufstellung') + ' — ' + sheet.primary.name +
-        (sheet.secondary ? ' (Partner: ' + sheet.secondary.name + ')' : '') + (stepFromBack ? ' · Blick von hinten' : '');
+        (sheet.secondary ? ' (Partner: ' + sheet.secondary.name + ')' : '');
       stepsPrintArea.appendChild(title);
       if(sheet.split){
         var legend = document.createElement('p');
