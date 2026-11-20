@@ -1798,7 +1798,7 @@
     updatePlayButton();
     applyTempo();
     projectNameInput.value = state.projectName || '';
-    document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
+    document.title = (state.projectName || 'Aufstellung') + ' — RWKREATOR';
     applySongSource();
     if(typeof applyFacingVisibility === 'function') applyFacingVisibility();
     updateSettingsUI(); // js/main.js

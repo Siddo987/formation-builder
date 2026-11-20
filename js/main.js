@@ -64,7 +64,7 @@
 
   projectNameInput.addEventListener('input', function(){
     state.projectName = projectNameInput.value;
-    document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
+    document.title = (state.projectName || 'Aufstellung') + ' — RWKREATOR';
     saveStateDebounced();
   });
   projectNameInput.addEventListener('blur', function(){
@@ -278,7 +278,7 @@
   updatePlaybarInfo();
   updatePlayButton();
   projectNameInput.value = state.projectName || '';
-  document.title = (state.projectName || 'Aufstellung') + ' — Aufstellung';
+  document.title = (state.projectName || 'Aufstellung') + ' — RWKREATOR';
   applySongSource();
 
   var openingShareLink = /[?&]share=/.test(location.search);

@@ -16,7 +16,7 @@ Several trainers editing together (edit link, Verlauf with branches) exists but 
 
 ## Product Purpose
 
-Aufstellung plans dance formation choreographies (ballroom Standard and Latin formation teams, e.g. RWK Kassel's StaFo-A and LaFo-B). It replaces Excel choreo sheets with drawn pictures: every Bild is a formation on the floor, playback animates the moves between them in sync with the song, and every dancer gets their own path, bar counts and step sheets. Success: a trainer turns a choreo idea into a playable, shareable plan without hunting for functions, and every dancer can see exactly where to be on which bar.
+RWKREATOR plans dance formation choreographies (ballroom Standard and Latin formation teams, e.g. RWK Kassel's StaFo-A and LaFo-B). It replaces Excel choreo sheets with drawn pictures: every Bild is a formation on the floor, playback animates the moves between them in sync with the song, and every dancer gets their own path, bar counts and step sheets. Success: a trainer turns a choreo idea into a playable, shareable plan without hunting for functions, and every dancer can see exactly where to be on which bar.
 
 ## Positioning
 
@@ -40,7 +40,7 @@ A formation planner that knows ballroom formation work: couples that split into 
 ## Brand Commitments
 
 - The user chose the category standard on purpose (2026-11-18): a familiar editor look, executed at Figma's craft level (picked from rendered variants of this app over Linear and Apple styles). Light first, dark mirrored.
-- Name „Aufstellung“, German UI.
+- Name „RWKREATOR“ (was „Aufstellung“ until 2026-11-20), German UI.
 
 ## Evidence on Hand
 
